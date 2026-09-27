@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="Catálogo de imóveis para locação">
+  <title>Catálogo de Imóveis</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
+</head>
+<body>
+<header class="site-header">
+  <a class="brand" href="index.html">
+    <span class="brand-mark">⌂</span>
+    <span id="brandName">Catálogo de Imóveis</span>
+  </a>
+  <nav class="top-nav">
+    <a href="#imoveis">Imóveis</a>
+    <a href="#contato">Contato</a>
+    <a class="admin-link" href="admin.html">Admin</a>
+  </nav>
+</header>
+
+<section class="hero">
+  <div class="hero-inner">
+    <p class="eyebrow">LOCAÇÃO DE IMÓVEIS</p>
+    <h1 id="heroTitle">Encontre seu próximo imóvel</h1>
+    <p id="heroSubtitle">Imóveis selecionados para locação</p>
+
+    <form id="filterForm" class="search-panel">
+      <label>
+        <span>Localização</span>
+        <input id="fLocation" type="search" placeholder="Bairro, cidade ou endereço">
+      </label>
+      <label>
+        <span>Tipo</span>
+        <select id="fType">
+          <option value="">Todos</option>
+          <option value="apartamento">Apartamento</option>
+          <option value="casa">Casa</option>
+          <option value="monoambiente">Monoambiente</option>
+          <option value="kitnet">Kitnet</option>
+          <option value="outro">Outro</option>
+        </select>
+      </label>
+      <label>
+        <span>Preço mín.</span>
+        <input id="fMin" inputmode="decimal" type="number" min="0" step="50" placeholder="0">
+      </label>
+      <label>
+        <span>Preço máx.</span>
+        <input id="fMax" inputmode="decimal" type="number" min="0" step="50" placeholder="Sem limite">
+      </label>
+      <label>
+        <span>Mobília</span>
+        <select id="fFurnished">
+          <option value="">Todos</option>
+          <option value="yes">Mobiliado</option>
+          <option value="no">Sem mobília</option>
+        </select>
+      </label>
+      <label>
+        <span>Quartos</span>
+        <select id="fBedrooms">
+          <option value="">Todos</option>
+          <option value="0">0</option>
+          <option value="1">1+</option>
+          <option value="2">2+</option>
+          <option value="3">3+</option>
+        </select>
+      </label>
+      <label>
+        <span>Status</span>
+        <select id="fStatus">
+          <option value="available">Disponíveis</option>
+          <option value="">Todos</option>
+          <option value="rented">Alugados</option>
+        </select>
+      </label>
+      <div class="search-actions">
+        <button class="btn primary" type="submit">Buscar imóveis</button>
+        <button id="clearFilters" class="btn ghost" type="button">Limpar</button>
+      </div>
+    </form>
+  </div>
+</section>
+
+<main id="imoveis" class="container section">
+  <div class="section-head">
+    <div>
+      <p class="eyebrow">CATÁLOGO</p>
+      <h2>Imóveis para locação</h2>
+      <p id="resultCount" class="muted">Carregando...</p>
+    </div>
+    <label class="sort-control">
+      Ordenar
+      <select id="sortBy">
+        <option value="recent">Mais recentes</option>
+        <option value="priceAsc">Menor preço</option>
+        <option value="priceDesc">Maior preço</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="propertyGrid" class="property-grid"></div>
+
+  <div id="emptyState" class="empty-state hidden">
+    <strong>Nenhum imóvel encontrado.</strong>
+    <span>Tente alterar os filtros.</span>
+  </div>
+</main>
+
+<section id="contato" class="contact-strip">
+  <div class="container">
+    <div>
+      <p class="eyebrow">ATENDIMENTO</p>
+      <h2>Encontrou um imóvel interessante?</h2>
+      <p>Abra os detalhes e fale diretamente pelo WhatsApp.</p>
+    </div>
+    <a id="generalWhatsapp" class="btn whatsapp disabled" href="#" target="_blank" rel="noopener">WhatsApp</a>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="container">
+    <span id="footerName">Catálogo de Imóveis</span>
+    <span>Imóveis para locação</span>
+  </div>
+</footer>
+
+<script type="module" src="js/catalogo.js"></script>
+</body>
+</html>
