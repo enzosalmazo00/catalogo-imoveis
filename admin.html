@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Painel administrativo</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
+</head>
+<body class="admin-body">
+<div id="loginView" class="auth-wrap">
+  <form id="loginForm" class="auth-card">
+    <div class="brand large">
+      <span class="brand-mark">⌂</span>
+      <span>Painel administrativo</span>
+    </div>
+    <p class="muted">Acesso exclusivo da administração.</p>
+
+    <label>
+      E-mail
+      <input id="loginEmail" type="email" required autocomplete="username">
+    </label>
+    <label>
+      Senha
+      <input id="loginPassword" type="password" required autocomplete="current-password">
+    </label>
+
+    <button class="btn primary full" type="submit">Entrar</button>
+    <p id="loginMessage" class="form-message"></p>
+    <a class="text-link" href="index.html">← Voltar ao catálogo</a>
+  </form>
+</div>
+
+<div id="adminView" class="admin-shell hidden">
+  <aside class="sidebar">
+    <a class="brand sidebar-brand" href="index.html">
+      <span class="brand-mark">⌂</span>
+      <span>Gestão de Imóveis</span>
+    </a>
+
+    <nav id="adminNav">
+      <button class="nav-btn active" data-tab="dashboard">Visão geral</button>
+      <button class="nav-btn" data-tab="properties">Imóveis</button>
+      <button class="nav-btn" data-tab="universities">Universidades</button>
+      <button class="nav-btn" data-tab="owners">Proprietários</button>
+      <button class="nav-btn" data-tab="tenants">Locatários</button>
+      <button class="nav-btn" data-tab="rentals">Locações</button>
+      <button class="nav-btn" data-tab="finance">Financeiro</button>
+      <button class="nav-btn" data-tab="settings">Configurações</button>
+    </nav>
+
+    <button id="logoutBtn" class="btn ghost full">Sair</button>
+  </aside>
+
+  <main class="admin-main">
+    <div class="admin-topbar">
+      <div>
+        <p class="eyebrow">ADMINISTRAÇÃO</p>
+        <h1 id="adminTitle">Visão geral</h1>
+      </div>
+      <a class="btn ghost" href="index.html" target="_blank">Ver catálogo</a>
+    </div>
+    <div id="adminContent"></div>
+  </main>
+</div>
+
+<div id="adminModal" class="modal-layer hidden"></div>
+
+<script type="module" src="js/admin.js"></script>
+</body>
+</html>
