@@ -357,3 +357,8 @@ button,input,select,textarea{font-size:16px}
   .brand-copy strong{font-size:12px;white-space:normal;line-height:1.12}
   .brand-copy small{font-size:9px}
 }
+
+.assessor-cta{position:relative;overflow:hidden}
+.assessor-cta:before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;background:rgba(199,169,107,.08);right:-70px;top:-110px}
+.assessor-cta .container{position:relative;z-index:1}
+.assessor-cta h2{max-width:760px}
