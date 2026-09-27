@@ -220,6 +220,14 @@ async function load() {
           </section>
         ` : ""}
 
+        <section class="detail-section">
+          <p class="eyebrow">CONDIÇÕES</p><h2>Condições do imóvel</h2>
+          <div class="feature-grid">
+            <div class="feature-item">✓ Fechamento: ${property.closing_mode === "direct_owner" ? "direto com o proprietário" : "via assessoria"}</div>
+            <div class="feature-item">✓ Caução: ${property.security_deposit_installment_allowed ? (property.security_deposit_max_installments ? `parcelável em até ${property.security_deposit_max_installments}x` : "parcelável") : "não parcelável"}</div>
+          </div>
+        </section>
+
         ${renderUniversities(property)}
         ${renderMap(property)}
       </div>
@@ -229,6 +237,8 @@ async function load() {
           <p class="eyebrow">VALORES</p>
           <div class="cost-row"><span>Aluguel</span><strong>${money(property.price, property.currency)}</strong></div>
           <div class="cost-row"><span>Caução</span><strong>${property.security_deposit != null ? money(property.security_deposit, property.currency) : "Sob consulta"}</strong></div>
+          <div class="cost-row"><span>Parcelamento da caução</span><strong>${property.security_deposit_installment_allowed ? (property.security_deposit_max_installments ? `Até ${property.security_deposit_max_installments}x` : "Parcelável") : "Não parcelável"}</strong></div>
+          <div class="cost-row"><span>Fechamento</span><strong>${property.closing_mode === "direct_owner" ? "Direto com o proprietário" : "Via assessoria"}</strong></div>
           <div class="cost-row"><span>Taxa de assessoria</span><strong>${property.has_advisory_fee ? (property.advisory_fee != null ? money(property.advisory_fee, property.currency) : "Sob consulta") : "Não possui"}</strong></div>
           ${property.status === "rented"
             ? '<div class="rented-notice">Este imóvel está alugado.</div>'
