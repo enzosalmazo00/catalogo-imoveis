@@ -349,3 +349,11 @@ button,input,select,textarea{font-size:16px}
   .facts-grid{grid-template-columns:1fr 1fr}
   .media-admin-grid{grid-template-columns:1fr}
 }
+
+.brand-copy{display:flex;flex-direction:column;line-height:1.12;min-width:0}
+.brand-copy strong{font-size:15px;color:var(--navy);white-space:nowrap}
+.brand-copy small{font-size:10px;color:var(--muted);font-weight:700;letter-spacing:.08em;text-transform:uppercase;margin-top:3px}
+@media(max-width:560px){
+  .brand-copy strong{font-size:12px;white-space:normal;line-height:1.12}
+  .brand-copy small{font-size:9px}
+}
