@@ -237,6 +237,24 @@ function propertyModal(property=null) {
         <input name="security_deposit" type="number" min="0" step="0.01" value="${property?.security_deposit ?? ""}">
       </label>
 
+      <label>Caução pode ser parcelada?
+        <select name="security_deposit_installment_allowed">
+          <option value="false" ${!property?.security_deposit_installment_allowed ? "selected" : ""}>Não</option>
+          <option value="true" ${property?.security_deposit_installment_allowed ? "selected" : ""}>Sim</option>
+        </select>
+      </label>
+
+      <label>Máximo de parcelas da caução
+        <input name="security_deposit_max_installments" type="number" min="2" max="24" step="1" value="${property?.security_deposit_max_installments ?? ""}" placeholder="Ex.: 3">
+      </label>
+
+      <label>Forma de fechamento
+        <select name="closing_mode">
+          <option value="advisor" ${(!property || property.closing_mode === "advisor") ? "selected" : ""}>Via assessoria</option>
+          <option value="direct_owner" ${property?.closing_mode === "direct_owner" ? "selected" : ""}>Direto com o proprietário</option>
+        </select>
+      </label>
+
       <label>Taxa de assessoria
         <select name="has_advisory_fee">
           <option value="false" ${!property?.has_advisory_fee ? "selected" : ""}>Não possui</option>
@@ -389,6 +407,9 @@ async function saveProperty(form) {
     description: String(fd.get("description") || "").trim() || null,
     price: n(fd.get("price")),
     security_deposit: n(fd.get("security_deposit")),
+    security_deposit_installment_allowed: fd.get("security_deposit_installment_allowed") === "true",
+    security_deposit_max_installments: fd.get("security_deposit_installment_allowed") === "true" ? n(fd.get("security_deposit_max_installments")) : null,
+    closing_mode: fd.get("closing_mode") || "advisor",
     has_advisory_fee: fd.get("has_advisory_fee") === "true",
     advisory_fee: fd.get("has_advisory_fee") === "true" ? n(fd.get("advisory_fee")) : null,
     address: String(fd.get("address") || "").trim() || null,
