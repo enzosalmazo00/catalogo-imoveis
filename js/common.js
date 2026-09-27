@@ -77,10 +77,9 @@ export async function getSettings() {
 }
 
 export function whatsappLink(settings, property) {
-  const number = String(settings?.whatsapp_number || "").replace(/\D/g, "");
+  const number = String(property?.contact_whatsapp || settings?.whatsapp_number || "").replace(/\D/g, "");
   if (!number) return "#";
-  const place = [property.neighborhood, property.city].filter(Boolean).join(" - ") || "localização do anúncio";
-  const msg = `Olá! Vi no site o imóvel "${property.title}" (${place}), anunciado por ${money(property.price, property.currency)}. Gostaria de mais informações.`;
+  const msg = `Olá! Vi através do Catálogo de Imóveis o anúncio "${property.title}" e tenho interesse em marcar uma visita.`;
   return `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
 }
 
