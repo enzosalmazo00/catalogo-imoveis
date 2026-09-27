@@ -111,7 +111,7 @@ async function load() {
   const number = String(settings.whatsapp_number || "").replace(/\D/g, "");
   const generalWhatsapp = $("#generalWhatsapp");
   if (number) {
-    generalWhatsapp.href = `https://wa.me/${number}?text=${encodeURIComponent("Olá! Gostaria de informações sobre os imóveis disponíveis.")}`;
+    generalWhatsapp.href = `https://wa.me/${number}?text=${encodeURIComponent("Olá! Sou assessor e gostaria de anunciar meus imóveis no Catálogo de Imóveis. Quero consultar os valores dos anúncios.")}`;
     generalWhatsapp.classList.remove("disabled");
   }
 
