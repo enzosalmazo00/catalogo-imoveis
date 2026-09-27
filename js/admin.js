@@ -255,6 +255,10 @@ function propertyModal(property=null) {
         </select>
       </label>
 
+      <label>WhatsApp para contato deste imóvel
+        <input name="contact_whatsapp" required inputmode="tel" value="${escapeHTML(property?.contact_whatsapp || "")}" placeholder="Ex.: 595981123456">
+      </label>
+
       <label>Taxa de assessoria
         <select name="has_advisory_fee">
           <option value="false" ${!property?.has_advisory_fee ? "selected" : ""}>Não possui</option>
@@ -410,6 +414,7 @@ async function saveProperty(form) {
     security_deposit_installment_allowed: fd.get("security_deposit_installment_allowed") === "true",
     security_deposit_max_installments: fd.get("security_deposit_installment_allowed") === "true" ? n(fd.get("security_deposit_max_installments")) : null,
     closing_mode: fd.get("closing_mode") || "advisor",
+    contact_whatsapp: String(fd.get("contact_whatsapp") || "").replace(/\D/g, "") || null,
     has_advisory_fee: fd.get("has_advisory_fee") === "true",
     advisory_fee: fd.get("has_advisory_fee") === "true" ? n(fd.get("advisory_fee")) : null,
     address: String(fd.get("address") || "").trim() || null,
