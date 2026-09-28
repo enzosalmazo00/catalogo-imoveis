@@ -8,8 +8,6 @@ let subscriptions=[];
 let creditBatches=[];
 let properties=[];
 let features=[];
-let renewalOffers={};
-let countdownTimer=null;
 let paymentWatcher=null;
 let pendingPropertyFiles=[];
 let pendingPropertyCoverExplicit=false;
@@ -202,30 +200,6 @@ async function loadData(){
   }
 
   return failures.length===0;
-}
-
-function remainingText(expiresAt){
-  const ms=new Date(expiresAt)-new Date();
-  if(ms<=0) return "00:00";
-  const total=Math.floor(ms/1000);
-  const min=String(Math.floor(total/60)).padStart(2,"0");
-  const sec=String(total%60).padStart(2,"0");
-  return `${min}:${sec}`;
-}
-
-function startOfferCountdown(){
-  if(countdownTimer) clearInterval(countdownTimer);
-  countdownTimer=setInterval(()=>{
-    document.querySelectorAll("[data-offer-expires]").forEach(el=>{
-      const expires=el.dataset.offerExpires;
-      const ms=new Date(expires)-new Date();
-      el.textContent=remainingText(expires);
-      if(ms<=0){
-        clearInterval(countdownTimer);
-        renderPlans();
-      }
-    });
-  },1000);
 }
 
 function renderPlans(){
