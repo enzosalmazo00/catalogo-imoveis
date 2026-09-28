@@ -948,24 +948,19 @@ function propertyModal(property=null){
 
       ${property?existingPropertyMediaHtml(property):""}
 
-      <div class="span-2 property-photo-slots-wrap">
+      <div class="span-2 property-photo-single-wrap">
         <strong>Adicionar fotos</strong>
-        <span class="property-options-help">Escolha uma foto por vez. A Foto 1 será a principal quando o imóvel ainda não tiver imagens.</span>
-        <div class="property-photo-slots">
-          ${Array.from({length:10},(_,index)=>{
-            const n=index+1;
-            return `
-              <div class="property-photo-slot upload-like-picker">
-                <input class="property-photo-slot-input" data-photo-slot="${n}" type="file" accept="image/jpeg,image/png,image/webp" ${n===1&&!property?"required":""}>
-                <div class="upload-like-copy">
-                  <strong>${n===1?"📷 Foto 1 • Principal":`🖼️ Foto ${n}`}</strong>
-                  <small data-photo-slot-name="${n}">Toque para escolher uma foto</small>
-                  <em>JPG, PNG ou WEBP</em>
-                </div>
-              </div>`;
-          }).join("")}
+        <span class="property-options-help">Adicione uma foto por vez. Cada nova foto entra automaticamente na sequência Foto 1, Foto 2, Foto 3...</span>
+
+        <div class="upload single-property-upload">
+          <input id="advisorSinglePhotoInput" type="file" accept="image/jpeg,image/png,image/webp">
+          <div class="single-property-upload-copy">
+            <strong>📷 Escolher foto da galeria</strong>
+            <small>JPG, PNG ou WEBP · uma foto por vez</small>
+          </div>
         </div>
-        <small>Depois de escolher as fotos, você pode reorganizar a sequência ou trocar qual será a capa.</small>
+
+        <small>A primeira foto será a principal. Depois você pode reorganizar, trocar a capa ou excluir.</small>
       </div>
 
       <div id="pendingPropertyPhotos" class="span-2 property-media-editor-grid"></div>
@@ -990,13 +985,28 @@ function propertyModal(property=null){
       <div id="advisorPropertyMessage" class="span-2 form-message"></div>
     </form>`);
 
-  const photoInputs=[...document.querySelectorAll("#advisorPropertyForm .property-photo-slot-input")];
-  const syncPendingPhotos=()=>{
-    pendingPropertyFiles=photoInputs
-      .map(input=>input.files?.[0]||null)
-      .filter(Boolean);
-    pendingPropertyCoverExplicit=false;
+  const imageInput=$("#advisorSinglePhotoInput");
+  imageInput?.addEventListener("change",()=>{
+    const file=imageInput.files?.[0]||null;
+    if(!file) return;
+
+    if(!["image/jpeg","image/png","image/webp"].includes(file.type)){
+      alert("Use uma imagem JPG, PNG ou WEBP.");
+      imageInput.value="";
+      return;
+    }
+
+    pendingPropertyFiles.push(file);
+    if(pendingPropertyFiles.length===1 && !(property?.property_media||[]).some(m=>m.media_type==="image")){
+      pendingPropertyCoverExplicit=true;
+    }
+
     renderPendingPropertyPhotos();
+
+    // Limpa o input para permitir escolher outra foto usando o mesmo botão.
+    imageInput.value="";
+  });
+  renderPendingPropertyPhotos();
   };
 
   photoInputs.forEach(input=>{
@@ -1020,6 +1030,13 @@ async function saveProperty(form){
   if(!existing && !active) return;
 
   const title=String(fd.get("title")||"").trim();
+
+  const existingImageCount=(existing?.property_media||[]).filter(m=>m.media_type==="image").length;
+  if(!existingImageCount && !pendingPropertyFiles.length){
+    const msg=$("#advisorPropertyMessage");
+    msg.textContent="Você precisa adicionar pelo menos uma foto do imóvel.";
+    return;
+  }
   const googleMapsUrl=String(fd.get("google_maps_url")||"").trim()||null;
 
   let latitude=existing?.latitude??null;
