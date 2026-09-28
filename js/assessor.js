@@ -203,8 +203,12 @@ function renderPlans(){
   const renewable=latestRenewable();
   $("#advisorPlans").innerHTML=plans.map(plan=>{
     const isActive=active?.plan_id===plan.id;
-    const canRenew=renewable?.plan_id===plan.id;
-    const offer=canRenew?renewalOffers[renewable.id]:null;
+    const mappedOffer=renewable?renewalOffers[renewable.id]:null;
+    const canRenew=!!renewable && (
+      renewable.plan_id===plan.id ||
+      mappedOffer?.plan_id===plan.id
+    );
+    const offer=canRenew?mappedOffer:null;
     const offerActive=!!offer && offer.is_active && new Date(offer.expires_at)>new Date();
     const promoPrice=offerActive?Number(offer.promotional_price):Number(plan.price);
     return `
@@ -212,6 +216,7 @@ function renderPlans(){
         <span class="advisor-plan-badge">${plan.ad_limit} anúncio${plan.ad_limit>1?"s":""}</span>
         <h3>${escapeHTML(plan.name)}</h3>
         <div class="advisor-plan-price">${money(plan.price,"BRL")}</div>
+        <div class="advisor-plan-unit">${money(Number(plan.price)/Number(plan.ad_limit),"BRL")} por anúncio</div>
         <p>Validade de ${plan.validity_days} dias.</p>
         ${isActive?`<div class="plan-active-note">Ativo até ${fmtDate(active.ends_at)} • ${adCountFor(active.id)}/${plan.ad_limit} usados</div>`:""}
         ${canRenew && offerActive?`
