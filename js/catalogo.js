@@ -20,6 +20,18 @@ function normalize(text="") {
     .trim();
 }
 
+function nearestUniversityBadgeText(property) {
+  const name=String(property?.nearest_university_name||"").trim();
+  const meters=Number(property?.nearest_university_distance_m);
+  if(!name || !Number.isFinite(meters) || meters<0) return "";
+
+  const distance=meters<1000
+    ? `${Math.max(10,Math.round(meters/10)*10)} m`
+    : `${(meters/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})} km`;
+
+  return `${distance} da ${name}`;
+}
+
 function renderCard(property) {
   const cover = coverUrl(property.property_media || []);
   const rented = property.status === "rented";
@@ -33,6 +45,7 @@ function renderCard(property) {
         }
         <div class="property-type-pill">${escapeHTML(propertyTypeLabel(property.property_type))}</div>
         ${property.city ? `<div class="property-city-pill">${escapeHTML(property.city)}</div>` : ""}
+        ${nearestUniversityBadgeText(property) ? `<div class="property-nearest-university-pill" title="${escapeHTML(nearestUniversityBadgeText(property))}">🎓 ${escapeHTML(nearestUniversityBadgeText(property))}</div>` : ""}
         ${property.featured ? '<div class="featured-pill">Destaque</div>' : ""}
         ${rented ? '<div class="rented-ribbon">ALUGADO</div>' : ""}
       </a>
