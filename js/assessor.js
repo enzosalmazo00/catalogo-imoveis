@@ -1195,9 +1195,10 @@ async function saveProperty(form){
     if(videoInsert.error){msg.textContent=videoInsert.error.message;return;}
   }
   await deletePropertyDraft(form,{silent:true});
-  closeAdvisorPropertyPage();
+  msg.textContent=existing?"Alterações salvas com sucesso.":"Imóvel publicado com sucesso.";
   await loadData();
   renderPanel();
+  closeAdvisorPropertyPage();
 }
 
 async function setAdvisorCover(mediaId,propertyId){
@@ -1620,8 +1621,36 @@ document.addEventListener("click",async e=>{
 
 $("#advisorModal").addEventListener("submit",async e=>{
   e.preventDefault();
-  if(e.target.id==="advisorPropertyForm") await saveProperty(e.target);
   if(e.target.id==="advisorProfileForm") await saveAdvisorProfile(e.target);
+});
+
+$("#advisorPropertyPage")?.addEventListener("submit",async e=>{
+  if(e.target.id!=="advisorPropertyForm") return;
+  e.preventDefault();
+
+  const form=e.target;
+  const submit=form.querySelector('button[type="submit"]');
+  const originalText=submit?.textContent||"";
+
+  if(submit){
+    submit.disabled=true;
+    submit.textContent=form.querySelector('input[name="id"]')?.value
+      ?"Salvando..."
+      :"Publicando...";
+  }
+
+  try{
+    await saveProperty(form);
+  }catch(err){
+    console.error("Falha inesperada ao publicar imóvel:",err);
+    const msg=form.querySelector("#advisorPropertyMessage");
+    if(msg) msg.textContent="Não foi possível concluir a publicação. Tente novamente.";
+  }finally{
+    if(document.body.contains(form) && submit){
+      submit.disabled=false;
+      submit.textContent=originalText;
+    }
+  }
 });
 
 $("#forgotPasswordBtn").addEventListener("click",async()=>{
