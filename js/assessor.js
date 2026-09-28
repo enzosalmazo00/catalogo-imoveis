@@ -431,6 +431,11 @@ function dateOnlyBR(v){
   return y&&m&&d?`${d}/${m}/${y}`:"—";
 }
 
+function paymentStatusText(paid,date){
+  if(!paid) return "Pendente";
+  return date ? `Pago em ${dateOnlyBR(date)}` : "Pago";
+}
+
 function renderRentalControl(){
   const root=$("#advisorRentalControlList");
   if(!root) return;
@@ -447,11 +452,24 @@ function renderRentalControl(){
       </td>
       <td><strong>${escapeHTML(r.owner_name||"—")}</strong><br><span class="muted">${escapeHTML(r.owner_phone||"")}</span></td>
       <td><strong>${escapeHTML(r.tenant_name||"—")}</strong><br><span class="muted">${escapeHTML(r.tenant_phone||"")}</span></td>
-      <td>${r.monthly_rent!=null?money(r.monthly_rent,r.currency):"—"}</td>
-      <td>${r.security_deposit!=null?money(r.security_deposit,r.currency):"—"}<br><small>${r.security_deposit_paid?"Pago":"Pendente"}</small></td>
-      <td>${r.had_advisory_fee && r.advisory_fee_amount!=null
-        ? `${money(r.advisory_fee_amount,r.currency)}<br><small>${r.advisory_fee_paid?"Paga":"Pendente"}</small>`
-        : '<span class="muted">Não aplicada</span>'}</td>
+      <td>
+        ${r.monthly_rent!=null?money(r.monthly_rent,r.currency):"—"}<br>
+        <small>${paymentStatusText(r.rent_paid,r.rent_payment_date)}</small>
+      </td>
+      <td>
+        ${r.security_deposit!=null?money(r.security_deposit,r.currency):"—"}<br>
+        <small>${paymentStatusText(r.security_deposit_paid,r.security_deposit_payment_date)}</small>
+      </td>
+      <td>
+        ${r.advisor_commission_charged && r.commission_amount!=null
+          ? `${money(r.commission_amount,r.currency)}<br><small>${paymentStatusText(r.commission_paid,r.advisor_commission_payment_date)}</small>`
+          : '<span class="muted">Não cobrada</span>'}
+      </td>
+      <td>
+        ${r.had_advisory_fee && r.advisory_fee_amount!=null
+          ? `${money(r.advisory_fee_amount,r.currency)}<br><small>${paymentStatusText(r.advisory_fee_paid,r.advisory_fee_payment_date)}</small>`
+          : '<span class="muted">Não aplicada</span>'}
+      </td>
       <td>${dateOnlyBR(r.start_date)}<br><small>Venc.: dia ${r.rent_due_day||"—"}</small></td>
       <td>
         <div class="table-actions">
@@ -469,16 +487,63 @@ function renderRentalControl(){
       <div><span>Locações ativas</span><strong>${active.length}</strong></div>
       <div><span>Com assessoria</span><strong>${withAdvisory}</strong></div>
     </div>
-    <p class="tiny-note">O PDF do cliente não exibe comissão do proprietário ou qualquer dado financeiro interno. É apenas um recibo de controle do assessor, sem caráter jurídico, e não substitui contrato de locação ou outro instrumento jurídico.</p>
+    <p class="tiny-note">O recibo mostra somente valores cobrados do cliente. Não exibe comissão recebida do proprietário. É apenas um recibo de controle do assessor, sem caráter jurídico, e não substitui contrato de locação ou outro instrumento jurídico.</p>
     ${rows?`
       <div class="admin-table-wrap advisor-rental-table-wrap">
         <table class="admin-table advisor-rental-table">
-          <thead><tr><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Caução</th><th>Assessoria</th><th>Início</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Caução</th><th>Comissão assessor</th><th>Assessoria</th><th>Data do aluguel</th><th>Ações</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
     `:'<div class="empty-state"><strong>Nenhum recibo registrado.</strong><span>Ao marcar um imóvel como alugado, o recibo obrigatório aparecerá aqui.</span></div>'}
   `;
+}
+
+function wireReceiptPaymentFields(form){
+  if(!form) return;
+
+  const linkPaidDate=(paidName,dateName)=>{
+    const paid=form.querySelector(`[name="${paidName}"]`);
+    const date=form.querySelector(`[name="${dateName}"]`);
+    const wrap=date?.closest(".receipt-payment-date");
+
+    const update=()=>{
+      const isPaid=paid?.value==="true";
+      wrap?.classList.toggle("hidden",!isPaid);
+      if(date){
+        date.required=!!isPaid;
+        if(!isPaid) date.value="";
+      }
+    };
+
+    paid?.addEventListener("change",update);
+    update();
+  };
+
+  linkPaidDate("rent_paid","rent_payment_date");
+  linkPaidDate("security_deposit_paid","security_deposit_payment_date");
+  linkPaidDate("commission_paid","advisor_commission_payment_date");
+  linkPaidDate("advisory_fee_paid","advisory_fee_payment_date");
+
+  const charged=form.querySelector('[name="advisor_commission_charged"]');
+  const commissionFields=form.querySelector("#advisorCommissionFields");
+  const commissionAmount=form.querySelector('[name="commission_amount"]');
+  const commissionPaid=form.querySelector('[name="commission_paid"]');
+
+  const updateCommission=()=>{
+    const isCharged=charged?.value==="true";
+    commissionFields?.classList.toggle("hidden",!isCharged);
+    if(commissionAmount) commissionAmount.required=!!isCharged;
+    if(!isCharged){
+      if(commissionAmount) commissionAmount.value="";
+      if(commissionPaid) commissionPaid.value="false";
+      const paymentDate=form.querySelector('[name="advisor_commission_payment_date"]');
+      if(paymentDate) paymentDate.value="";
+    }
+  };
+
+  charged?.addEventListener("change",updateCommission);
+  updateCommission();
 }
 
 function wireManualReceiptFields(form){
@@ -491,15 +556,18 @@ function wireManualReceiptFields(form){
     wrapper?.classList.toggle("hidden",direct);
     const fee=form.querySelector('[name="advisory_fee_amount"]');
     const paid=form.querySelector('[name="advisory_fee_paid"]');
+    const paymentDate=form.querySelector('[name="advisory_fee_payment_date"]');
     if(fee) fee.required=!direct;
     if(direct){
       if(fee) fee.value="";
       if(paid) paid.value="false";
+      if(paymentDate) paymentDate.value="";
     }
   };
 
   mode?.addEventListener("change",update);
   update();
+  wireReceiptPaymentFields(form);
 }
 
 function rentalControlModal(row=null){
@@ -514,12 +582,12 @@ function rentalControlModal(row=null){
       <div>
         <p class="eyebrow">RECIBO DE LOCAÇÃO</p>
         <h2>${row?"Editar":"Registrar"} recibo</h2>
-        <p class="muted">Este registro pode ser exportado em PDF para o cliente. Comissão e dados financeiros internos não fazem parte do recibo. O documento é apenas para controle do assessor, sem caráter jurídico, e não substitui contrato de locação ou outro instrumento jurídico.</p>
+        <p class="muted">O recibo mostra somente valores cobrados do cliente. A comissão abaixo é a comissão cobrada pelo assessor. Não contém comissão recebida do proprietário. O documento é apenas para controle do assessor, sem caráter jurídico.</p>
       </div>
       <button class="icon-btn" type="button" data-close>✕</button>
     </div>
 
-    <form id="advisorRentalControlForm" class="form-grid">
+    <form id="advisorRentalControlForm" class="form-grid rental-receipt-form">
       <input type="hidden" name="id" value="${row?.id||""}">
 
       <label class="span-2">Imóvel vinculado
@@ -543,7 +611,7 @@ function rentalControlModal(row=null){
       <label>Nome do inquilino<input name="tenant_name" required value="${escapeHTML(row?.tenant_name||"")}"></label>
       <label>Telefone do inquilino<input name="tenant_phone" inputmode="tel" value="${escapeHTML(row?.tenant_phone||"")}"></label>
 
-      <div class="form-section-title property-section-title">Valores do recibo</div>
+      <div class="form-section-title property-section-title">Aluguel e pagamentos</div>
       <label>Moeda
         <select name="currency">
           <option value="BRL" ${(row?.currency||"BRL")==="BRL"?"selected":""}>Real brasileiro (R$)</option>
@@ -551,17 +619,58 @@ function rentalControlModal(row=null){
         </select>
       </label>
       <label>Valor do aluguel<input name="monthly_rent" type="number" min="0" step="1" required value="${row?.monthly_rent??""}"></label>
+
+      <label>Aluguel pago?
+        <select name="rent_paid">
+          <option value="false" ${!row?.rent_paid?"selected":""}>Não</option>
+          <option value="true" ${row?.rent_paid?"selected":""}>Sim</option>
+        </select>
+      </label>
+      <label class="receipt-payment-date ${row?.rent_paid?"":"hidden"}">Data do pagamento do aluguel
+        <input name="rent_payment_date" type="date" value="${row?.rent_payment_date||""}">
+      </label>
+
       <label>Valor da caução<input name="security_deposit" type="number" min="0" step="1" required value="${row?.security_deposit??""}"></label>
       <label>Caução paga?
         <select name="security_deposit_paid"><option value="false" ${!row?.security_deposit_paid?"selected":""}>Não</option><option value="true" ${row?.security_deposit_paid?"selected":""}>Sim</option></select>
       </label>
+      <label class="receipt-payment-date ${row?.security_deposit_paid?"":"hidden"}">Data do pagamento da caução
+        <input name="security_deposit_payment_date" type="date" value="${row?.security_deposit_payment_date||""}">
+      </label>
+      <div></div>
 
+      <div class="form-section-title property-section-title">Comissão do assessor</div>
+      <label>Foi cobrada comissão pelo assessor?
+        <select name="advisor_commission_charged">
+          <option value="false" ${!row?.advisor_commission_charged?"selected":""}>Não</option>
+          <option value="true" ${row?.advisor_commission_charged?"selected":""}>Sim</option>
+        </select>
+      </label>
+      <div></div>
+
+      <div id="advisorCommissionFields" class="span-2 conditional-subgrid ${row?.advisor_commission_charged?"":"hidden"}">
+        <label>Valor da comissão do assessor
+          <input name="commission_amount" type="number" min="0" step="1" value="${row?.advisor_commission_charged?(row?.commission_amount??""):""}">
+        </label>
+        <label>Comissão paga?
+          <select name="commission_paid">
+            <option value="false" ${!row?.commission_paid?"selected":""}>Não</option>
+            <option value="true" ${row?.commission_paid?"selected":""}>Sim</option>
+          </select>
+        </label>
+        <label class="receipt-payment-date ${row?.commission_paid?"":"hidden"}">Data do pagamento da comissão
+          <input name="advisor_commission_payment_date" type="date" value="${row?.advisor_commission_payment_date||""}">
+        </label>
+      </div>
+
+      <div class="form-section-title property-section-title">Assessoria</div>
       <label>Forma de fechamento
         <select name="closing_mode">
           <option value="advisor" ${!direct?"selected":""}>Via assessoria</option>
           <option value="direct_owner" ${direct?"selected":""}>Direto com o proprietário</option>
         </select>
       </label>
+      <div></div>
 
       <div id="manualAdvisoryFields" class="span-2 conditional-subgrid ${direct?"hidden":""}">
         <label>Valor da assessoria
@@ -573,10 +682,13 @@ function rentalControlModal(row=null){
             <option value="true" ${row?.advisory_fee_paid?"selected":""}>Sim</option>
           </select>
         </label>
+        <label class="receipt-payment-date ${row?.advisory_fee_paid?"":"hidden"}">Data do pagamento da assessoria
+          <input name="advisory_fee_payment_date" type="date" value="${row?.advisory_fee_payment_date||""}">
+        </label>
       </div>
 
-      <div class="form-section-title property-section-title">Período</div>
-      <label>Início da locação<input name="start_date" type="date" required value="${row?.start_date||""}"></label>
+      <div class="form-section-title property-section-title">Datas</div>
+      <label>Data do aluguel<input name="start_date" type="date" required value="${row?.start_date||""}"></label>
       <label>Fim / término<input name="end_date" type="date" value="${row?.end_date||""}"></label>
       <label>Dia de vencimento do aluguel<input name="rent_due_day" type="number" min="1" max="31" value="${row?.rent_due_day??""}"></label>
       <label>Status
@@ -605,6 +717,11 @@ async function saveRentalControl(form){
   const n=v=>String(v??"").trim()===""?null:Number(v);
   const closingMode=String(fd.get("closing_mode")||"advisor");
   const hadAdvisory=closingMode!=="direct_owner" && n(fd.get("advisory_fee_amount"))!=null;
+  const commissionCharged=fd.get("advisor_commission_charged")==="true";
+  const rentPaid=fd.get("rent_paid")==="true";
+  const depositPaid=fd.get("security_deposit_paid")==="true";
+  const commissionPaid=commissionCharged && fd.get("commission_paid")==="true";
+  const advisoryPaid=hadAdvisory && fd.get("advisory_fee_paid")==="true";
 
   const row={
     advisor_id:currentUser.id,
@@ -622,12 +739,18 @@ async function saveRentalControl(form){
     tenant_phone:String(fd.get("tenant_phone")||"").trim()||null,
     currency:fd.get("currency")||"BRL",
     monthly_rent:n(fd.get("monthly_rent")),
+    rent_paid:rentPaid,
+    rent_payment_date:rentPaid?(fd.get("rent_payment_date")||null):null,
     security_deposit:n(fd.get("security_deposit")),
-    security_deposit_paid:fd.get("security_deposit_paid")==="true",
-    commission_amount:null,
-    commission_paid:false,
+    security_deposit_paid:depositPaid,
+    security_deposit_payment_date:depositPaid?(fd.get("security_deposit_payment_date")||null):null,
+    advisor_commission_charged:commissionCharged,
+    commission_amount:commissionCharged?n(fd.get("commission_amount")):null,
+    commission_paid:commissionPaid,
+    advisor_commission_payment_date:commissionPaid?(fd.get("advisor_commission_payment_date")||null):null,
     advisory_fee_amount:hadAdvisory?n(fd.get("advisory_fee_amount")):null,
-    advisory_fee_paid:hadAdvisory && fd.get("advisory_fee_paid")==="true",
+    advisory_fee_paid:advisoryPaid,
+    advisory_fee_payment_date:advisoryPaid?(fd.get("advisory_fee_payment_date")||null):null,
     start_date:fd.get("start_date")||null,
     end_date:fd.get("end_date")||null,
     rent_due_day:n(fd.get("rent_due_day")),
@@ -636,7 +759,11 @@ async function saveRentalControl(form){
   };
 
   if(!row.owner_name || !row.tenant_name || !row.start_date){
-    if(msg) msg.textContent="Informe proprietário, inquilino e data de início.";
+    if(msg) msg.textContent="Informe proprietário, inquilino e a data do aluguel.";
+    return;
+  }
+  if(commissionCharged && !(Number(row.commission_amount)>0)){
+    if(msg) msg.textContent="Informe o valor da comissão cobrada pelo assessor.";
     return;
   }
 
@@ -664,12 +791,12 @@ function rentalReceiptModal(property){
       <div>
         <p class="eyebrow">FINALIZAR LOCAÇÃO</p>
         <h2>Preencher recibo obrigatório</h2>
-        <p class="muted">Este recibo é voltado ao cliente. Não contém comissão do proprietário nem informações financeiras internas. É apenas um recibo de controle do assessor, sem caráter jurídico, e não substitui contrato de locação ou outro instrumento jurídico.</p>
+        <p class="muted">A comissão abaixo é somente a comissão cobrada pelo assessor do cliente. Não é comissão recebida do proprietário. Este documento é apenas para controle do assessor, sem caráter jurídico.</p>
       </div>
       <button class="icon-btn" type="button" data-close>✕</button>
     </div>
 
-    <form id="advisorRentalReceiptForm" class="form-grid">
+    <form id="advisorRentalReceiptForm" class="form-grid rental-receipt-form">
       <input type="hidden" name="property_id" value="${property.id}">
 
       <div class="span-2 published-property-lock-banner">
@@ -680,40 +807,74 @@ function rentalReceiptModal(property){
       <label>Nome do proprietário
         <input name="owner_name" required autocomplete="name">
       </label>
-
       <label>Telefone do proprietário
         <input name="owner_phone" inputmode="tel">
       </label>
-
       <label>Nome do inquilino
         <input name="tenant_name" required autocomplete="name">
       </label>
-
       <label>Telefone do inquilino
         <input name="tenant_phone" inputmode="tel">
       </label>
 
+      <div class="form-section-title property-section-title">Aluguel e pagamentos</div>
       <label>Moeda
         <select name="currency" required>
           <option value="BRL" ${property.currency!=="PYG"?"selected":""}>Real brasileiro (R$)</option>
           <option value="PYG" ${property.currency==="PYG"?"selected":""}>Guarani paraguaio (₲)</option>
         </select>
       </label>
-
       <label>Valor do aluguel
         <input name="monthly_rent" type="number" min="0" step="1" required value="${property.price??0}">
+      </label>
+
+      <label>Aluguel pago?
+        <select name="rent_paid">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+      <label class="receipt-payment-date hidden">Data do pagamento do aluguel
+        <input name="rent_payment_date" type="date">
       </label>
 
       <label>Valor da caução
         <input name="security_deposit" type="number" min="0" step="1" required value="${property.security_deposit??0}">
       </label>
-
       <label>Caução paga?
         <select name="security_deposit_paid">
           <option value="false">Não</option>
           <option value="true">Sim</option>
         </select>
       </label>
+      <label class="receipt-payment-date hidden">Data do pagamento da caução
+        <input name="security_deposit_payment_date" type="date">
+      </label>
+      <div></div>
+
+      <div class="form-section-title property-section-title">Comissão do assessor</div>
+      <label>Foi cobrada comissão pelo assessor?
+        <select name="advisor_commission_charged">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+      <div></div>
+
+      <div id="advisorCommissionFields" class="span-2 conditional-subgrid hidden">
+        <label>Valor da comissão do assessor
+          <input name="commission_amount" type="number" min="0" step="1">
+        </label>
+        <label>Comissão paga?
+          <select name="commission_paid">
+            <option value="false">Não</option>
+            <option value="true">Sim</option>
+          </select>
+        </label>
+        <label class="receipt-payment-date hidden">Data do pagamento da comissão
+          <input name="advisor_commission_payment_date" type="date">
+        </label>
+      </div>
 
       ${showAdvisory?`
         <div class="form-section-title property-section-title">Assessoria</div>
@@ -726,12 +887,16 @@ function rentalReceiptModal(property){
             <option value="true">Sim</option>
           </select>
         </label>
+        <label class="receipt-payment-date hidden">Data do pagamento da assessoria
+          <input name="advisory_fee_payment_date" type="date">
+        </label>
+        <div></div>
       `:""}
 
-      <label>Data de início da locação
+      <div class="form-section-title property-section-title">Datas</div>
+      <label>Data do aluguel
         <input name="start_date" type="date" required>
       </label>
-
       <label>Dia de vencimento do aluguel
         <input name="rent_due_day" type="number" min="1" max="31" step="1">
       </label>
@@ -748,6 +913,8 @@ function rentalReceiptModal(property){
       </div>
     </form>
   `);
+
+  wireReceiptPaymentFields($("#advisorRentalReceiptForm"));
 }
 
 async function markPropertyRented(form){
@@ -765,6 +932,12 @@ async function markPropertyRented(form){
   }
 
   const showAdvisory=property.closing_mode!=="direct_owner" && property.has_advisory_fee;
+  const commissionCharged=fd.get("advisor_commission_charged")==="true";
+  const rentPaid=fd.get("rent_paid")==="true";
+  const depositPaid=fd.get("security_deposit_paid")==="true";
+  const commissionPaid=commissionCharged && fd.get("commission_paid")==="true";
+  const advisoryPaid=showAdvisory && fd.get("advisory_fee_paid")==="true";
+
   const receipt={
     owner_name:String(fd.get("owner_name")||"").trim(),
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
@@ -772,14 +945,27 @@ async function markPropertyRented(form){
     tenant_phone:String(fd.get("tenant_phone")||"").trim()||null,
     currency:fd.get("currency")||property.currency||"BRL",
     monthly_rent:Number(fd.get("monthly_rent")||0),
+    rent_paid:rentPaid,
+    rent_payment_date:rentPaid?(fd.get("rent_payment_date")||null):null,
     security_deposit:Number(fd.get("security_deposit")||0),
-    security_deposit_paid:fd.get("security_deposit_paid")==="true",
+    security_deposit_paid:depositPaid,
+    security_deposit_payment_date:depositPaid?(fd.get("security_deposit_payment_date")||null):null,
+    advisor_commission_charged:commissionCharged,
+    commission_amount:commissionCharged?Number(fd.get("commission_amount")||0):null,
+    commission_paid:commissionPaid,
+    advisor_commission_payment_date:commissionPaid?(fd.get("advisor_commission_payment_date")||null):null,
     advisory_fee_amount:showAdvisory?Number(fd.get("advisory_fee_amount")||0):null,
-    advisory_fee_paid:showAdvisory && fd.get("advisory_fee_paid")==="true",
+    advisory_fee_paid:advisoryPaid,
+    advisory_fee_payment_date:advisoryPaid?(fd.get("advisory_fee_payment_date")||null):null,
     start_date:fd.get("start_date"),
     rent_due_day:fd.get("rent_due_day")?Number(fd.get("rent_due_day")):null,
     notes:String(fd.get("notes")||"").trim()||null
   };
+
+  if(commissionCharged && !(Number(receipt.commission_amount)>0)){
+    if(msg) msg.textContent="Informe o valor da comissão cobrada pelo assessor.";
+    return;
+  }
 
   if(submit){
     submit.disabled=true;
