@@ -5,6 +5,7 @@ let currentUser=null;
 let profile=null;
 let plans=[];
 let subscriptions=[];
+let creditBatches=[];
 let properties=[];
 let features=[];
 let renewalOffers={};
@@ -25,27 +26,24 @@ function fmtDate(v){
   if(!v) return "—";
   return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"}).format(new Date(v));
 }
-function activeSubscription(){
-  return subscriptions.find(s=>s.status==="active" && s.ends_at && new Date(s.ends_at)>new Date()) || null;
+function validCreditBatches(){
+  const now=Date.now();
+  return creditBatches
+    .filter(batch=>Number(batch.remaining_credits||0)>0 && new Date(batch.expires_at).getTime()>now)
+    .sort((a,b)=>new Date(a.expires_at)-new Date(b.expires_at));
 }
-function availableSubscription(){
-  return subscriptions.find(s=>{
-    if(s.status!=="active" || !s.ends_at || new Date(s.ends_at)<=new Date()) return false;
-    const limit=Number(s.advertising_plans?.ad_limit||0);
-    return limit>0 && adCountFor(s.id)<limit;
-  }) || null;
+function creditBalance(){
+  return validCreditBatches().reduce((sum,batch)=>sum+Number(batch.remaining_credits||0),0);
+}
+function nextCreditExpiry(){
+  return validCreditBatches()[0]?.expires_at || null;
 }
 function canCreateAdvisorProperty(){
-  return !!availableSubscription();
+  return creditBalance()>0;
 }
-function latestRenewable(){
-  return [...subscriptions]
-    .filter(s=>s.status==="expired" || (s.ends_at && new Date(s.ends_at)<=new Date()))
-    .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0] || null;
-}
-function adCountFor(subId){
-  const sub=subscriptions.find(s=>s.id===subId);
-  return Number(sub?.ads_used||0);
+function creditExpiryDate(v){
+  if(!v) return "—";
+  return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short"}).format(new Date(v));
 }
 function closeAdvisorModal(){
   if(paymentWatcher){
@@ -110,6 +108,25 @@ async function ensureProfile(user){
   }
 }
 
+async function reconcilePendingCreditPayments(){
+  const pending=subscriptions
+    .filter(s=>s.status==="pending" && s.mercado_pago_payment_id)
+    .slice(0,5);
+
+  if(!pending.length) return false;
+
+  let changed=false;
+  const checks=await Promise.allSettled(
+    pending.map(s=>db.functions.invoke("check-advisor-pix",{body:{subscription_id:s.id}}))
+  );
+
+  checks.forEach(result=>{
+    if(result.status==="fulfilled" && result.value?.data?.status==="active") changed=true;
+  });
+
+  return changed;
+}
+
 async function loadData(){
   const results=await Promise.allSettled([
     withTimeout(
@@ -123,7 +140,15 @@ async function loadData(){
         .eq("advisor_id",currentUser.id)
         .order("created_at",{ascending:false}),
       8000,
-      "Carregamento das assinaturas"
+      "Carregamento das compras"
+    ),
+    withTimeout(
+      db.from("advisor_credit_batches")
+        .select("*")
+        .eq("advisor_id",currentUser.id)
+        .order("expires_at",{ascending:true}),
+      8000,
+      "Carregamento dos créditos"
     ),
     withTimeout(
       db.from("properties")
@@ -144,31 +169,36 @@ async function loadData(){
     )
   ]);
 
-  const [plRes,subRes,adsRes,featuresRes]=results;
+  const [plRes,subRes,creditRes,adsRes,featuresRes]=results;
   plans=plRes.status==="fulfilled"?(plRes.value.data||[]):[];
   subscriptions=subRes.status==="fulfilled"?(subRes.value.data||[]):[];
+  creditBatches=creditRes.status==="fulfilled"?(creditRes.value.data||[]):[];
   properties=adsRes.status==="fulfilled"?(adsRes.value.data||[]):[];
   features=featuresRes.status==="fulfilled"?(featuresRes.value.data||[]):[];
+
+  try{
+    const changed=await reconcilePendingCreditPayments();
+    if(changed){
+      const [subReload,creditReload]=await Promise.all([
+        db.from("advisor_subscriptions")
+          .select("*, advertising_plans(*)")
+          .eq("advisor_id",currentUser.id)
+          .order("created_at",{ascending:false}),
+        db.from("advisor_credit_batches")
+          .select("*")
+          .eq("advisor_id",currentUser.id)
+          .order("expires_at",{ascending:true})
+      ]);
+      subscriptions=subReload.data||subscriptions;
+      creditBatches=creditReload.data||creditBatches;
+    }
+  }catch(err){
+    console.warn("Não foi possível reconciliar pagamentos pendentes:",err);
+  }
 
   const failures=results.filter(r=>r.status==="rejected");
   if(failures.length){
     console.warn("Alguns dados do painel demoraram para carregar:",failures);
-  }
-
-  renewalOffers={};
-  const renewable=latestRenewable();
-  if(renewable){
-    try{
-      const {data}=await withTimeout(
-        db.rpc("get_or_create_renewal_offer",{p_subscription_id:renewable.id}),
-        8000,
-        "Carregamento da renovação"
-      );
-      const offer=Array.isArray(data)?data[0]:data;
-      if(offer) renewalOffers[renewable.id]=offer;
-    }catch(err){
-      console.warn("Oferta de renovação não carregada:",err);
-    }
   }
 
   return failures.length===0;
@@ -199,73 +229,84 @@ function startOfferCountdown(){
 }
 
 function renderPlans(){
-  const active=activeSubscription();
-  const renewable=latestRenewable();
   $("#advisorPlans").innerHTML=plans.map(plan=>{
-    const isActive=active?.plan_id===plan.id;
-    const mappedOffer=renewable?renewalOffers[renewable.id]:null;
-    const canRenew=!!renewable && (
-      renewable.plan_id===plan.id ||
-      mappedOffer?.plan_id===plan.id
-    );
-    const offer=canRenew?mappedOffer:null;
-    const offerActive=!!offer && offer.is_active && new Date(offer.expires_at)>new Date();
-    const promoPrice=offerActive?Number(offer.promotional_price):Number(plan.price);
+    const unit=Number(plan.price)/Math.max(1,Number(plan.ad_limit||1));
     return `
-      <article class="advisor-plan-card ${isActive?"active":""}">
-        <span class="advisor-plan-badge">${plan.ad_limit} anúncio${plan.ad_limit>1?"s":""}</span>
+      <article class="advisor-plan-card">
+        <span class="advisor-plan-badge">${plan.ad_limit} crédito${plan.ad_limit>1?"s":""}</span>
         <h3>${escapeHTML(plan.name)}</h3>
         <div class="advisor-plan-price">${money(plan.price,"BRL")}</div>
-        <div class="advisor-plan-unit">${money(Number(plan.price)/Number(plan.ad_limit),"BRL")} por anúncio</div>
-        <p>Validade de ${plan.validity_days} dias.</p>
-        ${isActive?`<div class="plan-active-note">Ativo até ${fmtDate(active.ends_at)} • ${adCountFor(active.id)}/${plan.ad_limit} usados</div>`:""}
-        ${canRenew && offerActive?`
-          <div class="renew-price">
-            <span>Oferta de renovação por mais 30 dias</span>
-            <div><del>${money(offer.regular_price,"BRL")}</del><strong>${money(promoPrice,"BRL")}</strong></div>
-            <small>Oferta válida por <b class="offer-countdown" data-offer-expires="${offer.expires_at}">${remainingText(offer.expires_at)}</b></small>
-          </div>
-          <button class="btn whatsapp full" data-buy="${plan.id}" data-renew="${renewable.id}" data-offer="${offer.offer_id}">Renovar pelo valor promocional</button>
-        `:canRenew?`
-          <div class="renew-price expired-offer">
-            <span>Oferta promocional encerrada</span>
-            <div><strong>${money(plan.price,"BRL")}</strong></div>
-          </div>
-          <button class="btn primary full" data-buy="${plan.id}" data-renew="${renewable.id}">Renovar por ${money(plan.price,"BRL")}</button>
-        `:`
-          <button class="btn primary full" data-buy="${plan.id}">Comprar via PIX</button>
-        `}
+        <div class="advisor-plan-unit">${money(unit,"BRL")} por crédito</div>
+        <p>Créditos não usados válidos por <strong>90 dias</strong> após a compra.</p>
+        <small>Cada crédito publicado ativa 1 imóvel por 30 dias.</small>
+        <button class="btn primary full" data-buy="${plan.id}">Comprar créditos via PIX</button>
       </article>`;
   }).join("");
-  startOfferCountdown();
 }
+
+function renderCreditWallet(){
+  const balance=creditBalance();
+  const circles=Array.from({length:balance},(_,i)=>
+    `<span class="advisor-credit-coin" title="Crédito de anúncio disponível">${i+1}</span>`
+  ).join("");
+
+  const nextExpiry=nextCreditExpiry();
+  const activeListings=properties.filter(
+    p=>p.listing_expires_at && new Date(p.listing_expires_at)>new Date() && p.is_published
+  ).length;
+
+  $("#advisorCreditBalance").textContent=String(balance);
+  $("#advisorCreditLabel").textContent=balance===1?"crédito disponível":"créditos disponíveis";
+  $("#advisorCreditCoins").innerHTML=balance
+    ? circles
+    : '<span class="advisor-credit-zero">Saldo zerado</span>';
+  $("#advisorCreditMeta").textContent=nextExpiry
+    ? `Próximo vencimento de crédito não usado: ${creditExpiryDate(nextExpiry)} • ${activeListings} anúncio${activeListings===1?"":"s"} ativo${activeListings===1?"":"s"}`
+    : `Nenhum crédito disponível • ${activeListings} anúncio${activeListings===1?"":"s"} ativo${activeListings===1?"":"s"}`;
+}
+
 function renderExpiredNotice(){
   const expired=properties.filter(p=>p.listing_expires_at && new Date(p.listing_expires_at)<=new Date());
   const box=$("#advisorExpiredNotice");
   if(!expired.length){box.innerHTML="";return;}
-  box.innerHTML=`<div class="advisor-expired-alert"><strong>${expired.length} anúncio${expired.length>1?"s foram":" foi"} retirado${expired.length>1?"s":""} do ar.</strong><span>O período de 30 dias expirou. Renove o pacote abaixo para republicar seus anúncios.</span></div>`;
+
+  const balance=creditBalance();
+  box.innerHTML=`<div class="advisor-expired-alert">
+    <strong>${expired.length} anúncio${expired.length>1?"s expiraram":" expirou"}.</strong>
+    <span>${balance>0
+      ? "Use 1 crédito para reativar cada imóvel por mais 30 dias."
+      : "Eles estão fora do catálogo. Compre créditos para reativá-los."}</span>
+  </div>`;
 }
 
 function renderAds(){
   if(!properties.length){
-    $("#advisorAds").innerHTML='<div class="empty-state"><strong>Nenhum anúncio publicado ainda.</strong><span>Use uma vaga disponível do seu pacote para publicar seu primeiro imóvel.</span></div>';
+    $("#advisorAds").innerHTML='<div class="empty-state"><strong>Nenhum anúncio publicado ainda.</strong><span>Compre créditos e use 1 crédito para ativar seu primeiro imóvel por 30 dias.</span></div>';
     return;
   }
+
+  const balance=creditBalance();
+
   $("#advisorAds").innerHTML=`
     <div class="advisor-ad-list">
       ${properties.map(p=>{
-        const expired=p.listing_expires_at && new Date(p.listing_expires_at)<=new Date();
+        const expired=!p.listing_expires_at || new Date(p.listing_expires_at)<=new Date() || !p.is_published;
         return `
           <div class="advisor-ad-row">
             <div>
               <strong>${escapeHTML(p.title)}</strong>
               <span>${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</span>
-              <small>${expired?"Expirado":statusLabel(p.status)} • publicado em: ${fmtDate(p.listing_started_at||p.created_at)} • válido até: ${fmtDate(p.listing_expires_at)}</small>
+              <small>${expired?"Expirado":"Ativo"} • publicado em: ${fmtDate(p.listing_started_at||p.created_at)} • válido até: ${fmtDate(p.listing_expires_at)}</small>
               <small class="listing-code">Código do imóvel: ${escapeHTML(p.public_code||"—")}</small>
             </div>
             <div class="advisor-ad-actions">
-              <span class="pill ${expired?"pending":"paid"}">${expired?"FORA DO AR":"PUBLICADO"}</span>
-              <button class="btn ghost compact" data-edit-ad="${p.id}">Editar</button>
+              <span class="pill ${expired?"pending":"paid"}">${expired?"FORA DO AR":"ATIVO"}</span>
+              ${expired
+                ? (balance>0
+                    ? `<button class="btn primary compact" data-reactivate-ad="${p.id}">Reativar • 1 crédito</button>`
+                    : '<button class="btn ghost compact" type="button" disabled>Sem crédito para reativar</button>')
+                : `<button class="btn ghost compact" data-edit-ad="${p.id}">Editar</button>`
+              }
               <button class="btn danger compact" data-delete-ad="${p.id}">Excluir</button>
             </div>
           </div>`;
@@ -306,24 +347,22 @@ function renderAdvisorAvatar(){
 function renderPanel(){
   $("#advisorWelcome").textContent=profile?.company_name || profile?.full_name || "Meus anúncios";
   renderAdvisorAvatar();
+  renderCreditWallet();
   renderExpiredNotice();
   renderPlans();
   renderAds();
 
   const newBtn=$("#newAdvisorProperty");
   if(newBtn){
-    const available=availableSubscription();
-    if(available){
+    const balance=creditBalance();
+    if(balance>0){
       newBtn.disabled=false;
       newBtn.textContent="+ Novo anúncio";
-      newBtn.title="";
+      newBtn.title="A publicação consumirá 1 crédito.";
     }else{
-      const active=activeSubscription();
       newBtn.disabled=true;
-      newBtn.textContent=active?"Limite de anúncios utilizado":"Nenhum pacote ativo";
-      newBtn.title=active
-        ?"Seu pacote já está com todas as vagas de anúncio utilizadas."
-        :"Compre um pacote para publicar um imóvel.";
+      newBtn.textContent="Saldo de créditos zerado";
+      newBtn.title="Compre créditos para publicar um novo imóvel.";
     }
   }
 }
