@@ -551,6 +551,10 @@ function wireManualReceiptFields(form){
   if(!form) return;
   const mode=form.querySelector('[name="closing_mode"]');
   const wrapper=form.querySelector("#manualAdvisoryFields");
+  const guarantee=form.querySelector('[name="guarantee_type"]');
+  const depositWrapper=form.querySelector("#manualDepositFields");
+  const hasContract=form.querySelector('[name="has_contract"]');
+  const contractWrapper=form.querySelector("#manualContractFields");
 
   const update=()=>{
     const direct=mode?.value==="direct_owner";
@@ -564,9 +568,37 @@ function wireManualReceiptFields(form){
       if(paid) paid.value="false";
       if(paymentDate) paymentDate.value="";
     }
+
+    const usesDeposit=(guarantee?.value||"deposit")==="deposit";
+    depositWrapper?.classList.toggle("hidden",!usesDeposit);
+    const depositAmount=form.querySelector('[name="security_deposit"]');
+    const depositCount=form.querySelector('[name="security_deposit_count"]');
+    const depositPaid=form.querySelector('[name="security_deposit_paid"]');
+    const depositDate=form.querySelector('[name="security_deposit_payment_date"]');
+    if(depositAmount) depositAmount.required=usesDeposit;
+    if(depositCount) depositCount.required=usesDeposit;
+    if(!usesDeposit){
+      if(depositAmount) depositAmount.value="";
+      if(depositCount) depositCount.value="";
+      if(depositPaid) depositPaid.value="false";
+      if(depositDate) depositDate.value="";
+    }
+
+    const contractEnabled=hasContract?.value==="true";
+    contractWrapper?.classList.toggle("hidden",!contractEnabled);
+    const contractAmount=form.querySelector('[name="contract_amount"]');
+    const contractPayer=form.querySelector('[name="contract_payer"]');
+    if(contractAmount) contractAmount.required=contractEnabled;
+    if(contractPayer) contractPayer.required=contractEnabled;
+    if(!contractEnabled){
+      if(contractAmount) contractAmount.value="";
+      if(contractPayer) contractPayer.value="";
+    }
   };
 
   mode?.addEventListener("change",update);
+  guarantee?.addEventListener("change",update);
+  hasContract?.addEventListener("change",update);
   update();
   wireReceiptPaymentFields(form);
 }
@@ -631,14 +663,55 @@ function rentalControlModal(row=null){
         <input name="rent_payment_date" type="date" value="${row?.rent_payment_date||""}">
       </label>
 
-      <label>Valor da caução<input name="security_deposit" type="number" min="0" step="1" required value="${row?.security_deposit??""}"></label>
-      <label>Caução paga?
-        <select name="security_deposit_paid"><option value="false" ${!row?.security_deposit_paid?"selected":""}>Não</option><option value="true" ${row?.security_deposit_paid?"selected":""}>Sim</option></select>
+      <label>Garantia
+        <select name="guarantee_type">
+          <option value="deposit" ${(row?.guarantee_type||"deposit")==="deposit"?"selected":""}>Caução</option>
+          <option value="guarantor" ${row?.guarantee_type==="guarantor"?"selected":""}>Fiador</option>
+        </select>
       </label>
-      <label class="receipt-payment-date ${row?.security_deposit_paid?"":"hidden"}">Data do pagamento da caução
-        <input name="security_deposit_payment_date" type="date" value="${row?.security_deposit_payment_date||""}">
+      <label>Tempo mínimo
+        <select name="minimum_contract_term">
+          <option value="none" ${(row?.minimum_contract_term||"none")==="none"?"selected":""}>Sem tempo mínimo</option>
+          <option value="6_months" ${row?.minimum_contract_term==="6_months"?"selected":""}>6 meses</option>
+          <option value="12_months" ${row?.minimum_contract_term==="12_months"?"selected":""}>1 ano</option>
+        </select>
+      </label>
+
+      <div id="manualDepositFields" class="span-2 conditional-subgrid ${row?.guarantee_type==="guarantor"?"hidden":""}">
+        <label>Quantidade de cauções
+          <input name="security_deposit_count" type="number" min="1" max="24" step="1" value="${row?.security_deposit_count??(row?.security_deposit!=null?1:"")}">
+        </label>
+        <label>Valor de cada caução
+          <input name="security_deposit" type="number" min="0" step="1" value="${row?.security_deposit??""}">
+        </label>
+        <label>Caução paga?
+          <select name="security_deposit_paid"><option value="false" ${!row?.security_deposit_paid?"selected":""}>Não</option><option value="true" ${row?.security_deposit_paid?"selected":""}>Sim</option></select>
+        </label>
+        <label class="receipt-payment-date ${row?.security_deposit_paid?"":"hidden"}">Data do pagamento da caução
+          <input name="security_deposit_payment_date" type="date" value="${row?.security_deposit_payment_date||""}">
+        </label>
+      </div>
+
+      <label>Possui contrato?
+        <select name="has_contract">
+          <option value="false" ${!row?.has_contract?"selected":""}>Não</option>
+          <option value="true" ${row?.has_contract?"selected":""}>Sim</option>
+        </select>
       </label>
       <div></div>
+
+      <div id="manualContractFields" class="span-2 conditional-subgrid ${row?.has_contract?"":"hidden"}">
+        <label>Valor do contrato
+          <input name="contract_amount" type="number" min="0" step="1" value="${row?.contract_amount??""}">
+        </label>
+        <label>Quem paga o contrato?
+          <select name="contract_payer">
+            <option value="">Selecione</option>
+            <option value="owner" ${row?.contract_payer==="owner"?"selected":""}>Proprietário</option>
+            <option value="tenant" ${row?.contract_payer==="tenant"?"selected":""}>Inquilino</option>
+          </select>
+        </label>
+      </div>
 
       <div class="form-section-title property-section-title">Comissão do assessor</div>
       <label>Foi cobrada comissão pelo assessor?
@@ -718,9 +791,12 @@ async function saveRentalControl(form){
   const n=v=>String(v??"").trim()===""?null:Number(v);
   const closingMode=String(fd.get("closing_mode")||"advisor");
   const hadAdvisory=closingMode!=="direct_owner" && n(fd.get("advisory_fee_amount"))!=null;
+  const guaranteeType=fd.get("guarantee_type")||"deposit";
+  const usesDeposit=guaranteeType==="deposit";
+  const hasContract=fd.get("has_contract")==="true";
   const commissionCharged=fd.get("advisor_commission_charged")==="true";
   const rentPaid=fd.get("rent_paid")==="true";
-  const depositPaid=fd.get("security_deposit_paid")==="true";
+  const depositPaid=usesDeposit && fd.get("security_deposit_paid")==="true";
   const commissionPaid=commissionCharged && fd.get("commission_paid")==="true";
   const advisoryPaid=hadAdvisory && fd.get("advisory_fee_paid")==="true";
 
@@ -742,9 +818,15 @@ async function saveRentalControl(form){
     monthly_rent:n(fd.get("monthly_rent")),
     rent_paid:rentPaid,
     rent_payment_date:rentPaid?(fd.get("rent_payment_date")||null):null,
-    security_deposit:n(fd.get("security_deposit")),
+    guarantee_type:guaranteeType,
+    security_deposit_count:usesDeposit?n(fd.get("security_deposit_count")):null,
+    security_deposit:usesDeposit?n(fd.get("security_deposit")):null,
     security_deposit_paid:depositPaid,
     security_deposit_payment_date:depositPaid?(fd.get("security_deposit_payment_date")||null):null,
+    minimum_contract_term:fd.get("minimum_contract_term")||"none",
+    has_contract:hasContract,
+    contract_amount:hasContract?n(fd.get("contract_amount")):null,
+    contract_payer:hasContract?(fd.get("contract_payer")||null):null,
     advisor_commission_charged:commissionCharged,
     commission_amount:commissionCharged?n(fd.get("commission_amount")):null,
     commission_paid:commissionPaid,
