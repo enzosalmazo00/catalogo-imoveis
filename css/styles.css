@@ -516,3 +516,57 @@ button,input,select,textarea{font-size:16px}
 .pix-payment-status strong{color:var(--navy)}
 .pix-payment-status.pix-approved{background:#e8f5ef;color:#176548}
 .pix-payment-status.pix-approved strong{color:#176548}
+
+/* Cadastro de imóvel do assessor */
+.advisor-property-form .property-section-title{
+  margin-top:18px;
+  padding:14px 0 4px;
+  border-top:1px solid #e5eaee;
+  font-size:16px;
+  font-weight:900;
+  color:var(--navy);
+}
+.property-form-lead{margin:6px 0 0;max-width:650px;line-height:1.5}
+.property-options-help{font-size:12px;color:var(--muted);margin-top:-4px}
+.property-option-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px}
+.property-option-chip{
+  width:100%;
+  border-radius:12px;
+  justify-content:flex-start;
+  background:#fff;
+  min-height:46px;
+  padding:10px 12px!important;
+}
+.property-option-chip:has(input:checked){
+  border-color:#61a88e;
+  background:#eef8f3;
+  color:#176548;
+}
+.maps-link-field{
+  background:#f5f8fb;
+  border:1px solid #dce6ef;
+  border-radius:14px;
+  padding:14px;
+}
+.maps-link-field small,.advisor-property-form label>small{
+  font-weight:500;
+  color:var(--muted);
+  line-height:1.4;
+}
+@media(max-width:820px){
+  .property-option-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:560px){
+  .advisor-property-form{gap:12px}
+  .advisor-property-form .property-section-title{
+    margin-top:12px;
+    padding-top:16px;
+    font-size:16px;
+  }
+  .property-option-grid{grid-template-columns:1fr 1fr;gap:8px}
+  .property-option-chip{min-height:48px;padding:10px!important}
+  .maps-link-field{padding:12px}
+}
+@media(max-width:390px){
+  .property-option-grid{grid-template-columns:1fr}
+}
