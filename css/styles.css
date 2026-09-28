@@ -793,3 +793,9 @@ button,input,select,textarea{font-size:16px}
   .advisor-panel-tab{flex:1}
   .advisor-how-grid{grid-template-columns:1fr}
 }
+
+.property-location-privacy{display:flex;flex-direction:column;gap:5px;padding:14px 16px;border:1px solid #b9ddd4;border-radius:14px;background:#effaf7;color:#173d35}
+.property-location-privacy strong{font-size:14px}
+.property-location-privacy span{font-size:12px;line-height:1.5}
+.protected-location-public{border-left:4px solid #17395c}
+.protected-location-public p:last-child{color:var(--muted);line-height:1.6}
