@@ -1086,18 +1086,23 @@ function propertyModal(property=null){
         ${includedChips || '<span class="muted">Nenhuma opção cadastrada.</span>'}
       </div>
 
-      <div class="form-section-title property-section-title">8. Localização</div>
+      <div class="form-section-title property-section-title">8. Localização privada</div>
 
-      <label class="span-2 maps-link-field">Link do imóvel no Google Maps
-        <input name="google_maps_url" type="url" value="${escapeHTML(property?.google_maps_url||"")}" placeholder="Cole aqui o link compartilhado do Google Maps">
-        <small>Abra o local no Google Maps → Compartilhar → Copiar link. Você não precisa informar latitude nem longitude.</small>
+      <div class="span-2 property-location-privacy">
+        <strong>🔒 A localização exata não será exibida ao público.</strong>
+        <span>Ela é usada internamente para calcular a distância até as faculdades e auxiliar você na organização da visita. O cliente verá apenas bairro/cidade e as distâncias calculadas.</span>
+      </div>
+
+      <label class="span-2 maps-link-field">Link exato do imóvel no Google Maps
+        <input name="google_maps_url" type="url" required value="${escapeHTML(property?.google_maps_url||"")}" placeholder="Google Maps → local exato → Compartilhar → Copiar link">
+        <small>Obrigatório. Selecione o ponto exato do imóvel. Esse link fica privado e não é enviado ao visitante.</small>
       </label>
 
-      <label>Bairro
+      <label>Bairro exibido no catálogo
         <input name="neighborhood" value="${escapeHTML(property?.neighborhood||"")}" placeholder="Ex.: Centro">
       </label>
 
-      <label>Cidade do imóvel
+      <label>Cidade exibida no catálogo
         <select name="city" required>
           <option value="">Selecione a cidade</option>
           <option value="Pedro Juan Caballero" ${(property?.city||profile?.city)==="Pedro Juan Caballero"?"selected":""}>Pedro Juan Caballero</option>
@@ -1105,18 +1110,10 @@ function propertyModal(property=null){
         </select>
       </label>
 
-      <label class="span-2">Endereço escrito (opcional)
-        <input name="address" value="${escapeHTML(property?.address||"")}" placeholder="Rua, número, bairro">
+      <label class="span-2">Endereço exato escrito (privado e opcional)
+        <input name="address" value="${escapeHTML(property?.address||"")}" placeholder="Rua, número, referência interna">
+        <small>Este endereço também fica restrito ao assessor/administrador.</small>
       </label>
-
-      <label>Exibir localização
-        <select name="show_exact_location">
-          <option value="false" ${!property?.show_exact_location?"selected":""}>Apenas região aproximada</option>
-          <option value="true" ${property?.show_exact_location?"selected":""}>Localização exata</option>
-        </select>
-      </label>
-
-      <div></div>
 
       <div class="form-section-title property-section-title">9. Fotos, vídeo e descrição</div>
 
@@ -1271,7 +1268,7 @@ async function saveProperty(form){
     google_maps_url:googleMapsUrl,
     latitude,
     longitude,
-    show_exact_location:fd.get("show_exact_location")==="true",
+    show_exact_location:false,
     status:fd.get("status")
   };
 
