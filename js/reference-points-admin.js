@@ -1,6 +1,64 @@
 import { adminDb as db } from "./config.js?v=202609282145";
 
 const $ = selector => document.querySelector(selector);
+let autoAuditStarted=false;
+let autoAuditRunning=false;
+
+function sameCoord(a,b){
+  const x=Number(a), y=Number(b);
+  return Number.isFinite(x) && Number.isFinite(y) && Math.abs(x-y)<0.000001;
+}
+
+async function autoRevalidateReferencePoints(rows){
+  if(autoAuditStarted || autoAuditRunning || !Array.isArray(rows) || !rows.length) return;
+  autoAuditStarted=true;
+  autoAuditRunning=true;
+  let changed=false;
+
+  try{
+    for(const row of rows){
+      const mapsUrl=String(row.google_maps_url||"").trim();
+      if(!mapsUrl) continue;
+
+      try{
+        const fallbackQuery=[String(row.name||"").trim(),String(row.address||"").trim()]
+          .filter(Boolean)
+          .join(", ");
+
+        const resolved=await withTimeout(
+          db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl,fallback_query:fallbackQuery}}),
+          15000,
+          "Validação automática de "+(row.name||"ponto")
+        );
+
+        if(resolved.error || resolved.data?.error) continue;
+        if(resolved.data?.precision!=="exact") continue;
+        if(resolved.data?.latitude==null || resolved.data?.longitude==null) continue;
+
+        const latitude=Number(resolved.data.latitude);
+        const longitude=Number(resolved.data.longitude);
+        if(!Number.isFinite(latitude)||!Number.isFinite(longitude)) continue;
+
+        if(!sameCoord(row.latitude,latitude) || !sameCoord(row.longitude,longitude)){
+          const {error}=await db.from("reference_points")
+            .update({latitude,longitude,updated_at:new Date().toISOString()})
+            .eq("id",row.id);
+          if(!error) changed=true;
+        }
+      }catch(err){
+        console.warn("Validação automática indisponível para",row.name,err);
+      }
+    }
+  }finally{
+    autoAuditRunning=false;
+  }
+
+  if(changed){
+    try{ await renderReferencePoints(); }
+    catch(err){ console.warn("Não foi possível atualizar a lista após a validação automática:",err); }
+  }
+}
+
 
 function esc(value=""){
   return String(value).replace(/[&<>"']/g,ch=>({
@@ -41,6 +99,7 @@ async function renderReferencePoints(){
 
   try{
     const rows=await loadPoints();
+    queueMicrotask(()=>autoRevalidateReferencePoints(rows));
     content.innerHTML=`
       <section class="admin-panel">
         <div class="admin-panel-head">
@@ -164,8 +223,7 @@ async function savePoint(form){
   if(msg) msg.textContent="Obtendo a localização exata pelo Google Maps...";
 
   try{
-    // MESMO FLUXO DAS FACULDADES:
-    // envia somente o link; nunca tenta adivinhar coordenadas por nome/endereço.
+    // Mesmo princípio das faculdades: valida o link e exige coordenada exata antes de salvar.
     const resolved=await withTimeout(
       db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl, fallback_query:[String(fd.get("name")||"").trim(), String(fd.get("address")||"").trim()].filter(Boolean).join(", ")}}),
       12000,
