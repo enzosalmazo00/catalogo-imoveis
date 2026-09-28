@@ -671,3 +671,15 @@ button,input,select,textarea{font-size:16px}
   .safari-media-picker{padding:12px}
   .safari-native-file{min-height:54px;font-size:16px}
 }
+
+.property-photo-slots-wrap{display:flex;flex-direction:column;gap:10px;padding:14px;border:1px solid var(--border);border-radius:14px;background:#fff}
+.property-photo-slots{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.property-photo-slot{display:flex;flex-direction:column;gap:7px;padding:10px;border:1px solid var(--border);border-radius:12px;background:#fafcfc}
+.property-photo-slot>span{font-size:13px;font-weight:800}
+.property-photo-slot input[type="file"]{display:block;width:100%;min-height:46px;padding:6px;border:1px solid var(--border);border-radius:9px;background:#fff;font:inherit}
+.property-photo-slot input[type="file"]::file-selector-button{min-height:36px;margin-right:8px;padding:7px 10px;border:0;border-radius:8px;font-weight:800}
+.property-photo-slot small{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:620px){
+  .property-photo-slots{grid-template-columns:1fr}
+  .property-photo-slot input[type="file"]{font-size:16px}
+}
