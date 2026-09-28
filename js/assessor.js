@@ -1069,13 +1069,22 @@ function generateRentalReceiptPdf(row){
   doc.text("Valores e período",left,y);
   y+=7;
   addLine("Aluguel:",row.monthly_rent!=null?money(row.monthly_rent,row.currency):"—");
-  addLine("Caução:",row.security_deposit!=null?`${money(row.security_deposit,row.currency)} — ${row.security_deposit_paid?"paga":"pendente"}`:"—");
+  addLine("Pagamento aluguel:",paymentStatusText(row.rent_paid,row.rent_payment_date));
 
-  if(row.had_advisory_fee && row.advisory_fee_amount!=null){
-    addLine("Assessoria:",`${money(row.advisory_fee_amount,row.currency)} — ${row.advisory_fee_paid?"paga":"pendente"}`);
+  addLine("Caução:",row.security_deposit!=null?money(row.security_deposit,row.currency):"—");
+  addLine("Pagamento caução:",paymentStatusText(row.security_deposit_paid,row.security_deposit_payment_date));
+
+  if(row.advisor_commission_charged && row.commission_amount!=null){
+    addLine("Comissão assessor:",money(row.commission_amount,row.currency));
+    addLine("Pagamento comissão:",paymentStatusText(row.commission_paid,row.advisor_commission_payment_date));
   }
 
-  addLine("Início:",dateOnlyBR(row.start_date));
+  if(row.had_advisory_fee && row.advisory_fee_amount!=null){
+    addLine("Assessoria:",money(row.advisory_fee_amount,row.currency));
+    addLine("Pagamento assessoria:",paymentStatusText(row.advisory_fee_paid,row.advisory_fee_payment_date));
+  }
+
+  addLine("Data do aluguel:",dateOnlyBR(row.start_date));
   if(row.rent_due_day) addLine("Vencimento:",`Dia ${row.rent_due_day} de cada mês`);
 
   if(row.notes){
