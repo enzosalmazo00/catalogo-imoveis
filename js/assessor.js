@@ -1591,7 +1591,7 @@ async function watchPaymentStatus(subscriptionId){
         }
 
         if(statusEl){
-          statusEl.innerHTML='<strong>Pagamento aprovado ✓</strong><span>Seu pacote foi liberado. Abrindo sua Área do Assessor...</span>';
+          statusEl.innerHTML='<strong>Pagamento aprovado ✓</strong><span>Seus créditos foram adicionados ao saldo. Atualizando sua carteira...</span>';
           statusEl.classList.add("pix-approved");
         }
 
