@@ -15,10 +15,12 @@ export function escapeHTML(value = "") {
 
 export function money(value, currency = "BRL") {
   const number = Number(value || 0);
-  return new Intl.NumberFormat("pt-BR", {
+  const code = currency || "BRL";
+  const locale = code === "PYG" ? "es-PY" : "pt-BR";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
-    currency: currency || "BRL",
-    maximumFractionDigits: 2
+    currency: code,
+    maximumFractionDigits: code === "PYG" ? 0 : 2
   }).format(number);
 }
 
