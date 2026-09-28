@@ -1272,6 +1272,37 @@ function advisorCatalogShareUrl(){
   return url.href;
 }
 
+function renderAdvisorCatalogShare(){
+  const url=advisorCatalogShareUrl();
+  const preview=$("#advisorCatalogLinkPreview");
+  const open=$("#openAdvisorCatalog");
+  if(preview) preview.textContent=url||"Link indisponível";
+  if(open){
+    open.href=url||"index.html";
+    open.classList.toggle("disabled",!url);
+  }
+}
+
+async function copyAdvisorCatalogLink(button=null){
+  const url=advisorCatalogShareUrl();
+  if(!url){
+    alert("Não foi possível gerar o link do seu catálogo. Atualize a página e tente novamente.");
+    return;
+  }
+  try{
+    await navigator.clipboard.writeText(url);
+    if(button){
+      const original=button.textContent;
+      button.textContent="Link copiado ✓";
+      setTimeout(()=>{ if(document.body.contains(button)) button.textContent=original; },1800);
+    }else{
+      alert("Link do catálogo copiado.");
+    }
+  }catch{
+    prompt("Copie o link do seu catálogo:",url);
+  }
+}
+
 async function shareAdvisorCatalog(){
   const url=advisorCatalogShareUrl();
   if(!url){
@@ -1297,16 +1328,10 @@ async function shareAdvisorCatalog(){
 
   try{
     await navigator.clipboard.writeText(url);
-    const button=$("#shareAdvisorCatalog");
-    if(button){
-      const original=button.textContent;
-      button.textContent="Link copiado ✓";
-      setTimeout(()=>{ if(document.body.contains(button)) button.textContent=original; },1800);
-    }else{
-      alert("Link do catálogo copiado.");
-    }
+    const button=$("#shareAdvisorCatalogMain")||$("#shareAdvisorCatalog");
+    await copyAdvisorCatalogLink(button);
   }catch{
-    prompt("Copie o link do seu catálogo:",url);
+    await copyAdvisorCatalogLink($("#shareAdvisorCatalogMain")||$("#shareAdvisorCatalog"));
   }
 }
 
@@ -1318,6 +1343,7 @@ function renderPanel(){
   renderPlans();
   renderCreditStore();
   renderAds();
+  renderAdvisorCatalogShare();
   renderRentalControl();
 
   const newBtn=$("#newAdvisorProperty");
@@ -3093,6 +3119,9 @@ document.addEventListener("click",async e=>{
   }
 
     if(e.target.closest("#shareAdvisorCatalog")) await shareAdvisorCatalog();
+  if(e.target.closest("#shareAdvisorCatalogMain")) await shareAdvisorCatalog();
+  const copyCatalog=e.target.closest("#copyAdvisorCatalog");
+  if(copyCatalog) await copyAdvisorCatalogLink(copyCatalog);
     if(e.target.closest("#advisorProfileBtn")) advisorProfileModal();
   if(e.target.closest("#newAdvisorProperty")){
     if(!canCreateAdvisorProperty()){
