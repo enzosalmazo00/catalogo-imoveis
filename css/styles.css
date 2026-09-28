@@ -605,3 +605,15 @@ button,input,select,textarea{font-size:16px}
   .advisor-head-actions{grid-template-columns:1fr}
   .advisor-avatar-editor{align-items:flex-start;flex-direction:column}
 }
+
+/* Correção definitiva do avatar no painel do assessor */
+.advisor-identity{display:flex;align-items:center;gap:14px;min-width:0}
+.advisor-identity:has(.advisor-avatar.hidden){gap:0}
+.advisor-identity:has(.advisor-avatar.hidden) .advisor-avatar{display:none!important}
+.advisor-avatar{overflow:hidden;background-repeat:no-repeat;background-size:cover;background-position:center}
+.advisor-avatar:not(.has-photo){background-image:none!important}
+@media(max-width:560px){
+  .advisor-identity{align-items:center}
+  .advisor-identity>div:last-child{min-width:0}
+  .advisor-identity h1{margin-top:4px}
+}
