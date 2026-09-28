@@ -785,6 +785,11 @@ async function saveRentalControl(form){
 function rentalReceiptModal(property){
   if(!property) return;
   const showAdvisory=property.closing_mode!=="direct_owner" && property.has_advisory_fee;
+  const usesDeposit=(property.guarantee_type||"deposit")==="deposit";
+  const depositCount=Number(property.security_deposit_count||1);
+  const depositTotal=usesDeposit && property.security_deposit!=null
+    ? Number(property.security_deposit)*depositCount
+    : null;
 
   showAdvisorModal(`
     <div class="modal-head">
@@ -838,7 +843,12 @@ function rentalReceiptModal(property){
         <input name="rent_payment_date" type="date">
       </label>
 
-      <label>Valor da caução
+${usesDeposit?`
+      <div class="span-2 receipt-property-condition">
+        <strong>Garantia: Caução</strong>
+        <span>${depositCount} caução${depositCount===1?"":"ões"} de ${money(property.security_deposit||0,property.currency||"BRL")} • Total: ${money(depositTotal||0,property.currency||"BRL")}</span>
+      </div>
+      <label>Valor de cada caução
         <input name="security_deposit" type="number" min="0" step="1" required value="${property.security_deposit??0}">
       </label>
       <label>Caução paga?
@@ -851,6 +861,12 @@ function rentalReceiptModal(property){
         <input name="security_deposit_payment_date" type="date">
       </label>
       <div></div>
+      `:`
+      <div class="span-2 receipt-property-condition">
+        <strong>Garantia: Fiador</strong>
+        <span>Este imóvel não exige caução.</span>
+      </div>
+      `}
 
       <div class="form-section-title property-section-title">Comissão do assessor</div>
       <label>Foi cobrada comissão pelo assessor?
@@ -932,9 +948,10 @@ async function markPropertyRented(form){
   }
 
   const showAdvisory=property.closing_mode!=="direct_owner" && property.has_advisory_fee;
+  const usesDeposit=(property.guarantee_type||"deposit")==="deposit";
   const commissionCharged=fd.get("advisor_commission_charged")==="true";
   const rentPaid=fd.get("rent_paid")==="true";
-  const depositPaid=fd.get("security_deposit_paid")==="true";
+  const depositPaid=usesDeposit && fd.get("security_deposit_paid")==="true";
   const commissionPaid=commissionCharged && fd.get("commission_paid")==="true";
   const advisoryPaid=showAdvisory && fd.get("advisory_fee_paid")==="true";
 
@@ -947,7 +964,7 @@ async function markPropertyRented(form){
     monthly_rent:Number(fd.get("monthly_rent")||0),
     rent_paid:rentPaid,
     rent_payment_date:rentPaid?(fd.get("rent_payment_date")||null):null,
-    security_deposit:Number(fd.get("security_deposit")||0),
+    security_deposit:usesDeposit?Number(fd.get("security_deposit")||property.security_deposit||0):null,
     security_deposit_paid:depositPaid,
     security_deposit_payment_date:depositPaid?(fd.get("security_deposit_payment_date")||null):null,
     advisor_commission_charged:commissionCharged,
@@ -1071,8 +1088,29 @@ function generateRentalReceiptPdf(row){
   addLine("Aluguel:",row.monthly_rent!=null?money(row.monthly_rent,row.currency):"—");
   addLine("Pagamento aluguel:",paymentStatusText(row.rent_paid,row.rent_payment_date));
 
-  addLine("Caução:",row.security_deposit!=null?money(row.security_deposit,row.currency):"—");
-  addLine("Pagamento caução:",paymentStatusText(row.security_deposit_paid,row.security_deposit_payment_date));
+  const guaranteeType=row.guarantee_type||"deposit";
+  if(guaranteeType==="guarantor"){
+    addLine("Garantia:","Fiador");
+  }else{
+    const depositCount=Number(row.security_deposit_count||1);
+    const unitAmount=Number(row.security_deposit||0);
+    addLine("Garantia:","Caução");
+    addLine("Quantidade:",`${depositCount} caução${depositCount===1?"":"ões"}`);
+    addLine("Valor por caução:",money(unitAmount,row.currency));
+    addLine("Total das cauções:",money(unitAmount*depositCount,row.currency));
+    addLine("Pagamento caução:",paymentStatusText(row.security_deposit_paid,row.security_deposit_payment_date));
+  }
+
+  const minTerm=row.minimum_contract_term==="6_months"?"6 meses":row.minimum_contract_term==="12_months"?"1 ano":"Sem tempo mínimo";
+  addLine("Tempo mínimo:",minTerm);
+
+  if(row.has_contract){
+    addLine("Contrato:","Sim");
+    addLine("Valor do contrato:",row.contract_amount!=null?money(row.contract_amount,row.currency):"—");
+    addLine("Contrato pago por:",row.contract_payer==="owner"?"Proprietário":"Inquilino");
+  }else{
+    addLine("Contrato:","Não possui");
+  }
 
   if(row.advisor_commission_charged && row.commission_amount!=null){
     addLine("Comissão assessor:",money(row.commission_amount,row.currency));
