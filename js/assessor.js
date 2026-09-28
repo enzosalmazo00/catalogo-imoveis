@@ -1688,18 +1688,58 @@ function wirePropertyTechnicalFields(form){
     const housing=form.querySelector('[name="housing_context"]')?.value;
     const garage=form.querySelector('[name="garage_scope"]')?.value;
     const hasAdvisoryFee=form.querySelector('[name="has_advisory_fee"]')?.value==="true";
+    const hasContract=form.querySelector('[name="has_contract"]')?.value==="true";
+    const guaranteeType=form.querySelector('[name="guarantee_type"]')?.value||"deposit";
+    const usesDeposit=guaranteeType==="deposit";
 
     form.querySelector("#distributionFields")?.classList.toggle("hidden",type==="monoambiente");
     form.querySelector("#condominiumNameField")?.classList.toggle("hidden",housing!=="condominium");
     form.querySelector("#garageDetails")?.classList.toggle("hidden",garage==="none");
     form.querySelector("#advisorAdvisoryFeeField")?.classList.toggle("hidden",!hasAdvisoryFee);
+    form.querySelector("#advisorContractFields")?.classList.toggle("hidden",!hasContract);
+    form.querySelector("#advisorDepositFields")?.classList.toggle("hidden",!usesDeposit);
 
     const advisoryInput=form.querySelector('[name="advisory_fee"]');
     if(advisoryInput) advisoryInput.required=hasAdvisoryFee;
+
+    const contractAmount=form.querySelector('[name="contract_amount"]');
+    const contractPayer=form.querySelector('[name="contract_payer"]');
+    if(contractAmount) contractAmount.required=hasContract;
+    if(contractPayer) contractPayer.required=hasContract;
+
+    const depositAmount=form.querySelector('[name="security_deposit"]');
+    const depositCount=form.querySelector('[name="security_deposit_count"]');
+    if(depositAmount) depositAmount.required=usesDeposit;
+    if(depositCount) depositCount.required=usesDeposit;
+
+    if(!hasContract){
+      if(contractAmount) contractAmount.value="";
+      if(contractPayer) contractPayer.value="";
+    }
+
+    if(!usesDeposit){
+      if(depositAmount) depositAmount.value="";
+      if(depositCount) depositCount.value="";
+      const installment=form.querySelector('[name="security_deposit_installment_allowed"]');
+      const maxInstallments=form.querySelector('[name="security_deposit_max_installments"]');
+      if(installment) installment.value="false";
+      if(maxInstallments) maxInstallments.value="";
+    }
+
+    const total=form.querySelector('[name="security_deposit_total_display"]');
+    if(total){
+      const amount=Number(depositAmount?.value||0);
+      const count=Number(depositCount?.value||0);
+      const currency=form.querySelector('[name="currency"]')?.value||"BRL";
+      total.value=usesDeposit && amount>=0 && count>0 ? money(amount*count,currency) : "";
+    }
   };
 
-  ["property_type","housing_context","garage_scope","has_advisory_fee"].forEach(name=>{
+  ["property_type","housing_context","garage_scope","has_advisory_fee","has_contract","guarantee_type","currency"].forEach(name=>{
     form.querySelector(`[name="${name}"]`)?.addEventListener("change",update);
+  });
+  ["security_deposit","security_deposit_count"].forEach(name=>{
+    form.querySelector(`[name="${name}"]`)?.addEventListener("input",update);
   });
   update();
 }
@@ -1813,23 +1853,48 @@ function propertyModal(property=null){
         <input name="price" type="number" min="0" step="1" required value="${property?.price??""}" placeholder="Ex.: 1500">
       </label>
 
-      <label>Valor da caução
-        <input name="security_deposit" type="number" min="0" step="1" value="${property?.security_deposit??""}" placeholder="Ex.: 1500">
-      </label>
-
-      <label>Caução pode ser parcelada?
-        <select name="security_deposit_installment_allowed">
-          <option value="false" ${!property?.security_deposit_installment_allowed?"selected":""}>Não</option>
-          <option value="true" ${property?.security_deposit_installment_allowed?"selected":""}>Sim</option>
+      <label>Garantia exigida
+        <select name="guarantee_type" required>
+          <option value="deposit" ${(property?.guarantee_type||"deposit")==="deposit"?"selected":""}>Caução</option>
+          <option value="guarantor" ${property?.guarantee_type==="guarantor"?"selected":""}>Fiador</option>
         </select>
       </label>
 
-      <label>Máximo de parcelas
-        <select name="security_deposit_max_installments">
-          <option value="">Não informar</option>
-          ${Array.from({length:11},(_,i)=>i+2).map(n=>`<option value="${n}" ${Number(property?.security_deposit_max_installments)===n?"selected":""}>${n}x</option>`).join("")}
+      <label>Tempo mínimo de contrato
+        <select name="minimum_contract_term" required>
+          <option value="none" ${(property?.minimum_contract_term||"none")==="none"?"selected":""}>Sem tempo mínimo</option>
+          <option value="6_months" ${property?.minimum_contract_term==="6_months"?"selected":""}>6 meses</option>
+          <option value="12_months" ${property?.minimum_contract_term==="12_months"?"selected":""}>1 ano</option>
         </select>
       </label>
+
+      <div id="advisorDepositFields" class="span-2 conditional-subgrid ${property?.guarantee_type==="guarantor"?"hidden":""}">
+        <label>Quantidade de cauções
+          <input name="security_deposit_count" type="number" min="1" max="24" step="1" value="${property?.security_deposit_count??(property?.security_deposit!=null?1:"")}" placeholder="Ex.: 2">
+        </label>
+
+        <label>Valor de cada caução
+          <input name="security_deposit" type="number" min="0" step="1" value="${property?.security_deposit??""}" placeholder="Ex.: 1500">
+        </label>
+
+        <label>Valor total das cauções
+          <input name="security_deposit_total_display" type="text" readonly value="">
+        </label>
+
+        <label>Caução pode ser parcelada?
+          <select name="security_deposit_installment_allowed">
+            <option value="false" ${!property?.security_deposit_installment_allowed?"selected":""}>Não</option>
+            <option value="true" ${property?.security_deposit_installment_allowed?"selected":""}>Sim</option>
+          </select>
+        </label>
+
+        <label>Máximo de parcelas
+          <select name="security_deposit_max_installments">
+            <option value="">Não informar</option>
+            ${Array.from({length:11},(_,i)=>i+2).map(n=>`<option value="${n}" ${Number(property?.security_deposit_max_installments)===n?"selected":""}>${n}x</option>`).join("")}
+          </select>
+        </label>
+      </div>
 
       <label>Você anuncia este imóvel como
         <select name="advertiser_role" required>
@@ -1850,7 +1915,27 @@ function propertyModal(property=null){
         <small>Esse valor será informado publicamente no anúncio.</small>
       </label>
 
-            <label>Forma de fechamento
+      <label>Possui contrato?
+        <select name="has_contract">
+          <option value="false" ${!property?.has_contract?"selected":""}>Não</option>
+          <option value="true" ${property?.has_contract?"selected":""}>Sim</option>
+        </select>
+      </label>
+
+      <div id="advisorContractFields" class="span-2 conditional-subgrid ${property?.has_contract?"":"hidden"}">
+        <label>Valor do contrato
+          <input name="contract_amount" type="number" min="0" step="1" value="${property?.contract_amount??""}" placeholder="Ex.: 250">
+        </label>
+        <label>Quem paga o contrato?
+          <select name="contract_payer">
+            <option value="">Selecione</option>
+            <option value="owner" ${property?.contract_payer==="owner"?"selected":""}>Proprietário</option>
+            <option value="tenant" ${property?.contract_payer==="tenant"?"selected":""}>Inquilino</option>
+          </select>
+        </label>
+      </div>
+
+      <label>Forma de fechamento
         <select name="closing_mode">
           <option value="advisor" ${property?.closing_mode!=="direct_owner"?"selected":""}>Via assessoria</option>
           <option value="direct_owner" ${property?.closing_mode==="direct_owner"?"selected":""}>Direto com o proprietário</option>
@@ -2129,9 +2214,15 @@ async function saveProperty(form){
     description:String(fd.get("description")||"").trim()||null,
     price:Number(fd.get("price")),
     currency:fd.get("currency")||"BRL",
-    security_deposit:fd.get("security_deposit")?Number(fd.get("security_deposit")):null,
-    security_deposit_installment_allowed:fd.get("security_deposit_installment_allowed")==="true",
-    security_deposit_max_installments:fd.get("security_deposit_installment_allowed")==="true" && fd.get("security_deposit_max_installments")?Number(fd.get("security_deposit_max_installments")):null,
+    guarantee_type:fd.get("guarantee_type")||"deposit",
+    security_deposit:fd.get("guarantee_type")==="deposit" && fd.get("security_deposit")!==""?Number(fd.get("security_deposit")):null,
+    security_deposit_count:fd.get("guarantee_type")==="deposit" && fd.get("security_deposit_count")?Number(fd.get("security_deposit_count")):null,
+    security_deposit_installment_allowed:fd.get("guarantee_type")==="deposit" && fd.get("security_deposit_installment_allowed")==="true",
+    security_deposit_max_installments:fd.get("guarantee_type")==="deposit" && fd.get("security_deposit_installment_allowed")==="true" && fd.get("security_deposit_max_installments")?Number(fd.get("security_deposit_max_installments")):null,
+    minimum_contract_term:fd.get("minimum_contract_term")||"none",
+    has_contract:fd.get("has_contract")==="true",
+    contract_amount:fd.get("has_contract")==="true" && fd.get("contract_amount")!==""?Number(fd.get("contract_amount")):null,
+    contract_payer:fd.get("has_contract")==="true" ? (fd.get("contract_payer")||null) : null,
     closing_mode:fd.get("closing_mode"),
     advertiser_role:fd.get("advertiser_role")||"broker",
     has_advisory_fee:fd.get("has_advisory_fee")==="true",
@@ -2170,9 +2261,15 @@ async function saveProperty(form){
     const updateRow={
       price:row.price,
       currency:row.currency,
+      guarantee_type:row.guarantee_type,
       security_deposit:row.security_deposit,
+      security_deposit_count:row.security_deposit_count,
       security_deposit_installment_allowed:row.security_deposit_installment_allowed,
       security_deposit_max_installments:row.security_deposit_max_installments,
+      minimum_contract_term:row.minimum_contract_term,
+      has_contract:row.has_contract,
+      contract_amount:row.contract_amount,
+      contract_payer:row.contract_payer,
       closing_mode:row.closing_mode,
       advertiser_role:row.advertiser_role,
       has_advisory_fee:row.has_advisory_fee,
