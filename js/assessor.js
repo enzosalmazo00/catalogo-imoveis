@@ -600,6 +600,7 @@ async function saveRentalControl(form){
   const id=String(fd.get("id")||"").trim()||null;
   const propertyId=String(fd.get("property_id")||"").trim()||null;
   const property=propertyId?properties.find(p=>p.id===propertyId):null;
+  const existing=id?rentalControls.find(r=>r.id===id):null;
   const msg=form.querySelector("#advisorRentalControlMessage");
   const n=v=>String(v??"").trim()===""?null:Number(v);
   const closingMode=String(fd.get("closing_mode")||"advisor");
@@ -608,11 +609,11 @@ async function saveRentalControl(form){
   const row={
     advisor_id:currentUser.id,
     property_id:propertyId,
-    property_code:property?.public_code||null,
-    property_title:property?.title||String(fd.get("property_title")||"").trim()||null,
-    property_address:property?.address||String(fd.get("property_address")||"").trim()||null,
-    property_neighborhood:property?.neighborhood||null,
-    property_city:property?.city||null,
+    property_code:property?.public_code||existing?.property_code||null,
+    property_title:property?.title||String(fd.get("property_title")||"").trim()||existing?.property_title||null,
+    property_address:property?.address||String(fd.get("property_address")||"").trim()||existing?.property_address||null,
+    property_neighborhood:property?.neighborhood||existing?.property_neighborhood||null,
+    property_city:property?.city||existing?.property_city||null,
     closing_mode:closingMode,
     had_advisory_fee:hadAdvisory,
     owner_name:String(fd.get("owner_name")||"").trim()||null,
