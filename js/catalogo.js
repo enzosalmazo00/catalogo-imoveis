@@ -84,7 +84,6 @@ function applyFilters() {
   const type = $("#fType").value;
   const furnished = $("#fFurnished").value;
   const bedrooms = $("#fBedrooms").value;
-  const status = $("#fStatus").value;
   const min = $("#fMin").value === "" ? null : Number($("#fMin").value);
   const max = $("#fMax").value === "" ? null : Number($("#fMax").value);
 
@@ -100,7 +99,6 @@ function applyFilters() {
     if (furnished === "yes" && !property.furnished) return false;
     if (furnished === "no" && property.furnished) return false;
     if (bedrooms !== "" && Number(property.bedrooms || 0) < Number(bedrooms)) return false;
-    if (status && property.status !== status) return false;
     if (min != null && Number(property.price) < min) return false;
     if (max != null && Number(property.price) > max) return false;
     return true;
@@ -138,6 +136,7 @@ async function load() {
   const { data, error } = await db
     .from("catalog_properties_public")
     .select("*")
+    .eq("status","available")
     .order("catalog_priority", { ascending: false })
     .order("featured", { ascending: false })
     .order("sort_order", { ascending: true })
@@ -162,7 +161,6 @@ $("#sortBy").addEventListener("change", applyFilters);
 
 $("#clearFilters").addEventListener("click", () => {
   $("#filterForm").reset();
-  $("#fStatus").value = "available";
   $("#sortBy").value = "recent";
   applyFilters();
 });
