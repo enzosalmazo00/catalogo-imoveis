@@ -16,25 +16,6 @@ function withTimeout(promise,ms=12000,label="Operação"){
   return Promise.race([Promise.resolve(promise),timeout]).finally(()=>clearTimeout(timer));
 }
 
-function distanceMeters(lat1,lng1,lat2,lng2){
-  const toRad=value=>Number(value)*Math.PI/180;
-  const a1=toRad(lat1), a2=toRad(lat2);
-  const dLat=toRad(Number(lat2)-Number(lat1));
-  const dLng=toRad(Number(lng2)-Number(lng1));
-  const a=Math.sin(dLat/2)**2 + Math.cos(a1)*Math.cos(a2)*Math.sin(dLng/2)**2;
-  return 6371000*2*Math.asin(Math.sqrt(a));
-}
-
-function validateReferenceRegion(latitude,longitude){
-  // O catálogo atende Ponta Porã / Pedro Juan Caballero.
-  // Impede que um link curto do Google resolva silenciosamente para outra cidade/estado.
-  const center={lat:-22.55,lng:-55.73};
-  const distance=distanceMeters(center.lat,center.lng,latitude,longitude);
-  if(!Number.isFinite(distance) || distance>60000){
-    throw new Error("O Google retornou um ponto fora da região de Ponta Porã / Pedro Juan Caballero. Não salvamos para evitar uma distância incorreta. Abra o local exato no Google Maps e copie o link novamente.");
-  }
-}
-
 async function loadPoints(){
   const {data,error}=await db.from("reference_points")
     .select("*")
@@ -156,43 +137,59 @@ function closeModal(){
 }
 
 async function savePoint(form){
+  const msg=form.querySelector("#referencePointMessage");
+  const saveBtn=form.querySelector('[data-ref-action="save"]');
+  const originalText=saveBtn?.textContent||"Salvar";
+
   if(!form.checkValidity()){
-    form.querySelector(":invalid")?.reportValidity();
-    return;
+    const invalid=form.querySelector(":invalid");
+    if(msg) msg.textContent="Revise os campos obrigatórios antes de salvar.";
+    invalid?.reportValidity();
+    return false;
   }
 
-  const msg=$("#referencePointMessage");
   const fd=new FormData(form);
   const id=String(fd.get("id")||"").trim()||null;
   const mapsUrl=String(fd.get("google_maps_url")||"").trim();
-  const name=String(fd.get("name")||"").trim();
-  const address=String(fd.get("address")||"").trim();
-  const fallbackQuery=[name,address].filter(Boolean).join(", ");
 
-  if(msg) msg.textContent="Lendo a localização no Google Maps...";
+  if(!mapsUrl){
+    if(msg) msg.textContent="Informe o link exato do ponto no Google Maps.";
+    return false;
+  }
+
+  if(saveBtn){
+    saveBtn.disabled=true;
+    saveBtn.textContent="Lendo localização...";
+  }
+  if(msg) msg.textContent="Obtendo a localização exata pelo Google Maps...";
 
   try{
+    // MESMO FLUXO DAS FACULDADES:
+    // envia somente o link; nunca tenta adivinhar coordenadas por nome/endereço.
     const resolved=await withTimeout(
-      db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl,query:fallbackQuery}}),
-      15000,
+      db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl}}),
+      12000,
       "Leitura do Google Maps"
     );
 
     if(resolved.error || resolved.data?.error){
       throw new Error(resolved.data?.error || resolved.error?.message || "Não foi possível ler o link do Google Maps.");
     }
+
     if(resolved.data?.latitude==null || resolved.data?.longitude==null){
-      throw new Error("O link não retornou coordenadas. Abra a ficha exata do local no Google Maps e copie o link novamente.");
-    }
-    if(resolved.data?.precision!=="exact"){
-      throw new Error("Esse link retornou apenas uma área aproximada. Abra a ficha/pino exato do ponto de referência no Google Maps e use Compartilhar → Copiar link.");
+      throw new Error("O link não retornou coordenadas. Abra a ficha exata do ponto no Google Maps, toque em Compartilhar e copie o link novamente.");
     }
 
-    validateReferenceRegion(Number(resolved.data.latitude),Number(resolved.data.longitude));
+    if(resolved.data?.precision!=="exact"){
+      throw new Error("Esse link retornou apenas o centro aproximado do mapa. Abra a ficha do local no Google Maps, selecione exatamente o ponto/pino e use Compartilhar → Copiar link.");
+    }
+
+    if(saveBtn) saveBtn.textContent="Salvando...";
+    if(msg) msg.textContent="Pino exato encontrado. Salvando ponto de referência...";
 
     const row={
-      name,
-      address:address||null,
+      name:String(fd.get("name")||"").trim(),
+      address:String(fd.get("address")||"").trim()||null,
       google_maps_url:mapsUrl,
       latitude:Number(resolved.data.latitude),
       longitude:Number(resolved.data.longitude),
@@ -202,18 +199,27 @@ async function savePoint(form){
     };
 
     const result=id
-      ? await db.from("reference_points").update(row).eq("id",id)
-      : await db.from("reference_points").insert(row);
+      ? await withTimeout(db.from("reference_points").update(row).eq("id",id),10000,"Salvamento do ponto de referência")
+      : await withTimeout(db.from("reference_points").insert(row),10000,"Salvamento do ponto de referência");
 
     if(result.error) throw result.error;
 
     if(msg) msg.textContent="Ponto de referência salvo com sucesso ✓";
+    if(saveBtn) saveBtn.textContent="Salvo ✓";
+
     setTimeout(async()=>{
       closeModal();
       await renderReferencePoints();
-    },250);
+    },350);
+    return true;
   }catch(err){
+    console.error("Erro ao salvar ponto de referência:",err);
     if(msg) msg.textContent=err?.message||"Não foi possível salvar o ponto de referência.";
+    if(saveBtn){
+      saveBtn.disabled=false;
+      saveBtn.textContent=originalText;
+    }
+    return false;
   }
 }
 
