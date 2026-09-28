@@ -10,6 +10,7 @@ let properties=[];
 let features=[];
 let rentalControls=[];
 let paymentWatcher=null;
+let paymentRequestInFlight=false;
 let pendingPropertyFiles=[];
 let pendingPropertyCoverExplicit=false;
 
@@ -2070,22 +2071,68 @@ async function watchPaymentStatus(subscriptionId){
 }
 
 async function startPayment(planId){
-  const {data,error}=await db.functions.invoke("create-advisor-pix",{body:{plan_id:planId}});
-  if(error || !data || data.error){
-    alert(data?.error || error?.message || "A integração PIX ainda está sendo finalizada.");
-    return;
-  }
+  if(paymentRequestInFlight) return false;
+  paymentRequestInFlight=true;
+
   showAdvisorModal(`
-    <div class="modal-head"><div><p class="eyebrow">PAGAMENTO PIX</p><h2>Concluir pagamento</h2></div><button class="icon-btn" data-close>✕</button></div>
-    <div class="pix-box">
-      <strong>Total: ${money(data.amount,"BRL")}</strong>
-      <span class="promo-label">Após a confirmação, os créditos entram automaticamente no seu saldo.</span>
-      ${data.qr_code_base64?`<img class="pix-qr" src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX">`:""}
-      ${data.qr_code?`<textarea id="pixCopy" readonly>${escapeHTML(data.qr_code)}</textarea><button class="btn primary" id="copyPix">Copiar PIX</button>`:""}
-      <div id="pixStatus" class="pix-payment-status"><strong>Aguardando confirmação do pagamento...</strong><span>Assim que o Mercado Pago confirmar, esta tela será atualizada automaticamente.</span></div>
-    </div>`);
-  $("#copyPix")?.addEventListener("click",async()=>{await navigator.clipboard.writeText($("#pixCopy").value);$("#copyPix").textContent="PIX copiado ✓";});
-  if(data.subscription_id) watchPaymentStatus(data.subscription_id);
+    <div class="pix-generation-loading" role="status" aria-live="polite">
+      <div class="pix-generation-spinner" aria-hidden="true"></div>
+      <strong>Gerando seu PIX...</strong>
+      <span>Aguarde a cobrança ser criada. Não clique novamente.</span>
+    </div>
+  `);
+
+  try{
+    const {data,error}=await db.functions.invoke("create-advisor-pix",{body:{plan_id:planId}});
+
+    if(error || !data || data.error){
+      showAdvisorModal(`
+        <div class="modal-head">
+          <div><p class="eyebrow">PAGAMENTO PIX</p><h2>Não foi possível gerar o PIX</h2></div>
+          <button class="icon-btn" data-close>✕</button>
+        </div>
+        <div class="pix-payment-status">
+          <strong>Tente novamente.</strong>
+          <span>${escapeHTML(data?.error || error?.message || "A integração PIX ainda está sendo finalizada.")}</span>
+        </div>
+      `);
+      return false;
+    }
+
+    showAdvisorModal(`
+      <div class="modal-head"><div><p class="eyebrow">PAGAMENTO PIX</p><h2>Concluir pagamento</h2></div><button class="icon-btn" data-close>✕</button></div>
+      <div class="pix-box">
+        <strong>Total: ${money(data.amount,"BRL")}</strong>
+        <span class="promo-label">Após a confirmação, os créditos entram automaticamente no seu saldo.</span>
+        ${data.qr_code_base64?`<img class="pix-qr" src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX">`:""}
+        ${data.qr_code?`<textarea id="pixCopy" readonly>${escapeHTML(data.qr_code)}</textarea><button class="btn primary" id="copyPix">Copiar PIX</button>`:""}
+        <div id="pixStatus" class="pix-payment-status"><strong>Aguardando confirmação do pagamento...</strong><span>Assim que o Mercado Pago confirmar, esta tela será atualizada automaticamente.</span></div>
+      </div>
+    `);
+
+    $("#copyPix")?.addEventListener("click",async()=>{
+      await navigator.clipboard.writeText($("#pixCopy").value);
+      $("#copyPix").textContent="PIX copiado ✓";
+    });
+
+    if(data.subscription_id) watchPaymentStatus(data.subscription_id);
+    return true;
+  }catch(err){
+    console.error("Erro ao gerar PIX:",err);
+    showAdvisorModal(`
+      <div class="modal-head">
+        <div><p class="eyebrow">PAGAMENTO PIX</p><h2>Não foi possível gerar o PIX</h2></div>
+        <button class="icon-btn" data-close>✕</button>
+      </div>
+      <div class="pix-payment-status">
+        <strong>Tente novamente.</strong>
+        <span>${escapeHTML(err?.message || "Houve uma falha ao criar a cobrança.")}</span>
+      </div>
+    `);
+    return false;
+  }finally{
+    paymentRequestInFlight=false;
+  }
 }
 
 async function enterAdvisorPanel(user){
@@ -2350,7 +2397,18 @@ document.addEventListener("click",async e=>{
   }
 
   const buy=e.target.closest("[data-buy]");
-  if(buy) await startPayment(buy.dataset.buy);
+  if(buy){
+    if(paymentRequestInFlight) return;
+    buy.disabled=true;
+    const originalText=buy.textContent;
+    buy.textContent="Gerando PIX...";
+    const ok=await startPayment(buy.dataset.buy);
+    if(!ok && document.body.contains(buy)){
+      buy.disabled=false;
+      buy.textContent=originalText;
+    }
+    return;
+  }
   const viewBtn=e.target.closest("[data-advisor-view]");
   if(viewBtn){
     const view=viewBtn.dataset.advisorView;
