@@ -9,6 +9,14 @@ let properties=[];
 let renewalOffers={};
 let countdownTimer=null;
 
+function withTimeout(promise,ms=8000,label="requisição"){
+  let timer;
+  const timeout=new Promise((_,reject)=>{
+    timer=setTimeout(()=>reject(new Error(label+" demorou mais que o esperado.")),ms);
+  });
+  return Promise.race([Promise.resolve(promise),timeout]).finally(()=>clearTimeout(timer));
+}
+
 function fmtDate(v){
   if(!v) return "—";
   return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"}).format(new Date(v));
@@ -34,36 +42,83 @@ function showAdvisorModal(html){
 }
 
 async function ensureProfile(user){
-  const {data}=await db.from("advisor_profiles").select("*").eq("user_id",user.id).maybeSingle();
-  if(data){profile=data;return;}
   const meta=user.user_metadata||{};
-  const row={
+  const fallback={
     user_id:user.id,
     full_name:meta.full_name||user.email?.split("@")[0]||"Assessor",
     whatsapp:String(meta.whatsapp||"").replace(/\D/g,"")||null,
     company_name:meta.company_name||null,
     city:meta.city||null
   };
-  const res=await db.from("advisor_profiles").insert(row).select("*").single();
-  if(!res.error) profile=res.data;
+
+  // O banco agora cria o perfil automaticamente no cadastro.
+  // O fallback evita deixar a tela travada se uma consulta estiver lenta.
+  profile=fallback;
+
+  try{
+    const {data,error}=await withTimeout(
+      db.from("advisor_profiles").select("*").eq("user_id",user.id).maybeSingle(),
+      7000,
+      "Carregamento do perfil"
+    );
+    if(!error && data) profile=data;
+  }catch(err){
+    console.warn("Perfil carregado pelos dados da sessão:",err);
+  }
 }
 
 async function loadData(){
-  const [pl,sub,ads]=await Promise.all([
-    db.from("advertising_plans").select("*").eq("active",true).order("sort_order"),
-    db.from("advisor_subscriptions").select("*, advertising_plans(*)").order("created_at",{ascending:false}),
-    db.from("properties").select("*, property_media(*)").eq("advisor_id",currentUser.id).order("created_at",{ascending:false})
+  const results=await Promise.allSettled([
+    withTimeout(
+      db.from("advertising_plans").select("*").eq("active",true).order("sort_order"),
+      8000,
+      "Carregamento dos planos"
+    ),
+    withTimeout(
+      db.from("advisor_subscriptions")
+        .select("*, advertising_plans(*)")
+        .eq("advisor_id",currentUser.id)
+        .order("created_at",{ascending:false}),
+      8000,
+      "Carregamento das assinaturas"
+    ),
+    withTimeout(
+      db.from("properties")
+        .select("*, property_media(*)")
+        .eq("advisor_id",currentUser.id)
+        .order("created_at",{ascending:false}),
+      8000,
+      "Carregamento dos anúncios"
+    )
   ]);
-  plans=pl.data||[];
-  subscriptions=sub.data||[];
-  properties=ads.data||[];
+
+  const [plRes,subRes,adsRes]=results;
+  plans=plRes.status==="fulfilled"?(plRes.value.data||[]):[];
+  subscriptions=subRes.status==="fulfilled"?(subRes.value.data||[]):[];
+  properties=adsRes.status==="fulfilled"?(adsRes.value.data||[]):[];
+
+  const failures=results.filter(r=>r.status==="rejected");
+  if(failures.length){
+    console.warn("Alguns dados do painel demoraram para carregar:",failures);
+  }
+
   renewalOffers={};
   const renewable=latestRenewable();
   if(renewable){
-    const {data}=await db.rpc("get_or_create_renewal_offer",{p_subscription_id:renewable.id});
-    const offer=Array.isArray(data)?data[0]:data;
-    if(offer) renewalOffers[renewable.id]=offer;
+    try{
+      const {data}=await withTimeout(
+        db.rpc("get_or_create_renewal_offer",{p_subscription_id:renewable.id}),
+        8000,
+        "Carregamento da renovação"
+      );
+      const offer=Array.isArray(data)?data[0]:data;
+      if(offer) renewalOffers[renewable.id]=offer;
+    }catch(err){
+      console.warn("Oferta de renovação não carregada:",err);
+    }
   }
+
+  return failures.length===0;
 }
 
 function remainingText(expiresAt){
@@ -303,8 +358,12 @@ async function enterAdvisorPanel(user){
 
   try{
     await ensureProfile(user);
-    await loadData();
+    const fullyLoaded=await loadData();
     renderPanel();
+    if(!fullyLoaded){
+      $("#advisorExpiredNotice").innerHTML=
+        '<div class="advisor-expired-alert"><strong>Painel aberto.</strong><span>Algumas informações demoraram para carregar. Atualize a página se algum plano ou anúncio não aparecer.</span></div>';
+    }
   }catch(err){
     console.error("Erro ao carregar a Área do Assessor:",err);
     $("#advisorWelcome").textContent="Área do Assessor";
