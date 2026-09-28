@@ -207,6 +207,7 @@ async function load() {
         <div class="detail-badges">
           <span class="status-chip ${property.status}">${escapeHTML(statusLabel(property.status))}</span>
           <span class="type-chip">${escapeHTML(propertyTypeLabel(property.property_type))}</span>
+          ${property.city ? `<span class="type-chip city-chip">${escapeHTML(property.city)}</span>` : ""}
           ${property.furnished ? '<span class="type-chip">Mobiliado</span>' : '<span class="type-chip">Sem mobília</span>'}
         </div>
         <h1>${escapeHTML(property.title)}</h1>
