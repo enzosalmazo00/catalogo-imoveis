@@ -1,5 +1,5 @@
 import { db, STORAGE_BUCKET } from "./config.js";
-import { $, escapeHTML, money, propertyTypeLabel, statusLabel } from "./common.js?v=202609281300";
+import { $, escapeHTML, money, propertyTypeLabel, statusLabel } from "./common.js?v=202609281430";
 
 let currentUser=null;
 let profile=null;
@@ -256,7 +256,7 @@ function renderAds(){
               <strong>${escapeHTML(p.title)}</strong>
               <span>${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</span>
               <small>${expired?"Expirado":statusLabel(p.status)} • publicado em: ${fmtDate(p.listing_started_at||p.created_at)} • válido até: ${fmtDate(p.listing_expires_at)}</small>
-              <small class="listing-code">Código do anúncio: ${escapeHTML(String(p.listing_code||"").slice(0,8).toUpperCase())}</small>
+              <small class="listing-code">Código do imóvel: ${escapeHTML(p.public_code||"—")}</small>
             </div>
             <div class="advisor-ad-actions">
               <span class="pill ${expired?"pending":"paid"}">${expired?"FORA DO AR":"PUBLICADO"}</span>
