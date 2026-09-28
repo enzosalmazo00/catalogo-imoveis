@@ -464,7 +464,7 @@ async function saveProperty(form){
     neighborhood:String(fd.get("neighborhood")||"").trim()||null,
     city:String(fd.get("city")||"").trim()||null,
     address:String(fd.get("address")||"").trim()||null,
-    google_maps_url:googleMapsUrl,
+    google_maps_url:fd.get("show_exact_location")==="true" ? googleMapsUrl : null,
     latitude,
     longitude,
     show_exact_location:fd.get("show_exact_location")==="true",
