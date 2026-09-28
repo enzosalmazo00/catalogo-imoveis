@@ -6,6 +6,7 @@ let profile=null;
 let plans=[];
 let subscriptions=[];
 let properties=[];
+let features=[];
 let renewalOffers={};
 let countdownTimer=null;
 let paymentWatcher=null;
@@ -89,18 +90,28 @@ async function loadData(){
     ),
     withTimeout(
       db.from("properties")
-        .select("*, property_media(*)")
+        .select("*, property_media(*), property_features(feature_id)")
         .eq("advisor_id",currentUser.id)
         .order("created_at",{ascending:false}),
       8000,
       "Carregamento dos anúncios"
+    ),
+    withTimeout(
+      db.from("features")
+        .select("*")
+        .eq("active",true)
+        .order("category")
+        .order("sort_order"),
+      8000,
+      "Carregamento das opções do imóvel"
     )
   ]);
 
-  const [plRes,subRes,adsRes]=results;
+  const [plRes,subRes,adsRes,featuresRes]=results;
   plans=plRes.status==="fulfilled"?(plRes.value.data||[]):[];
   subscriptions=subRes.status==="fulfilled"?(subRes.value.data||[]):[];
   properties=adsRes.status==="fulfilled"?(adsRes.value.data||[]):[];
+  features=featuresRes.status==="fulfilled"?(featuresRes.value.data||[]):[];
 
   const failures=results.filter(r=>r.status==="rejected");
   if(failures.length){
@@ -227,6 +238,23 @@ function renderPanel(){
   renderAds();
 }
 
+function countOptions(value,max=10){
+  return Array.from({length:max+1},(_,i)=>
+    `<option value="${i}" ${Number(value??0)===i?"selected":""}>${i}</option>`
+  ).join("");
+}
+
+function featureChips(category,selectedIds=[]){
+  return features
+    .filter(f=>f.category===category)
+    .map(f=>`
+      <label class="check-chip property-option-chip">
+        <input type="checkbox" name="features" value="${f.id}" ${selectedIds.includes(f.id)?"checked":""}>
+        <span>${escapeHTML(f.name)}</span>
+      </label>`
+    ).join("");
+}
+
 function propertyModal(property=null){
   const active=activeSubscription();
   if(!property){
@@ -240,31 +268,152 @@ function propertyModal(property=null){
       return;
     }
   }
+
+  const selectedIds=(property?.property_features||[]).map(x=>x.feature_id);
+  const furnitureChips=featureChips("furniture",selectedIds);
+  const includedChips=featureChips("included",selectedIds);
+
   showAdvisorModal(`
-    <div class="modal-head"><div><p class="eyebrow">${property?"EDITAR ANÚNCIO":"NOVO ANÚNCIO"}</p><h2>${property?"Editar imóvel":"Cadastrar imóvel"}</h2></div><button class="icon-btn" data-close>✕</button></div>
-    <form id="advisorPropertyForm" class="form-grid"><input type="hidden" name="id" value="${property?.id||""}">
-      <label>Título<input name="title" required value="${escapeHTML(property?.title||"")}"></label>
-      <label>Tipo<select name="property_type">${["apartamento","casa","monoambiente","kitnet","outro"].map(t=>`<option value="${t}" ${property?.property_type===t?"selected":""}>${propertyTypeLabel(t)}</option>`).join("")}</select></label>
-      <label>Valor mensal<input name="price" type="number" min="0" step="0.01" required value="${property?.price??""}"></label>
-      <label>Caução<input name="security_deposit" type="number" min="0" step="0.01" value="${property?.security_deposit??""}"></label>
-      <label>Parcelamento da caução<select name="security_deposit_installment_allowed"><option value="false" ${!property?.security_deposit_installment_allowed?"selected":""}>Não</option><option value="true" ${property?.security_deposit_installment_allowed?"selected":""}>Sim</option></select></label>
-      <label>Máximo de parcelas<input name="security_deposit_max_installments" type="number" min="2" max="24" value="${property?.security_deposit_max_installments??""}"></label>
-      <label>Fechamento<select name="closing_mode"><option value="advisor" ${property?.closing_mode!=="direct_owner"?"selected":""}>Via assessoria</option><option value="direct_owner" ${property?.closing_mode==="direct_owner"?"selected":""}>Direto com o proprietário</option></select></label>
-      <label>WhatsApp do anúncio<input name="contact_whatsapp" inputmode="tel" required value="${escapeHTML(property?.contact_whatsapp||profile?.whatsapp||"")}"></label>
-      <label>Quartos<input name="bedrooms" type="number" min="0" value="${property?.bedrooms??""}"></label>
-      <label>Banheiros<input name="bathrooms" type="number" min="0" value="${property?.bathrooms??""}"></label>
-      <label>Mobília<select name="furnished"><option value="false" ${!property?.furnished?"selected":""}>Sem mobília</option><option value="true" ${property?.furnished?"selected":""}>Mobiliado</option></select></label>
-      <label>Bairro<input name="neighborhood" value="${escapeHTML(property?.neighborhood||"")}"></label>
-      <label>Cidade<input name="city" value="${escapeHTML(property?.city||profile?.city||"")}"></label>
-      <label class="span-2">Endereço completo<input name="address" value="${escapeHTML(property?.address||"")}"></label>
-      <label>Latitude<input name="latitude" type="number" step="0.0000001" value="${property?.latitude??""}"></label>
-      <label>Longitude<input name="longitude" type="number" step="0.0000001" value="${property?.longitude??""}"></label>
-      <label>Mostrar localização exata?<select name="show_exact_location"><option value="false" ${!property?.show_exact_location?"selected":""}>Não</option><option value="true" ${property?.show_exact_location?"selected":""}>Sim</option></select></label>
-      <label>Status<select name="status"><option value="available" ${property?.status!=="rented"?"selected":""}>Disponível</option><option value="rented" ${property?.status==="rented"?"selected":""}>Alugado</option></select></label>
-      <label class="span-2">Descrição<textarea name="description">${escapeHTML(property?.description||"")}</textarea></label>
-      <label class="span-2">Adicionar fotos<input name="images" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple ${property?"":"required"}></label>
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">${property?"EDITAR ANÚNCIO":"NOVO ANÚNCIO"}</p>
+        <h2>${property?"Editar imóvel":"Cadastrar imóvel"}</h2>
+        <p class="muted property-form-lead">Preencha as informações do imóvel. Os campos estão organizados por etapas para facilitar pelo celular.</p>
+      </div>
+      <button class="icon-btn" data-close>✕</button>
+    </div>
+
+    <form id="advisorPropertyForm" class="form-grid advisor-property-form">
+      <input type="hidden" name="id" value="${property?.id||""}">
+
+      <div class="form-section-title property-section-title">1. Informações principais</div>
+
+      <label class="span-2">Título do anúncio
+        <input name="title" required value="${escapeHTML(property?.title||"")}" placeholder="Ex.: Apartamento mobiliado próximo à faculdade">
+      </label>
+
+      <label>Tipo de imóvel
+        <select name="property_type">
+          ${["apartamento","casa","monoambiente","kitnet","outro"].map(t=>`<option value="${t}" ${property?.property_type===t?"selected":""}>${propertyTypeLabel(t)}</option>`).join("")}
+        </select>
+      </label>
+
+      <label>Status
+        <select name="status">
+          <option value="available" ${property?.status!=="rented"?"selected":""}>Disponível</option>
+          <option value="rented" ${property?.status==="rented"?"selected":""}>Alugado</option>
+        </select>
+      </label>
+
+      <label>Quartos
+        <select name="bedrooms">${countOptions(property?.bedrooms,10)}</select>
+      </label>
+
+      <label>Banheiros
+        <select name="bathrooms">${countOptions(property?.bathrooms,10)}</select>
+      </label>
+
+      <label>O imóvel é mobiliado?
+        <select name="furnished">
+          <option value="false" ${!property?.furnished?"selected":""}>Não</option>
+          <option value="true" ${property?.furnished?"selected":""}>Sim</option>
+        </select>
+      </label>
+
+      <label>WhatsApp para contato
+        <input name="contact_whatsapp" inputmode="tel" required value="${escapeHTML(property?.contact_whatsapp||profile?.whatsapp||"")}" placeholder="Ex.: 595981123456">
+      </label>
+
+      <div class="form-section-title property-section-title">2. Valores e condições</div>
+
+      <label>Valor mensal
+        <input name="price" type="number" min="0" step="0.01" required value="${property?.price??""}" placeholder="Ex.: 1500">
+      </label>
+
+      <label>Valor da caução
+        <input name="security_deposit" type="number" min="0" step="0.01" value="${property?.security_deposit??""}" placeholder="Ex.: 1500">
+      </label>
+
+      <label>Caução pode ser parcelada?
+        <select name="security_deposit_installment_allowed">
+          <option value="false" ${!property?.security_deposit_installment_allowed?"selected":""}>Não</option>
+          <option value="true" ${property?.security_deposit_installment_allowed?"selected":""}>Sim</option>
+        </select>
+      </label>
+
+      <label>Máximo de parcelas
+        <select name="security_deposit_max_installments">
+          <option value="">Não informar</option>
+          ${Array.from({length:11},(_,i)=>i+2).map(n=>`<option value="${n}" ${Number(property?.security_deposit_max_installments)===n?"selected":""}>${n}x</option>`).join("")}
+        </select>
+      </label>
+
+      <label>Forma de fechamento
+        <select name="closing_mode">
+          <option value="advisor" ${property?.closing_mode!=="direct_owner"?"selected":""}>Via assessoria</option>
+          <option value="direct_owner" ${property?.closing_mode==="direct_owner"?"selected":""}>Direto com o proprietário</option>
+        </select>
+      </label>
+
+      <div></div>
+
+      <div class="form-section-title property-section-title">3. Mobília e estrutura</div>
+      <div class="span-2 property-options-help">Marque tudo que existe no imóvel.</div>
+      <div class="span-2 checkbox-row property-option-grid">
+        ${furnitureChips || '<span class="muted">Nenhuma opção cadastrada.</span>'}
+      </div>
+
+      <div class="form-section-title property-section-title">4. O que está incluso no aluguel</div>
+      <div class="span-2 property-options-help">Marque somente o que já está incluído no valor mensal.</div>
+      <div class="span-2 checkbox-row property-option-grid">
+        ${includedChips || '<span class="muted">Nenhuma opção cadastrada.</span>'}
+      </div>
+
+      <div class="form-section-title property-section-title">5. Localização</div>
+
+      <label class="span-2 maps-link-field">Link do imóvel no Google Maps
+        <input name="google_maps_url" type="url" value="${escapeHTML(property?.google_maps_url||"")}" placeholder="Cole aqui o link compartilhado do Google Maps">
+        <small>Abra o local no Google Maps → Compartilhar → Copiar link. Você não precisa informar latitude nem longitude.</small>
+      </label>
+
+      <label>Bairro
+        <input name="neighborhood" value="${escapeHTML(property?.neighborhood||"")}" placeholder="Ex.: Centro">
+      </label>
+
+      <label>Cidade
+        <input name="city" value="${escapeHTML(property?.city||profile?.city||"")}" placeholder="Ex.: Pedro Juan Caballero">
+      </label>
+
+      <label class="span-2">Endereço escrito (opcional)
+        <input name="address" value="${escapeHTML(property?.address||"")}" placeholder="Rua, número, bairro">
+      </label>
+
+      <label>Exibir localização
+        <select name="show_exact_location">
+          <option value="false" ${!property?.show_exact_location?"selected":""}>Apenas região aproximada</option>
+          <option value="true" ${property?.show_exact_location?"selected":""}>Localização exata</option>
+        </select>
+      </label>
+
+      <div></div>
+
+      <div class="form-section-title property-section-title">6. Fotos e descrição</div>
+
+      <label class="span-2">Descrição do imóvel
+        <textarea name="description" placeholder="Descreva o imóvel, condições e diferenciais.">${escapeHTML(property?.description||"")}</textarea>
+      </label>
+
+      <label class="span-2">Fotos do imóvel
+        <input name="images" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple ${property?"":"required"}>
+        <small>Você pode selecionar várias fotos de uma vez.</small>
+      </label>
+
       ${property?`<div class="span-2 edit-expiry-lock">🔒 A validade permanece em <strong>${fmtDate(property.listing_expires_at)}</strong>. Editar não reinicia os 30 dias.</div>`:""}
-      <div class="form-actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary" type="submit">${property?"Salvar alterações":"Publicar imóvel"}</button></div>
+
+      <div class="form-actions">
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button class="btn primary" type="submit">${property?"Salvar alterações":"Publicar imóvel"}</button>
+      </div>
       <div id="advisorPropertyMessage" class="span-2 form-message"></div>
     </form>`);
 }
@@ -275,10 +424,32 @@ async function saveProperty(form){
   const id=fd.get("id")||null;
   const existing=id?properties.find(p=>p.id===id):null;
   if(!existing && !active) return;
+
   const title=String(fd.get("title")||"").trim();
+  const googleMapsUrl=String(fd.get("google_maps_url")||"").trim()||null;
+
+  let latitude=existing?.latitude??null;
+  let longitude=existing?.longitude??null;
+
+  const msg=$("#advisorPropertyMessage");
+  msg.textContent=existing?"Salvando alterações...":"Publicando...";
+
+  if(googleMapsUrl){
+    msg.textContent="Lendo o link do Google Maps...";
+    const resolved=await db.functions.invoke("resolve-maps-link",{body:{url:googleMapsUrl}});
+    if(resolved.error || resolved.data?.error){
+      msg.textContent=resolved.data?.error || "Não foi possível ler o link do Google Maps.";
+      return;
+    }
+    if(resolved.data?.latitude!=null && resolved.data?.longitude!=null){
+      latitude=Number(resolved.data.latitude);
+      longitude=Number(resolved.data.longitude);
+    }
+  }
+
   const row={
     title,
-    slug:title.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")+"-"+Date.now().toString(36),
+    slug:existing?.slug || title.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")+"-"+Date.now().toString(36),
     property_type:fd.get("property_type"),
     description:String(fd.get("description")||"").trim()||null,
     price:Number(fd.get("price")),
@@ -287,22 +458,24 @@ async function saveProperty(form){
     security_deposit_max_installments:fd.get("security_deposit_installment_allowed")==="true" && fd.get("security_deposit_max_installments")?Number(fd.get("security_deposit_max_installments")):null,
     closing_mode:fd.get("closing_mode"),
     contact_whatsapp:String(fd.get("contact_whatsapp")||"").replace(/\D/g,""),
-    bedrooms:fd.get("bedrooms")?Number(fd.get("bedrooms")):null,
-    bathrooms:fd.get("bathrooms")?Number(fd.get("bathrooms")):null,
+    bedrooms:Number(fd.get("bedrooms")||0),
+    bathrooms:Number(fd.get("bathrooms")||0),
     furnished:fd.get("furnished")==="true",
     neighborhood:String(fd.get("neighborhood")||"").trim()||null,
     city:String(fd.get("city")||"").trim()||null,
     address:String(fd.get("address")||"").trim()||null,
-    latitude:fd.get("latitude")?Number(fd.get("latitude")):null,
-    longitude:fd.get("longitude")?Number(fd.get("longitude")):null,
+    google_maps_url:googleMapsUrl,
+    latitude,
+    longitude,
     show_exact_location:fd.get("show_exact_location")==="true",
     status:fd.get("status"),
     is_published:true,
     advisor_id:currentUser.id,
     advisor_subscription_id:existing?.advisor_subscription_id || active?.id
   };
-  const msg=$("#advisorPropertyMessage");
+
   msg.textContent=existing?"Salvando alterações...":"Publicando...";
+
   let propertyId=id;
   if(existing){
     delete row.advisor_id;
@@ -315,6 +488,22 @@ async function saveProperty(form){
     if(ins.error){msg.textContent=ins.error.message;return;}
     propertyId=ins.data.id;
   }
+
+  const selectedFeatureIds=[...form.querySelectorAll('input[name="features"]:checked')].map(el=>el.value);
+  const delFeatures=await db.from("property_features").delete().eq("property_id",propertyId);
+  if(delFeatures.error){
+    msg.textContent=delFeatures.error.message;
+    return;
+  }
+  if(selectedFeatureIds.length){
+    const featureRows=selectedFeatureIds.map(feature_id=>({property_id:propertyId,feature_id}));
+    const featureInsert=await db.from("property_features").insert(featureRows);
+    if(featureInsert.error){
+      msg.textContent=featureInsert.error.message;
+      return;
+    }
+  }
+
   const files=[...form.querySelector('input[name="images"]').files];
   let first=!(existing?.property_media||[]).some(m=>m.media_type==="image");
   for(const file of files){
@@ -322,9 +511,11 @@ async function saveProperty(form){
     const path=`${currentUser.id}/${propertyId}/${crypto.randomUUID()}-${safe}`;
     const up=await db.storage.from(STORAGE_BUCKET).upload(path,file,{cacheControl:"3600",upsert:false});
     if(up.error){msg.textContent=up.error.message;return;}
-    await db.from("property_media").insert({property_id:propertyId,media_type:"image",storage_path:path,is_cover:first,sort_order:first?0:10});
+    const mediaInsert=await db.from("property_media").insert({property_id:propertyId,media_type:"image",storage_path:path,is_cover:first,sort_order:first?0:10});
+    if(mediaInsert.error){msg.textContent=mediaInsert.error.message;return;}
     first=false;
   }
+
   closeAdvisorModal();
   await loadData();
   renderPanel();
