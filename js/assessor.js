@@ -6,6 +6,8 @@ let profile=null;
 let plans=[];
 let subscriptions=[];
 let properties=[];
+let renewalOffers={};
+let countdownTimer=null;
 
 function fmtDate(v){
   if(!v) return "—";
@@ -16,7 +18,7 @@ function activeSubscription(){
 }
 function latestRenewable(){
   return [...subscriptions]
-    .filter(s=>["active","expired"].includes(s.status))
+    .filter(s=>s.status==="expired" || (s.ends_at && new Date(s.ends_at)<=new Date()))
     .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0] || null;
 }
 function adCountFor(subId){
@@ -55,6 +57,37 @@ async function loadData(){
   plans=pl.data||[];
   subscriptions=sub.data||[];
   properties=ads.data||[];
+  renewalOffers={};
+  const renewable=latestRenewable();
+  if(renewable){
+    const {data}=await db.rpc("get_or_create_renewal_offer",{p_subscription_id:renewable.id});
+    const offer=Array.isArray(data)?data[0]:data;
+    if(offer) renewalOffers[renewable.id]=offer;
+  }
+}
+
+function remainingText(expiresAt){
+  const ms=new Date(expiresAt)-new Date();
+  if(ms<=0) return "00:00";
+  const total=Math.floor(ms/1000);
+  const min=String(Math.floor(total/60)).padStart(2,"0");
+  const sec=String(total%60).padStart(2,"0");
+  return `${min}:${sec}`;
+}
+
+function startOfferCountdown(){
+  if(countdownTimer) clearInterval(countdownTimer);
+  countdownTimer=setInterval(()=>{
+    document.querySelectorAll("[data-offer-expires]").forEach(el=>{
+      const expires=el.dataset.offerExpires;
+      const ms=new Date(expires)-new Date();
+      el.textContent=remainingText(expires);
+      if(ms<=0){
+        clearInterval(countdownTimer);
+        renderPlans();
+      }
+    });
+  },1000);
 }
 
 function renderPlans(){
@@ -63,7 +96,9 @@ function renderPlans(){
   $("#advisorPlans").innerHTML=plans.map(plan=>{
     const isActive=active?.plan_id===plan.id;
     const canRenew=renewable?.plan_id===plan.id;
-    const promo=(Number(plan.price)*0.9).toFixed(2).replace(".",",");
+    const offer=canRenew?renewalOffers[renewable.id]:null;
+    const offerActive=!!offer && offer.is_active && new Date(offer.expires_at)>new Date();
+    const promoPrice=offerActive?Number(offer.promotional_price):Number(plan.price);
     return `
       <article class="advisor-plan-card ${isActive?"active":""}">
         <span class="advisor-plan-badge">${plan.ad_limit} anúncio${plan.ad_limit>1?"s":""}</span>
@@ -71,19 +106,26 @@ function renderPlans(){
         <div class="advisor-plan-price">${money(plan.price,"BRL")}</div>
         <p>Validade de ${plan.validity_days} dias.</p>
         ${isActive?`<div class="plan-active-note">Ativo até ${fmtDate(active.ends_at)} • ${adCountFor(active.id)}/${plan.ad_limit} usados</div>`:""}
-        ${canRenew?`
+        ${canRenew && offerActive?`
           <div class="renew-price">
-            <span>Renovação promocional</span>
-            <div><del>${money(plan.price,"BRL")}</del><strong>R$ ${promo}</strong></div>
+            <span>Oferta de renovação por mais 30 dias</span>
+            <div><del>${money(offer.regular_price,"BRL")}</del><strong>${money(promoPrice,"BRL")}</strong></div>
+            <small>Oferta válida por <b class="offer-countdown" data-offer-expires="${offer.expires_at}">${remainingText(offer.expires_at)}</b></small>
           </div>
-          <button class="btn whatsapp full" data-buy="${plan.id}" data-renew="${renewable.id}">Renovar com 10% OFF</button>
+          <button class="btn whatsapp full" data-buy="${plan.id}" data-renew="${renewable.id}" data-offer="${offer.offer_id}">Renovar pelo valor promocional</button>
+        `:canRenew?`
+          <div class="renew-price expired-offer">
+            <span>Oferta promocional encerrada</span>
+            <div><strong>${money(plan.price,"BRL")}</strong></div>
+          </div>
+          <button class="btn primary full" data-buy="${plan.id}" data-renew="${renewable.id}">Renovar por ${money(plan.price,"BRL")}</button>
         `:`
           <button class="btn primary full" data-buy="${plan.id}">Comprar via PIX</button>
         `}
       </article>`;
   }).join("");
+  startOfferCountdown();
 }
-
 function renderExpiredNotice(){
   const expired=properties.filter(p=>p.listing_expires_at && new Date(p.listing_expires_at)<=new Date());
   const box=$("#advisorExpiredNotice");
@@ -106,9 +148,11 @@ function renderAds(){
               <strong>${escapeHTML(p.title)}</strong>
               <span>${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</span>
               <small>${expired?"Expirado":statusLabel(p.status)} • validade: ${fmtDate(p.listing_expires_at)}</small>
+              <small class="listing-code">Código do anúncio: ${escapeHTML(String(p.listing_code||"").slice(0,8).toUpperCase())}</small>
             </div>
             <div class="advisor-ad-actions">
               <span class="pill ${expired?"pending":"paid"}">${expired?"FORA DO AR":"PUBLICADO"}</span>
+              <button class="btn ghost compact" data-edit-ad="${p.id}">Editar</button>
               <button class="btn danger compact" data-delete-ad="${p.id}">Excluir</button>
             </div>
           </div>`;
@@ -123,49 +167,54 @@ function renderPanel(){
   renderAds();
 }
 
-function propertyModal(){
+function propertyModal(property=null){
   const active=activeSubscription();
-  if(!active){
-    alert("Você precisa de um pacote ativo para publicar um imóvel.");
-    return;
-  }
-  const plan=active.advertising_plans;
-  if(adCountFor(active.id)>=Number(plan.ad_limit)){
-    alert("Você já utilizou todos os anúncios disponíveis neste pacote.");
-    return;
+  if(!property){
+    if(!active){
+      alert("Você precisa de um pacote ativo para publicar um imóvel.");
+      return;
+    }
+    const plan=active.advertising_plans;
+    if(adCountFor(active.id)>=Number(plan.ad_limit)){
+      alert("Você já utilizou todos os anúncios disponíveis neste pacote.");
+      return;
+    }
   }
   showAdvisorModal(`
-    <div class="modal-head"><div><p class="eyebrow">NOVO ANÚNCIO</p><h2>Cadastrar imóvel</h2></div><button class="icon-btn" data-close>✕</button></div>
-    <form id="advisorPropertyForm" class="form-grid">
-      <label>Título<input name="title" required></label>
-      <label>Tipo<select name="property_type"><option value="apartamento">Apartamento</option><option value="casa">Casa</option><option value="monoambiente">Monoambiente</option><option value="kitnet">Kitnet</option><option value="outro">Outro</option></select></label>
-      <label>Valor mensal<input name="price" type="number" min="0" step="0.01" required></label>
-      <label>Caução<input name="security_deposit" type="number" min="0" step="0.01"></label>
-      <label>Parcelamento da caução<select name="security_deposit_installment_allowed"><option value="false">Não</option><option value="true">Sim</option></select></label>
-      <label>Máximo de parcelas<input name="security_deposit_max_installments" type="number" min="2" max="24"></label>
-      <label>Fechamento<select name="closing_mode"><option value="advisor">Via assessoria</option><option value="direct_owner">Direto com o proprietário</option></select></label>
-      <label>WhatsApp do anúncio<input name="contact_whatsapp" inputmode="tel" required value="${escapeHTML(profile?.whatsapp||"")}"></label>
-      <label>Quartos<input name="bedrooms" type="number" min="0"></label>
-      <label>Banheiros<input name="bathrooms" type="number" min="0"></label>
-      <label>Mobília<select name="furnished"><option value="false">Sem mobília</option><option value="true">Mobiliado</option></select></label>
-      <label>Bairro<input name="neighborhood"></label>
-      <label>Cidade<input name="city" value="${escapeHTML(profile?.city||"")}"></label>
-      <label class="span-2">Endereço completo<input name="address"></label>
-      <label>Latitude<input name="latitude" type="number" step="0.0000001"></label>
-      <label>Longitude<input name="longitude" type="number" step="0.0000001"></label>
-      <label>Mostrar localização exata?<select name="show_exact_location"><option value="false">Não</option><option value="true">Sim</option></select></label>
-      <label>Status<select name="status"><option value="available">Disponível</option><option value="rented">Alugado</option></select></label>
-      <label class="span-2">Descrição<textarea name="description"></textarea></label>
-      <label class="span-2">Fotos<input name="images" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple required></label>
-      <div class="form-actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary" type="submit">Publicar imóvel</button></div>
+    <div class="modal-head"><div><p class="eyebrow">${property?"EDITAR ANÚNCIO":"NOVO ANÚNCIO"}</p><h2>${property?"Editar imóvel":"Cadastrar imóvel"}</h2></div><button class="icon-btn" data-close>✕</button></div>
+    <form id="advisorPropertyForm" class="form-grid"><input type="hidden" name="id" value="${property?.id||""}">
+      <label>Título<input name="title" required value="${escapeHTML(property?.title||"")}"></label>
+      <label>Tipo<select name="property_type">${["apartamento","casa","monoambiente","kitnet","outro"].map(t=>`<option value="${t}" ${property?.property_type===t?"selected":""}>${propertyTypeLabel(t)}</option>`).join("")}</select></label>
+      <label>Valor mensal<input name="price" type="number" min="0" step="0.01" required value="${property?.price??""}"></label>
+      <label>Caução<input name="security_deposit" type="number" min="0" step="0.01" value="${property?.security_deposit??""}"></label>
+      <label>Parcelamento da caução<select name="security_deposit_installment_allowed"><option value="false" ${!property?.security_deposit_installment_allowed?"selected":""}>Não</option><option value="true" ${property?.security_deposit_installment_allowed?"selected":""}>Sim</option></select></label>
+      <label>Máximo de parcelas<input name="security_deposit_max_installments" type="number" min="2" max="24" value="${property?.security_deposit_max_installments??""}"></label>
+      <label>Fechamento<select name="closing_mode"><option value="advisor" ${property?.closing_mode!=="direct_owner"?"selected":""}>Via assessoria</option><option value="direct_owner" ${property?.closing_mode==="direct_owner"?"selected":""}>Direto com o proprietário</option></select></label>
+      <label>WhatsApp do anúncio<input name="contact_whatsapp" inputmode="tel" required value="${escapeHTML(property?.contact_whatsapp||profile?.whatsapp||"")}"></label>
+      <label>Quartos<input name="bedrooms" type="number" min="0" value="${property?.bedrooms??""}"></label>
+      <label>Banheiros<input name="bathrooms" type="number" min="0" value="${property?.bathrooms??""}"></label>
+      <label>Mobília<select name="furnished"><option value="false" ${!property?.furnished?"selected":""}>Sem mobília</option><option value="true" ${property?.furnished?"selected":""}>Mobiliado</option></select></label>
+      <label>Bairro<input name="neighborhood" value="${escapeHTML(property?.neighborhood||"")}"></label>
+      <label>Cidade<input name="city" value="${escapeHTML(property?.city||profile?.city||"")}"></label>
+      <label class="span-2">Endereço completo<input name="address" value="${escapeHTML(property?.address||"")}"></label>
+      <label>Latitude<input name="latitude" type="number" step="0.0000001" value="${property?.latitude??""}"></label>
+      <label>Longitude<input name="longitude" type="number" step="0.0000001" value="${property?.longitude??""}"></label>
+      <label>Mostrar localização exata?<select name="show_exact_location"><option value="false" ${!property?.show_exact_location?"selected":""}>Não</option><option value="true" ${property?.show_exact_location?"selected":""}>Sim</option></select></label>
+      <label>Status<select name="status"><option value="available" ${property?.status!=="rented"?"selected":""}>Disponível</option><option value="rented" ${property?.status==="rented"?"selected":""}>Alugado</option></select></label>
+      <label class="span-2">Descrição<textarea name="description">${escapeHTML(property?.description||"")}</textarea></label>
+      <label class="span-2">Adicionar fotos<input name="images" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple ${property?"":"required"}></label>
+      ${property?`<div class="span-2 edit-expiry-lock">🔒 A validade permanece em <strong>${fmtDate(property.listing_expires_at)}</strong>. Editar não reinicia os 30 dias.</div>`:""}
+      <div class="form-actions"><button type="button" class="btn ghost" data-close>Cancelar</button><button class="btn primary" type="submit">${property?"Salvar alterações":"Publicar imóvel"}</button></div>
       <div id="advisorPropertyMessage" class="span-2 form-message"></div>
     </form>`);
 }
 
 async function saveProperty(form){
   const active=activeSubscription();
-  if(!active) return;
   const fd=new FormData(form);
+  const id=fd.get("id")||null;
+  const existing=id?properties.find(p=>p.id===id):null;
+  if(!existing && !active) return;
   const title=String(fd.get("title")||"").trim();
   const row={
     title,
@@ -190,17 +239,27 @@ async function saveProperty(form){
     status:fd.get("status"),
     is_published:true,
     advisor_id:currentUser.id,
-    advisor_subscription_id:active.id
+    advisor_subscription_id:existing?.advisor_subscription_id || active?.id
   };
   const msg=$("#advisorPropertyMessage");
-  msg.textContent="Publicando...";
-  const ins=await db.from("properties").insert(row).select("id").single();
-  if(ins.error){msg.textContent=ins.error.message;return;}
+  msg.textContent=existing?"Salvando alterações...":"Publicando...";
+  let propertyId=id;
+  if(existing){
+    delete row.advisor_id;
+    delete row.advisor_subscription_id;
+    delete row.is_published;
+    const upd=await db.from("properties").update(row).eq("id",id).eq("advisor_id",currentUser.id);
+    if(upd.error){msg.textContent=upd.error.message;return;}
+  }else{
+    const ins=await db.from("properties").insert(row).select("id").single();
+    if(ins.error){msg.textContent=ins.error.message;return;}
+    propertyId=ins.data.id;
+  }
   const files=[...form.querySelector('input[name="images"]').files];
   let first=true;
   for(const file of files){
     const safe=file.name.replace(/[^A-Za-z0-9._-]/g,"_");
-    const path=`${currentUser.id}/${ins.data.id}/${crypto.randomUUID()}-${safe}`;
+    const path=`${currentUser.id}/${propertyId}/${crypto.randomUUID()}-${safe}`;
     const up=await db.storage.from(STORAGE_BUCKET).upload(path,file,{cacheControl:"3600",upsert:false});
     if(up.error){msg.textContent=up.error.message;return;}
     await db.from("property_media").insert({property_id:ins.data.id,media_type:"image",storage_path:path,is_cover:first,sort_order:first?0:10});
@@ -211,10 +270,10 @@ async function saveProperty(form){
   renderPanel();
 }
 
-async function startPayment(planId,renewalOf=null){
+async function startPayment(planId,renewalOf=null,offerId=null){
   const cpf=prompt("Informe o CPF do pagador para gerar o PIX (somente números):");
   if(!cpf) return;
-  const {data,error}=await db.functions.invoke("create-advisor-pix",{body:{plan_id:planId,renewal_of:renewalOf,cpf}});
+  const {data,error}=await db.functions.invoke("create-advisor-pix",{body:{plan_id:planId,renewal_of:renewalOf,renewal_offer_id:offerId,cpf}});
   if(error || !data || data.error){
     alert(data?.error || error?.message || "A integração PIX ainda está sendo finalizada.");
     return;
@@ -254,8 +313,10 @@ document.addEventListener("click",async e=>{
     $("#advisorSignupForm").classList.toggle("hidden",tab.dataset.authTab!=="signup");
   }
   const buy=e.target.closest("[data-buy]");
-  if(buy) await startPayment(buy.dataset.buy,buy.dataset.renew||null);
+  if(buy) await startPayment(buy.dataset.buy,buy.dataset.renew||null,buy.dataset.offer||null);
   if(e.target.closest("#newAdvisorProperty")) propertyModal();
+  const edit=e.target.closest("[data-edit-ad]");
+  if(edit) propertyModal(properties.find(p=>p.id===edit.dataset.editAd));
   if(e.target.closest("[data-close]")) closeAdvisorModal();
   const del=e.target.closest("[data-delete-ad]");
   if(del && confirm("Excluir este anúncio definitivamente?")){
