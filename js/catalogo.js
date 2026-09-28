@@ -46,7 +46,7 @@ function renderCard(property) {
         <div class="property-type-pill">${escapeHTML(propertyTypeLabel(property.property_type))}</div>
         ${property.city ? `<div class="property-city-pill">${escapeHTML(property.city)}</div>` : ""}
         ${nearestUniversityBadgeText(property) ? `<div class="property-nearest-university-pill" title="${escapeHTML(nearestUniversityBadgeText(property))}">🎓 ${escapeHTML(nearestUniversityBadgeText(property))}</div>` : ""}
-        ${property.featured ? '<div class="featured-pill">Destaque</div>' : ""}
+        ${Number(property.catalog_priority||0)>0 ? '<div class="owner-priority-pill">★ Destaque</div>' : (property.featured ? '<div class="featured-pill">Destaque</div>' : "")}
         ${rented ? '<div class="rented-ribbon">ALUGADO</div>' : ""}
       </a>
 
@@ -138,6 +138,7 @@ async function load() {
   const { data, error } = await db
     .from("catalog_properties_public")
     .select("*")
+    .order("catalog_priority", { ascending: false })
     .order("featured", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
