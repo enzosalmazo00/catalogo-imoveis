@@ -721,8 +721,10 @@ async function saveAdvisorProfile(form){
 
   const {data:updated,error:profileError}=await db
     .from("advisor_profiles")
-    .update(profileRow)
-    .eq("user_id",currentUser.id)
+    .upsert({
+      user_id:currentUser.id,
+      ...profileRow
+    },{onConflict:"user_id"})
     .select("*")
     .single();
 
