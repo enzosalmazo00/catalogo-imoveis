@@ -81,8 +81,33 @@ export async function getSettings() {
 export function whatsappLink(settings, property) {
   const number = String(property?.contact_whatsapp || settings?.whatsapp_number || "").replace(/\D/g, "");
   if (!number) return "#";
-  const msg = `Olá! Vi através do Catálogo de Imóveis o anúncio "${property.title}" e tenho interesse em marcar uma visita.`;
-  return `https://wa.me/${number}?text=${encodeURIComponent(msg)}`;
+
+  const code = property?.public_code || property?.listing_code || "Não informado";
+  const advisor = property?.advisor_name || "Assessoria de Imóveis PJC/Ponta Porã";
+  const company = property?.advisor_company || "";
+  const location = [property?.neighborhood, property?.city].filter(Boolean).join(" • ") || "Localização sob consulta";
+  const link = property?.id ? `${locationOriginSafe()}/imovel.html?id=${encodeURIComponent(property.id)}` : "";
+
+  const lines = [
+    "Olá! Vi este imóvel no Catálogo de Imóveis e tenho interesse em marcar uma visita.",
+    "",
+    `Código do imóvel: ${code}`,
+    `Imóvel: ${property?.title || "Não informado"}`,
+    `Assessor responsável: ${advisor}`,
+    company ? `Assessoria / empresa: ${company}` : "",
+    `Localização: ${location}`,
+    link ? `Anúncio: ${link}` : ""
+  ].filter(Boolean);
+
+  return `https://wa.me/${number}?text=${encodeURIComponent(lines.join("\n"))}`;
+}
+
+function locationOriginSafe(){
+  try{
+    return window.location.origin;
+  }catch{
+    return "";
+  }
 }
 
 export function locationText(property) {
