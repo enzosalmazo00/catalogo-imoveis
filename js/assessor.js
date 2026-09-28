@@ -616,7 +616,8 @@ async function enterAdvisorPanel(user){
 
   currentUser=user;
 
-  // Mostra o painel imediatamente após a autenticação.
+  // Mostra o painel imediatamente após a autenticação, sem exibir o login no meio.
+  $("#advisorBootLoader")?.classList.add("hidden");
   $("#advisorAuth").classList.add("hidden");
   $("#advisorResetPassword").classList.add("hidden");
   $("#advisorPanel").classList.remove("hidden");
@@ -644,19 +645,26 @@ async function boot(){
   const isRecovery=hashParams.get("type")==="recovery" || searchParams.get("type")==="recovery";
 
   if(isRecovery){
+    $("#advisorBootLoader")?.classList.add("hidden");
     $("#advisorAuth").classList.add("hidden");
     $("#advisorPanel").classList.add("hidden");
     $("#advisorResetPassword").classList.remove("hidden");
     return;
   }
 
-  const {data:{user}}=await db.auth.getUser();
+  // Usa primeiro a sessão persistida no aparelho. Isso evita o "flash" do login
+  // enquanto uma conta já autenticada está sendo reconhecida.
+  const {data:{session}}=await db.auth.getSession();
+  const user=session?.user||null;
   currentUser=user;
+
   if(!user){
+    $("#advisorBootLoader")?.classList.add("hidden");
     $("#advisorAuth").classList.remove("hidden");
     $("#advisorPanel").classList.add("hidden");
     return;
   }
+
   await enterAdvisorPanel(user);
 }
 
@@ -744,6 +752,7 @@ $("#advisorResetPasswordForm").addEventListener("submit",async e=>{
 
 db.auth.onAuthStateChange((event)=>{
   if(event==="PASSWORD_RECOVERY"){
+    $("#advisorBootLoader")?.classList.add("hidden");
     $("#advisorAuth").classList.add("hidden");
     $("#advisorPanel").classList.add("hidden");
     $("#advisorResetPassword").classList.remove("hidden");
