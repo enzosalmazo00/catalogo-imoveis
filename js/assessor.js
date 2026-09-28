@@ -282,7 +282,7 @@ async function startPayment(planId,renewalOf=null,offerId=null){
     <div class="modal-head"><div><p class="eyebrow">PAGAMENTO PIX</p><h2>Concluir pagamento</h2></div><button class="icon-btn" data-close>✕</button></div>
     <div class="pix-box">
       <strong>Total: ${money(data.amount,"BRL")}</strong>
-      ${data.discount_percent?'<span class="promo-label">10% de desconto aplicado</span>':""}
+      ${data.discount_percent?'<span class="promo-label">Oferta promocional aplicada</span>':""}
       ${data.qr_code_base64?`<img class="pix-qr" src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX">`:""}
       ${data.qr_code?`<textarea id="pixCopy" readonly>${escapeHTML(data.qr_code)}</textarea><button class="btn primary" id="copyPix">Copiar PIX</button>`:""}
       <p class="muted">Após a confirmação do Mercado Pago, o pacote é liberado automaticamente.</p>
