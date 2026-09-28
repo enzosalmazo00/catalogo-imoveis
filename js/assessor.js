@@ -256,13 +256,13 @@ async function saveProperty(form){
     propertyId=ins.data.id;
   }
   const files=[...form.querySelector('input[name="images"]').files];
-  let first=true;
+  let first=!(existing?.property_media||[]).some(m=>m.media_type==="image");
   for(const file of files){
     const safe=file.name.replace(/[^A-Za-z0-9._-]/g,"_");
     const path=`${currentUser.id}/${propertyId}/${crypto.randomUUID()}-${safe}`;
     const up=await db.storage.from(STORAGE_BUCKET).upload(path,file,{cacheControl:"3600",upsert:false});
     if(up.error){msg.textContent=up.error.message;return;}
-    await db.from("property_media").insert({property_id:ins.data.id,media_type:"image",storage_path:path,is_cover:first,sort_order:first?0:10});
+    await db.from("property_media").insert({property_id:propertyId,media_type:"image",storage_path:path,is_cover:first,sort_order:first?0:10});
     first=false;
   }
   closeAdvisorModal();
@@ -316,7 +316,14 @@ document.addEventListener("click",async e=>{
   if(buy) await startPayment(buy.dataset.buy,buy.dataset.renew||null,buy.dataset.offer||null);
   if(e.target.closest("#newAdvisorProperty")) propertyModal();
   const edit=e.target.closest("[data-edit-ad]");
-  if(edit) propertyModal(properties.find(p=>p.id===edit.dataset.editAd));
+  if(edit){
+    const item=properties.find(p=>p.id===edit.dataset.editAd);
+    if(item?.listing_expires_at && new Date(item.listing_expires_at)<=new Date()){
+      alert("Este anúncio expirou. Renove o pacote para voltar a editar e publicar o imóvel.");
+    }else{
+      propertyModal(item);
+    }
+  }
   if(e.target.closest("[data-close]")) closeAdvisorModal();
   const del=e.target.closest("[data-delete-ad]");
   if(del && confirm("Excluir este anúncio definitivamente?")){
