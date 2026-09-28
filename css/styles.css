@@ -1069,3 +1069,24 @@ button,input,select,textarea{font-size:16px}
   .receipt-readonly-grid{grid-template-columns:1fr}
   .receipt-readonly-grid .span-2{grid-column:auto}
 }
+
+
+/* Condições de contrato e garantia */
+.receipt-property-condition{
+  display:flex;
+  flex-direction:column;
+  gap:5px;
+  padding:12px 14px;
+  border:1px solid var(--border);
+  border-radius:12px;
+  background:#f8fafc;
+  color:var(--text);
+}
+.receipt-property-condition strong{color:var(--navy);font-size:13px}
+.receipt-property-condition span{color:var(--muted);font-size:12px;line-height:1.5}
+.advisor-property-form input[readonly],
+#propertyForm input[readonly]{
+  background:#f3f6f8;
+  color:var(--navy);
+  font-weight:800;
+}
