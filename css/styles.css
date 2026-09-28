@@ -570,3 +570,6 @@ button,input,select,textarea{font-size:16px}
 @media(max-width:390px){
   .property-option-grid{grid-template-columns:1fr}
 }
+
+.property-city-pill{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.94);color:var(--navy);border:1px solid rgba(255,255,255,.7);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,.12);backdrop-filter:blur(6px)}
+.city-chip{font-weight:800}
