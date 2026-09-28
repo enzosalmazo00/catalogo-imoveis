@@ -351,6 +351,32 @@ $("#advisorModal").addEventListener("submit",async e=>{
   if(e.target.id==="advisorPropertyForm") await saveProperty(e.target);
 });
 
+$("#resendConfirmationBtn").addEventListener("click",async()=>{
+  const email=$("#advisorLoginEmail").value.trim();
+  const msg=$("#advisorAuthMessage");
+  if(!email){
+    msg.textContent="Digite seu e-mail primeiro para reenviar a confirmação.";
+    $("#advisorLoginEmail").focus();
+    return;
+  }
+
+  msg.textContent="Reenviando e-mail de confirmação...";
+  const {error}=await db.auth.resend({
+    type:"signup",
+    email,
+    options:{
+      emailRedirectTo:location.origin + "/assessor.html"
+    }
+  });
+
+  if(error){
+    msg.textContent=error.message;
+    return;
+  }
+
+  msg.textContent="Novo e-mail de confirmação enviado. Verifique sua caixa de entrada e o spam.";
+});
+
 $("#forgotPasswordBtn").addEventListener("click",async()=>{
   const email=$("#advisorLoginEmail").value.trim();
   const msg=$("#advisorAuthMessage");
