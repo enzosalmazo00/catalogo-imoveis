@@ -842,7 +842,7 @@ function existingPropertyMediaHtml(property){
   const images=sortedPropertyImages(property);
   const video=propertyYoutubeMedia(property);
   if(!images.length && !video) return "";
-  let html='<div class="span-2 current-property-media"><div class="property-options-help">Mídias já publicadas. Foto 1 é a principal exibida no catálogo.</div><div class="property-media-editor-grid">';
+  let html='<div class="span-2 current-property-media"><div class="property-options-help"><strong>🔒 Mídias fixas deste imóvel.</strong> Você pode trocar a foto principal e reorganizar a ordem, mas não adicionar, excluir ou substituir fotos/vídeo depois da publicação.</div><div class="property-media-editor-grid">';
   images.forEach((m,index)=>{
     html+='<div class="property-media-editor-item'+(m.is_cover?' cover':'')+'">';
     html+='<div class="property-media-order">Foto '+(index+1)+'</div>';
@@ -852,11 +852,10 @@ function existingPropertyMediaHtml(property){
     html+='<button type="button" class="btn ghost compact" data-media-left="'+m.id+'" data-property="'+property.id+'"'+(index===0?' disabled':'')+'>←</button>';
     html+='<button type="button" class="btn ghost compact" data-media-cover="'+m.id+'" data-property="'+property.id+'">Capa</button>';
     html+='<button type="button" class="btn ghost compact" data-media-right="'+m.id+'" data-property="'+property.id+'"'+(index===images.length-1?' disabled':'')+'>→</button>';
-    html+='<button type="button" class="btn danger compact" data-media-delete="'+m.id+'" data-property="'+property.id+'">Excluir</button>';
     html+='</div></div>';
   });
   if(video){
-    html+='<div class="property-media-editor-item video-media-item"><div class="property-media-order">Vídeo</div><div class="video-media-placeholder">▶</div><div class="property-media-editor-actions one-action"><button type="button" class="btn danger compact" data-video-delete="'+video.id+'" data-property="'+property.id+'">Excluir vídeo</button></div></div>';
+    html+='<div class="property-media-editor-item video-media-item"><div class="property-media-order">Vídeo fixo</div><div class="video-media-placeholder">▶</div><div class="property-media-editor-actions one-action"><span class="tiny-note">🔒 Não pode ser substituído</span></div></div>';
   }
   html+='</div></div>';
   return html;
@@ -1087,6 +1086,29 @@ function wirePropertyTechnicalFields(form){
   update();
 }
 
+function applyPublishedPropertyEditLock(form,property){
+  if(!form || !property) return;
+
+  const lockedNames=[
+    "title","property_type","bedrooms","bathrooms",
+    "housing_context","condominium_name","is_rear_unit","has_stairs_access",
+    "room_count","has_living_room","has_kitchen","laundry_type",
+    "garage_scope","garage_vehicle","has_electronic_gate",
+    "google_maps_url","neighborhood","city","address","description","youtube"
+  ];
+
+  lockedNames.forEach(name=>{
+    const field=form.querySelector(`[name="${name}"]`);
+    if(!field) return;
+    field.disabled=true;
+    field.classList.add("published-field-locked");
+    const label=field.closest("label");
+    label?.classList.add("published-field-lock-wrap");
+  });
+
+  form.classList.add("editing-published-property");
+}
+
 function propertyModal(property=null){
   pendingPropertyFiles=[];
   pendingPropertyCoverExplicit=false;
@@ -1107,13 +1129,22 @@ function propertyModal(property=null){
       <div>
         <p class="eyebrow">${property?"EDITAR ANÚNCIO":"NOVO ANÚNCIO"}</p>
         <h2>${property?"Editar imóvel":"Cadastrar imóvel"}</h2>
-        <p class="muted property-form-lead">Preencha as informações do imóvel. Os campos estão organizados por etapas para facilitar pelo celular.</p>
+        <p class="muted property-form-lead">${property
+          ? "Este anúncio já está vinculado a este imóvel. Campos estruturais, localização, descrição e mídia ficam bloqueados; você pode editar valores, status, contato e marcações."
+          : "Preencha as informações do imóvel. Os campos estão organizados por etapas para facilitar pelo celular."}</p>
       </div>
       <button class="icon-btn" data-property-close>✕</button>
     </div>
 
     <form id="advisorPropertyForm" class="form-grid advisor-property-form">
       <input type="hidden" name="id" value="${property?.id||""}">
+
+      ${property?`
+        <div class="span-2 published-property-lock-banner">
+          <strong>🔒 1 anúncio = 1 imóvel</strong>
+          <span>Depois de publicado, este anúncio não pode ser transformado em outro imóvel. Dados estruturais, descrição, localização e mídias permanecem fixos até o fim desta publicação.</span>
+        </div>
+      `:""}
 
       <div class="form-section-title property-section-title">1. Informações principais</div>
 
@@ -1351,27 +1382,34 @@ function propertyModal(property=null){
 
       ${property?existingPropertyMediaHtml(property):""}
 
-      <div class="span-2 property-photo-single-wrap">
-        <strong>Adicionar fotos</strong>
-        <span class="property-options-help">Adicione uma foto por vez. Cada nova foto entra automaticamente na sequência Foto 1, Foto 2, Foto 3...</span>
+      ${property?`
+        <div class="span-2 published-media-lock-note">
+          🔒 As fotos e o vídeo pertencem ao imóvel original e não podem ser adicionados, removidos ou substituídos nesta publicação. Você ainda pode escolher a capa e reorganizar as fotos já existentes.
+        </div>
+        <input type="hidden" name="youtube" value="${escapeHTML(propertyYoutubeMedia(property)?.external_url||"")}">
+      `:`
+        <div class="span-2 property-photo-single-wrap">
+          <strong>Adicionar fotos</strong>
+          <span class="property-options-help">Adicione uma foto por vez. Cada nova foto entra automaticamente na sequência Foto 1, Foto 2, Foto 3...</span>
 
-        <div class="upload single-property-upload">
-          <input id="advisorSinglePhotoInput" type="file" accept="image/jpeg,image/png,image/webp">
-          <div class="single-property-upload-copy">
-            <strong>📷 Escolher foto da galeria</strong>
-            <small>JPG, PNG ou WEBP · uma foto por vez</small>
+          <div class="upload single-property-upload">
+            <input id="advisorSinglePhotoInput" type="file" accept="image/jpeg,image/png,image/webp">
+            <div class="single-property-upload-copy">
+              <strong>📷 Escolher foto da galeria</strong>
+              <small>JPG, PNG ou WEBP · uma foto por vez</small>
+            </div>
           </div>
+
+          <small>A primeira foto será a principal. Depois você pode reorganizar e trocar a capa.</small>
         </div>
 
-        <small>A primeira foto será a principal. Depois você pode reorganizar, trocar a capa ou excluir.</small>
-      </div>
+        <div id="pendingPropertyPhotos" class="span-2 property-media-editor-grid"></div>
 
-      <div id="pendingPropertyPhotos" class="span-2 property-media-editor-grid"></div>
-
-      <label class="span-2">Vídeo do imóvel (YouTube)
-        <input name="youtube" type="url" value="${escapeHTML(propertyYoutubeMedia(property)?.external_url||"")}" placeholder="https://youtube.com/watch?v=...">
-        <small>Opcional. Cole o link do vídeo do imóvel publicado no YouTube.</small>
-      </label>
+        <label class="span-2">Vídeo do imóvel (YouTube)
+          <input name="youtube" type="url" value="" placeholder="https://youtube.com/watch?v=...">
+          <small>Opcional. Cole o link do vídeo do imóvel publicado no YouTube.</small>
+        </label>
+      `}
 
       ${property?`<div class="span-2 edit-expiry-lock">🔒 A validade permanece em <strong>${fmtDate(property.listing_expires_at)}</strong>. Editar não reinicia os 30 dias.</div>`:""}
       <div id="propertyDraftStatus" class="span-2 property-draft-status hidden"></div>
@@ -1411,7 +1449,8 @@ function propertyModal(property=null){
   });
   renderPendingPropertyPhotos();
   wirePropertyTechnicalFields($("#advisorPropertyForm"));
-  loadPropertyDraft($("#advisorPropertyForm"),property);
+  applyPublishedPropertyEditLock($("#advisorPropertyForm"),property);
+  if(!property) loadPropertyDraft($("#advisorPropertyForm"),property);
 }
 
 async function saveProperty(form){
@@ -1425,7 +1464,7 @@ async function saveProperty(form){
     return false;
   }
 
-  const title=String(fd.get("title")||"").trim();
+  const title=existing?.title || String(fd.get("title")||"").trim();
   if(!title){
     msg.textContent="Informe o título do anúncio.";
     return false;
@@ -1437,17 +1476,19 @@ async function saveProperty(form){
     return false;
   }
 
-  const youtubeUrl=String(fd.get("youtube")||"").trim();
+  const youtubeUrl=existing
+    ? String(propertyYoutubeMedia(existing)?.external_url||"").trim()
+    : String(fd.get("youtube")||"").trim();
   if(youtubeUrl && !/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{6,})/.test(youtubeUrl)){
     msg.textContent="Cole um link válido do YouTube ou deixe o campo de vídeo vazio.";
     return false;
   }
 
-  const googleMapsUrl=String(fd.get("google_maps_url")||"").trim()||null;
+  const googleMapsUrl=existing?.google_maps_url || String(fd.get("google_maps_url")||"").trim()||null;
   let latitude=existing?.latitude??null;
   let longitude=existing?.longitude??null;
 
-  if(googleMapsUrl){
+  if(googleMapsUrl && !existing){
     msg.textContent="1/4 • Validando localização...";
     const resolved=await withTimeout(
       db.functions.invoke("resolve-maps-link",{body:{url:googleMapsUrl}}),
@@ -1509,7 +1550,20 @@ async function saveProperty(form){
   if(existing){
     msg.textContent="2/4 • Salvando alterações...";
 
-    const updateRow={...row};
+    const updateRow={
+      price:row.price,
+      currency:row.currency,
+      security_deposit:row.security_deposit,
+      security_deposit_installment_allowed:row.security_deposit_installment_allowed,
+      security_deposit_max_installments:row.security_deposit_max_installments,
+      closing_mode:row.closing_mode,
+      advertiser_role:row.advertiser_role,
+      has_advisory_fee:row.has_advisory_fee,
+      advisory_fee:row.advisory_fee,
+      contact_whatsapp:row.contact_whatsapp,
+      furnished:row.furnished,
+      status:row.status
+    };
 
     const upd=await db.from("properties")
       .update(updateRow)
@@ -1536,70 +1590,7 @@ async function saveProperty(form){
       }
     }
 
-    const existingImages=sortedPropertyImages(existing);
-
-    if(pendingPropertyCoverExplicit && existingImages.length){
-      await db.from("property_media").update({is_cover:false}).eq("property_id",existing.id).eq("media_type","image");
-      for(let i=0;i<existingImages.length;i++){
-        await db.from("property_media")
-          .update({sort_order:(pendingPropertyFiles.length+i)*10})
-          .eq("id",existingImages[i].id);
-      }
-    }
-
-    msg.textContent="3/4 • Enviando novas fotos...";
-    for(let index=0;index<pendingPropertyFiles.length;index++){
-      const file=pendingPropertyFiles[index];
-      const safe=file.name.replace(/[^A-Za-z0-9._-]/g,"_");
-      const path=`${currentUser.id}/${existing.id}/${crypto.randomUUID()}-${safe}`;
-
-      const up=await db.storage.from(STORAGE_BUCKET).upload(path,file,{
-        contentType:file.type||undefined,
-        cacheControl:"3600",
-        upsert:false
-      });
-      if(up.error){
-        msg.textContent="Falha ao enviar foto: "+up.error.message;
-        return false;
-      }
-
-      const shouldCover=(!existingImages.length && index===0) || (pendingPropertyCoverExplicit && index===0);
-      const sortOrder=pendingPropertyCoverExplicit ? index*10 : (existingImages.length+index)*10;
-      const mediaInsert=await db.from("property_media").insert({
-        property_id:existing.id,
-        media_type:"image",
-        storage_path:path,
-        is_cover:shouldCover,
-        sort_order:sortOrder
-      });
-      if(mediaInsert.error){
-        await db.storage.from(STORAGE_BUCKET).remove([path]);
-        msg.textContent="Falha ao registrar foto: "+mediaInsert.error.message;
-        return false;
-      }
-    }
-
-    const existingYoutube=propertyYoutubeMedia(existing);
-    if(existingYoutube && existingYoutube.external_url!==youtubeUrl){
-      const delVideo=await db.from("property_media").delete().eq("id",existingYoutube.id);
-      if(delVideo.error){
-        msg.textContent="Não foi possível atualizar o vídeo: "+delVideo.error.message;
-        return false;
-      }
-    }
-    if(youtubeUrl && (!existingYoutube || existingYoutube.external_url!==youtubeUrl)){
-      const videoInsert=await db.from("property_media").insert({
-        property_id:existing.id,
-        media_type:"youtube",
-        external_url:youtubeUrl,
-        is_cover:false,
-        sort_order:10000
-      });
-      if(videoInsert.error){
-        msg.textContent="Não foi possível registrar o vídeo: "+videoInsert.error.message;
-        return false;
-      }
-    }
+    msg.textContent="3/4 • Mantendo mídia e identidade original do imóvel...";
 
     await deletePropertyDraft(form,{silent:true});
     msg.textContent="4/4 • Alterações salvas com sucesso.";
