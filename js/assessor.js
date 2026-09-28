@@ -8,6 +8,7 @@ let subscriptions=[];
 let creditBatches=[];
 let properties=[];
 let features=[];
+let referencePoints=[];
 let rentalControls=[];
 let paymentWatcher=null;
 let paymentRequestInFlight=false;
@@ -152,7 +153,7 @@ async function loadData(){
     ),
     withTimeout(
       db.from("properties")
-        .select("*, property_media(*), property_features(feature_id)")
+        .select("*, property_media(*), property_features(feature_id), property_reference_points(reference_point_id)")
         .eq("advisor_id",currentUser.id)
         .order("created_at",{ascending:false}),
       8000,
@@ -168,6 +169,15 @@ async function loadData(){
       "Carregamento das opções do imóvel"
     ),
     withTimeout(
+      db.from("reference_points")
+        .select("*")
+        .eq("active",true)
+        .order("sort_order")
+        .order("name"),
+      8000,
+      "Carregamento dos pontos de referência"
+    ),
+    withTimeout(
       db.from("advisor_rental_control")
         .select("*")
         .eq("advisor_id",currentUser.id)
@@ -178,12 +188,13 @@ async function loadData(){
     )
   ]);
 
-  const [plRes,subRes,creditRes,adsRes,featuresRes,rentalRes]=results;
+  const [plRes,subRes,creditRes,adsRes,featuresRes,referenceRes,rentalRes]=results;
   plans=plRes.status==="fulfilled"?(plRes.value.data||[]):[];
   subscriptions=subRes.status==="fulfilled"?(subRes.value.data||[]):[];
   creditBatches=creditRes.status==="fulfilled"?(creditRes.value.data||[]):[];
   properties=adsRes.status==="fulfilled"?(adsRes.value.data||[]):[];
   features=featuresRes.status==="fulfilled"?(featuresRes.value.data||[]):[];
+  referencePoints=referenceRes.status==="fulfilled"?(referenceRes.value.data||[]):[];
   rentalControls=rentalRes.status==="fulfilled"?(rentalRes.value.data||[]):[];
 
   try{
@@ -1635,6 +1646,15 @@ function featureChips(category,selectedIds=[]){
     ).join("");
 }
 
+function referencePointChips(selectedIds=[]){
+  return referencePoints.map(point=>`
+    <label class="check-chip property-option-chip">
+      <input type="checkbox" name="reference_points" value="${point.id}" ${selectedIds.includes(point.id)?"checked":""}>
+      <span>${escapeHTML(point.name)}</span>
+    </label>
+  `).join("");
+}
+
 function propertyMediaPublicUrl(path){
   if(!path) return "";
   return db.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl || "";
@@ -1756,11 +1776,16 @@ function propertyDraftKey(property){
 function collectPropertyDraft(form){
   const data={};
   const featureIds=[];
+  const referencePointIds=[];
 
   form.querySelectorAll("input[name],select[name],textarea[name]").forEach(el=>{
     if(el.type==="file") return;
     if(el.name==="features"){
       if(el.checked) featureIds.push(el.value);
+      return;
+    }
+    if(el.name==="reference_points"){
+      if(el.checked) referencePointIds.push(el.value);
       return;
     }
     if(el.type==="checkbox"){
@@ -1771,6 +1796,7 @@ function collectPropertyDraft(form){
   });
 
   data.features=featureIds;
+  data.reference_points=referencePointIds;
   return data;
 }
 
@@ -1782,6 +1808,12 @@ function applyPropertyDraft(form,data){
 
     if(el.name==="features"){
       const selected=Array.isArray(data.features)?data.features:[];
+      el.checked=selected.includes(el.value);
+      return;
+    }
+
+    if(el.name==="reference_points"){
+      const selected=Array.isArray(data.reference_points)?data.reference_points:[];
       el.checked=selected.includes(el.value);
       return;
     }
@@ -1971,10 +2003,12 @@ function propertyModal(property=null){
   }
 
   const selectedIds=(property?.property_features||[]).map(x=>x.feature_id);
+  const selectedReferencePointIds=(property?.property_reference_points||[]).map(x=>x.reference_point_id);
   const furnitureChips=featureChips("furniture",selectedIds);
   const includedChips=featureChips("included",selectedIds);
   const securityChips=featureChips("security",selectedIds);
   const nearbyChips=featureChips("nearby",selectedIds);
+  const referencePointOptions=referencePointChips(selectedReferencePointIds);
 
   showAdvisorPropertyPage(`
     <div class="modal-head">
@@ -2240,7 +2274,13 @@ function propertyModal(property=null){
         ${includedChips || '<span class="muted">Nenhuma opção cadastrada.</span>'}
       </div>
 
-      <div class="form-section-title property-section-title">8. Localização privada</div>
+      <div class="form-section-title property-section-title">8. Pontos de referência (opcional)</div>
+      <div class="span-2 property-options-help">Selecione um ou vários locais cadastrados pela administração que façam sentido para este imóvel. Se não quiser, deixe tudo desmarcado.</div>
+      <div class="span-2 checkbox-row property-option-grid">
+        ${referencePointOptions || '<span class="muted">Nenhum ponto de referência cadastrado pela administração.</span>'}
+      </div>
+
+      <div class="form-section-title property-section-title">9. Localização privada</div>
 
       <div class="span-2 property-location-privacy">
         <strong>🔒 A localização exata não será exibida ao público.</strong>
@@ -2269,7 +2309,7 @@ function propertyModal(property=null){
         <small>Este endereço também fica restrito ao assessor/administrador.</small>
       </label>
 
-      <div class="form-section-title property-section-title">9. Fotos, vídeo e descrição</div>
+      <div class="form-section-title property-section-title">10. Fotos, vídeo e descrição</div>
 
       <label class="span-2">Descrição do imóvel
         <textarea name="description" placeholder="Descreva o imóvel, condições e diferenciais.">${escapeHTML(property?.description||"")}</textarea>
@@ -2453,6 +2493,7 @@ async function saveProperty(form){
   };
 
   const selectedFeatureIds=[...form.querySelectorAll('input[name="features"]:checked')].map(el=>el.value);
+  const selectedReferencePointIds=[...form.querySelectorAll('input[name="reference_points"]:checked')].map(el=>el.value);
 
   // EDITAR: mantém identidade e prazo do anúncio original.
   if(existing){
@@ -2500,6 +2541,18 @@ async function saveProperty(form){
       if(featureInsert.error){
         msg.textContent="Não foi possível atualizar as características: "+featureInsert.error.message;
         return false;
+      }
+    }
+
+    const clearReferences=await db.from("property_reference_points").delete().eq("property_id",existing.id);
+    if(clearReferences.error){
+      console.warn("Não foi possível limpar pontos de referência:",clearReferences.error);
+    }else if(selectedReferencePointIds.length){
+      const referenceInsert=await db.from("property_reference_points").insert(
+        selectedReferencePointIds.map(reference_point_id=>({property_id:existing.id,reference_point_id}))
+      );
+      if(referenceInsert.error){
+        console.warn("Não foi possível atualizar os pontos de referência:",referenceInsert.error);
       }
     }
 
@@ -2565,6 +2618,15 @@ async function saveProperty(form){
     );
 
     if(published.error) throw new Error(published.error.message);
+
+    if(selectedReferencePointIds.length){
+      const referenceInsert=await db.from("property_reference_points").insert(
+        selectedReferencePointIds.map(reference_point_id=>({property_id:propertyId,reference_point_id}))
+      );
+      if(referenceInsert.error){
+        console.warn("Imóvel publicado, mas os pontos de referência não foram vinculados:",referenceInsert.error);
+      }
+    }
 
     msg.textContent="4/4 • Imóvel publicado com sucesso.";
     await deletePropertyDraft(form,{silent:true});
