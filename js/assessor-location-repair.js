@@ -46,4 +46,66 @@ async function repairMissingPropertyCoordinates(){
   }
 }
 
+function greetingByDeviceTime(){
+  const hour=new Date().getHours();
+  if(hour>=5 && hour<12) return "Bom dia";
+  if(hour>=12 && hour<18) return "Boa tarde";
+  return "Boa noite";
+}
+
+function advisorCatalogUrl(){
+  const openLink=document.querySelector("#openAdvisorCatalog");
+  if(openLink?.href && /[?&]catalogo=/.test(openLink.href)) return openLink.href;
+
+  const preview=String(document.querySelector("#advisorCatalogLinkPreview")?.textContent||"").trim();
+  if(/^https?:\/\//i.test(preview) && /[?&]catalogo=/.test(preview)) return preview;
+
+  return "";
+}
+
+function buildCatalogShareMessage(url){
+  const greeting=greetingByDeviceTime();
+  const advisorName=String(document.querySelector("#advisorWelcome")?.textContent||"").trim();
+
+  return [
+    `${greeting}! 👋`,
+    "",
+    "🏠 Acompanhe nosso catálogo de imóveis disponíveis.",
+    "",
+    "Aqui você pode conferir imóveis para locação, ver fotos, valores, características e opções próximas às suas áreas de interesse, incluindo faculdades.",
+    "",
+    "✨ O catálogo é atualizado conforme os imóveis ficam disponíveis.",
+    advisorName ? `🤝 Atendimento: ${advisorName}` : "",
+    "",
+    "🔗 Acesse o catálogo:",
+    url,
+    "",
+    "Se algum imóvel chamar sua atenção, abra o anúncio e toque em “Tenho interesse” para pedir mais informações ou agendar uma visita. 😊"
+  ].filter((line,index,array)=>line!=="" || (index>0 && array[index-1]!=="")).join("\n");
+}
+
+function shareCatalogWithPrettyMessage(event){
+  const button=event.target.closest("#shareAdvisorCatalog, #shareAdvisorCatalogMain");
+  if(!button) return;
+
+  const url=advisorCatalogUrl();
+  if(!url) return;
+
+  event.preventDefault();
+  event.stopImmediatePropagation();
+
+  const text=buildCatalogShareMessage(url);
+  const title="Catálogo de imóveis disponíveis";
+
+  if(navigator.share){
+    navigator.share({title,text}).catch(err=>{
+      if(err?.name!=="AbortError") console.warn("Compartilhamento indisponível:",err);
+    });
+    return;
+  }
+
+  window.open(`https://wa.me/?text=${encodeURIComponent(text)}`,"_blank","noopener");
+}
+
+document.addEventListener("click",shareCatalogWithPrettyMessage,true);
 repairMissingPropertyCoordinates();
