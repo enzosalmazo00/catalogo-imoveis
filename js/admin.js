@@ -188,7 +188,6 @@ function propertyTable(list) {
               <td>
                 <div class="table-actions">
                   <button class="btn ghost compact" data-action="edit-property" data-id="${p.id}">Editar</button>
-                  <button class="btn primary compact" data-action="mark-rented" data-id="${p.id}">✓ Marcar alugado</button>
                   <button class="btn danger compact" data-action="delete-property" data-id="${p.id}">Excluir</button>
                 </div>
               </td>
@@ -259,8 +258,8 @@ function renderProperties() {
           <h2>Imóveis por corretor</h2>
           <p class="muted">Cada corretor / assessor aparece em um bloco separado para facilitar a gestão dos anúncios.</p>
           <div class="advisor-expired-alert" style="margin-top:12px">
-            <strong>⚠️ Sempre que um imóvel for alugado, marque-o aqui.</strong>
-            <span>O recibo será obrigatório. Após confirmar, o anúncio e suas mídias serão excluídos; somente os dados do recibo serão preservados.</span>
+            <strong>ℹ️ A finalização da locação é feita pelo assessor.</strong>
+            <span>Somente o assessor responsável preenche o recibo e marca o imóvel como alugado. O administrador apenas acompanha os recibos em modo de visualização.</span>
           </div>
         </div>
         <button class="btn primary" data-action="new-property">+ Cadastrar imóvel</button>
@@ -760,276 +759,54 @@ async function deleteProperty(id) {
   renderCurrent();
 }
 
-function wireAdminReceiptPaymentFields(form){
-  if(!form) return;
+function adminReceiptViewModal(row){
+  if(!row) return;
 
-  const linkPaidDate=(paidName,dateName)=>{
-    const paid=form.querySelector(`[name="${paidName}"]`);
-    const date=form.querySelector(`[name="${dateName}"]`);
-    const wrap=date?.closest(".receipt-payment-date");
-
-    const update=()=>{
-      const isPaid=paid?.value==="true";
-      wrap?.classList.toggle("hidden",!isPaid);
-      if(date){
-        date.required=!!isPaid;
-        if(!isPaid) date.value="";
-      }
-    };
-
-    paid?.addEventListener("change",update);
-    update();
-  };
-
-  linkPaidDate("rent_paid","rent_payment_date");
-  linkPaidDate("security_deposit_paid","security_deposit_payment_date");
-  linkPaidDate("commission_paid","advisor_commission_payment_date");
-  linkPaidDate("advisory_fee_paid","advisory_fee_payment_date");
-
-  const charged=form.querySelector('[name="advisor_commission_charged"]');
-  const fields=form.querySelector("#adminAdvisorCommissionFields");
-  const amount=form.querySelector('[name="commission_amount"]');
-  const paid=form.querySelector('[name="commission_paid"]');
-
-  const updateCommission=()=>{
-    const isCharged=charged?.value==="true";
-    fields?.classList.toggle("hidden",!isCharged);
-    if(amount) amount.required=!!isCharged;
-    if(!isCharged){
-      if(amount) amount.value="";
-      if(paid) paid.value="false";
-      const date=form.querySelector('[name="advisor_commission_payment_date"]');
-      if(date) date.value="";
-    }
-  };
-
-  charged?.addEventListener("change",updateCommission);
-  updateCommission();
-}
-
-function rentalReceiptModal(property) {
-  if (!property) return;
-
-  const management=state.management.find(m=>m.property_id===property.id);
-  const owner=state.owners.find(o=>o.id===management?.owner_id);
-  const showAdvisory=property.closing_mode!=="direct_owner" && property.has_advisory_fee;
+  const advisor=advisorById(row.advisor_id);
+  const responsible=advisor?.full_name||advisor?.company_name||"Assessor";
+  const paymentLine=(paid,date)=>paid ? (date?`Pago em ${dateBR(date)}`:"Pago") : "Pendente";
 
   showModal(`
     <div class="modal-head">
       <div>
-        <p class="eyebrow">FINALIZAR LOCAÇÃO</p>
-        <h2>Preencher recibo obrigatório</h2>
-        <p class="muted">Este recibo é voltado ao cliente. Não contém comissão do proprietário nem informações financeiras internas.</p>
+        <p class="eyebrow">RECIBO DE LOCAÇÃO</p>
+        <h2>Visualização do recibo</h2>
+        <p class="muted">Somente leitura. O preenchimento e a finalização da locação são feitos pelo assessor responsável.</p>
       </div>
       <button class="icon-btn" type="button" data-action="close-modal">✕</button>
     </div>
 
-    <form id="rentalReceiptForm" class="form-grid rental-receipt-form">
-      <input type="hidden" name="property_id" value="${property.id}">
-
+    <div class="receipt-readonly-grid">
       <div class="span-2 published-property-lock-banner">
-        <strong>${escapeHTML(property.public_code||"IMÓVEL")} • ${escapeHTML(property.title)}</strong>
-        <span>Esta ação é definitiva para este anúncio. Se o imóvel voltar ao mercado, deverá ser cadastrado/publicado novamente.</span>
+        <strong>${escapeHTML(row.property_code||"—")} • ${escapeHTML(row.property_title||"Imóvel")}</strong>
+        <span>${escapeHTML([row.property_address,row.property_neighborhood,row.property_city].filter(Boolean).join(" • ")||"Endereço não informado")}</span>
       </div>
 
-      <label>Nome do proprietário
-        <input name="owner_name" required value="${escapeHTML(owner?.name||"")}">
-      </label>
+      <div><small>Assessor responsável</small><strong>${escapeHTML(responsible)}</strong></div>
+      <div><small>Data do aluguel</small><strong>${dateBR(row.start_date)}</strong></div>
 
-      <label>Telefone do proprietário
-        <input name="owner_phone" inputmode="tel" value="${escapeHTML(owner?.phone||"")}">
-      </label>
+      <div><small>Proprietário</small><strong>${escapeHTML(row.owner_name||"—")}</strong><span>${escapeHTML(row.owner_phone||"")}</span></div>
+      <div><small>Inquilino</small><strong>${escapeHTML(row.tenant_name||"—")}</strong><span>${escapeHTML(row.tenant_phone||"")}</span></div>
 
-      <label>Nome do inquilino
-        <input name="tenant_name" required>
-      </label>
+      <div><small>Aluguel</small><strong>${money(row.monthly_rent||0,row.currency||"BRL")}</strong><span>${escapeHTML(paymentLine(row.rent_paid,row.rent_payment_date))}</span></div>
+      <div><small>Caução</small><strong>${money(row.security_deposit||0,row.currency||"BRL")}</strong><span>${escapeHTML(paymentLine(row.security_deposit_paid,row.security_deposit_payment_date))}</span></div>
 
-      <label>Telefone do inquilino
-        <input name="tenant_phone" inputmode="tel">
-      </label>
-
-      <label>Moeda
-        <select name="currency" required>
-          <option value="BRL" ${property.currency!=="PYG"?"selected":""}>Real brasileiro (R$)</option>
-          <option value="PYG" ${property.currency==="PYG"?"selected":""}>Guarani paraguaio (₲)</option>
-        </select>
-      </label>
-
-      <label>Valor do aluguel
-        <input name="monthly_rent" type="number" min="0" step="1" required value="${property.price??0}">
-      </label>
-
-      <label>Aluguel pago?
-        <select name="rent_paid">
-          <option value="false">Não</option>
-          <option value="true">Sim</option>
-        </select>
-      </label>
-      <label class="receipt-payment-date hidden">Data do pagamento do aluguel
-        <input name="rent_payment_date" type="date">
-      </label>
-
-      <label>Valor da caução
-        <input name="security_deposit" type="number" min="0" step="1" required value="${property.security_deposit??0}">
-      </label>
-
-      <label>Caução paga?
-        <select name="security_deposit_paid">
-          <option value="false">Não</option>
-          <option value="true">Sim</option>
-        </select>
-      </label>
-      <label class="receipt-payment-date hidden">Data do pagamento da caução
-        <input name="security_deposit_payment_date" type="date">
-      </label>
-      <div></div>
-
-      <div class="form-section-title property-section-title">Comissão do assessor</div>
-      <label>Foi cobrada comissão pelo assessor?
-        <select name="advisor_commission_charged">
-          <option value="false">Não</option>
-          <option value="true">Sim</option>
-        </select>
-      </label>
-      <div></div>
-
-      <div id="adminAdvisorCommissionFields" class="span-2 conditional-subgrid hidden">
-        <label>Valor da comissão do assessor
-          <input name="commission_amount" type="number" min="0" step="1">
-        </label>
-        <label>Comissão paga?
-          <select name="commission_paid">
-            <option value="false">Não</option>
-            <option value="true">Sim</option>
-          </select>
-        </label>
-        <label class="receipt-payment-date hidden">Data do pagamento da comissão
-          <input name="advisor_commission_payment_date" type="date">
-        </label>
-      </div>
-
-${showAdvisory?`
-      <div class="form-section-title property-section-title">Assessoria</div>
-      <label>Valor da assessoria
-        <input name="advisory_fee_amount" type="number" min="0" step="1" required value="${property.advisory_fee??0}">
-      </label>
-
-      <label>Assessoria paga?
-        <select name="advisory_fee_paid">
-          <option value="false">Não</option>
-          <option value="true">Sim</option>
-        </select>
-      </label>
-      <label class="receipt-payment-date hidden">Data do pagamento da assessoria
-        <input name="advisory_fee_payment_date" type="date">
-      </label>
-      <div></div>
+      ${row.advisor_commission_charged && row.commission_amount!=null?`
+        <div><small>Comissão cobrada pelo assessor</small><strong>${money(row.commission_amount,row.currency||"BRL")}</strong><span>${escapeHTML(paymentLine(row.commission_paid,row.advisor_commission_payment_date))}</span></div>
       `:""}
 
-      <label>Data do aluguel
-        <input name="start_date" type="date" required>
-      </label>
+      ${row.had_advisory_fee && row.advisory_fee_amount!=null?`
+        <div><small>Assessoria</small><strong>${money(row.advisory_fee_amount,row.currency||"BRL")}</strong><span>${escapeHTML(paymentLine(row.advisory_fee_paid,row.advisory_fee_payment_date))}</span></div>
+      `:""}
 
-      <label>Dia de vencimento do aluguel
-        <input name="rent_due_day" type="number" min="1" max="31" step="1">
-      </label>
+      ${row.rent_due_day?`<div><small>Vencimento do aluguel</small><strong>Dia ${row.rent_due_day}</strong></div>`:""}
+      ${row.notes?`<div class="span-2"><small>Observações</small><span>${escapeHTML(row.notes)}</span></div>`:""}
 
-      <label class="span-2">Observações do recibo
-        <textarea name="notes" rows="3" placeholder="Opcional"></textarea>
-      </label>
-
-      <div id="rentalReceiptMessage" class="span-2 form-message"></div>
-
-      <div class="form-actions span-2">
-        <button class="btn ghost" type="button" data-action="close-modal">Cancelar</button>
-        <button class="btn danger" type="submit">Confirmar aluguel e excluir anúncio</button>
+      <div class="span-2 receipt-readonly-note">
+        Este documento é apenas um recibo de controle do assessor, sem caráter jurídico, e não substitui contrato de locação ou outro instrumento jurídico.
       </div>
-    </form>
+    </div>
   `);
-
-  wireAdminReceiptPaymentFields($("#rentalReceiptForm"));
-}
-
-async function markPropertyRented(form) {
-  if (!form?.reportValidity()) return;
-
-  const fd=new FormData(form);
-  const propertyId=String(fd.get("property_id")||"");
-  const property=propertyById(propertyId);
-  const msg=form.querySelector("#rentalReceiptMessage");
-  const submit=form.querySelector('button[type="submit"]');
-
-  if(!property){
-    if(msg) msg.textContent="Este imóvel não está mais disponível.";
-    return;
-  }
-
-  const showAdvisory=property.closing_mode!=="direct_owner" && property.has_advisory_fee;
-  const commissionCharged=fd.get("advisor_commission_charged")==="true";
-  const rentPaid=fd.get("rent_paid")==="true";
-  const depositPaid=fd.get("security_deposit_paid")==="true";
-  const commissionPaid=commissionCharged && fd.get("commission_paid")==="true";
-  const advisoryPaid=showAdvisory && fd.get("advisory_fee_paid")==="true";
-  const receipt={
-    owner_name:String(fd.get("owner_name")||"").trim(),
-    owner_phone:String(fd.get("owner_phone")||"").trim()||null,
-    tenant_name:String(fd.get("tenant_name")||"").trim(),
-    tenant_phone:String(fd.get("tenant_phone")||"").trim()||null,
-    currency:fd.get("currency")||property.currency||"BRL",
-    monthly_rent:Number(fd.get("monthly_rent")||0),
-    rent_paid:rentPaid,
-    rent_payment_date:rentPaid?(fd.get("rent_payment_date")||null):null,
-    security_deposit:Number(fd.get("security_deposit")||0),
-    security_deposit_paid:depositPaid,
-    security_deposit_payment_date:depositPaid?(fd.get("security_deposit_payment_date")||null):null,
-    advisor_commission_charged:commissionCharged,
-    commission_amount:commissionCharged?Number(fd.get("commission_amount")||0):null,
-    commission_paid:commissionPaid,
-    advisor_commission_payment_date:commissionPaid?(fd.get("advisor_commission_payment_date")||null):null,
-    advisory_fee_amount:showAdvisory?Number(fd.get("advisory_fee_amount")||0):null,
-    advisory_fee_paid:advisoryPaid,
-    advisory_fee_payment_date:advisoryPaid?(fd.get("advisory_fee_payment_date")||null):null,
-    start_date:fd.get("start_date"),
-    rent_due_day:fd.get("rent_due_day")?Number(fd.get("rent_due_day")):null,
-    notes:String(fd.get("notes")||"").trim()||null
-  };
-
-  if(commissionCharged && !(Number(receipt.commission_amount)>0)){
-    if(msg) msg.textContent="Informe o valor da comissão cobrada pelo assessor.";
-    return;
-  }
-
-  if(submit){
-    submit.disabled=true;
-    submit.textContent="Finalizando...";
-  }
-  if(msg) msg.textContent="Salvando recibo e removendo o anúncio...";
-
-  const result=await db.rpc("finalize_property_rental",{
-    p_property_id:property.id,
-    p_receipt:receipt
-  });
-
-  if(result.error){
-    if(msg) msg.textContent=result.error.message;
-    if(submit){submit.disabled=false;submit.textContent="Confirmar aluguel e excluir anúncio";}
-    return;
-  }
-
-  const paths=Array.isArray(result.data?.storage_paths)?result.data.storage_paths:[];
-  let cleanupWarning="";
-  if(paths.length){
-    const cleanup=await db.storage.from(STORAGE_BUCKET).remove(paths);
-    if(cleanup.error){
-      console.warn("Anúncio removido, mas houve falha ao limpar algumas imagens:",cleanup.error);
-      cleanupWarning=" O anúncio foi removido, mas algumas imagens podem precisar de limpeza posterior no armazenamento.";
-    }
-  }
-
-  await refreshData();
-  closeModal();
-  renderCurrent();
-  alert("Imóvel marcado como alugado. O anúncio foi excluído e somente o recibo foi preservado."+cleanupWarning);
 }
 
 async function deleteMedia(id) {
@@ -1476,7 +1253,7 @@ function renderCreditFinance(){
 
   const receiptRows=state.receipts.map(r=>{
     const advisor=advisorById(r.advisor_id);
-    const handledBy=advisor?.full_name||advisor?.company_name||"Administração";
+    const handledBy=advisor?.full_name||advisor?.company_name||"Assessor";
     return `
       <tr>
         <td>${dateBR(r.start_date)}</td>
@@ -1484,9 +1261,10 @@ function renderCreditFinance(){
         <td><strong>${escapeHTML(r.owner_name||"—")}</strong></td>
         <td><strong>${escapeHTML(r.tenant_name||"—")}</strong></td>
         <td>${money(r.monthly_rent||0,r.currency||"BRL")}</td>
-        <td>${money(r.security_deposit||0,r.currency||"BRL")}</td>
+        <td>${r.advisor_commission_charged && r.commission_amount!=null?money(r.commission_amount,r.currency||"BRL"):"—"}</td>
         <td>${r.had_advisory_fee && r.advisory_fee_amount!=null?money(r.advisory_fee_amount,r.currency||"BRL"):"—"}</td>
         <td>${escapeHTML(handledBy)}</td>
+        <td><button class="btn ghost compact" data-action="view-rental-receipt" data-id="${r.id}">Visualizar</button></td>
       </tr>
     `;
   }).join("");
@@ -1521,14 +1299,14 @@ function renderCreditFinance(){
         <div>
           <p class="eyebrow">RECIBOS DE LOCAÇÃO</p>
           <h2>Imóveis finalizados como alugados</h2>
-          <p class="muted">O anúncio original e as mídias são excluídos. Esta tabela mantém somente os dados essenciais do recibo.</p>
+          <p class="muted">Somente leitura. O recibo é preenchido e finalizado pelo assessor responsável; o administrador apenas acompanha os registros.</p>
         </div>
       </div>
 
       <div class="admin-table-wrap">
         <table class="admin-table">
-          <thead><tr><th>Início</th><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Caução</th><th>Assessoria</th><th>Responsável</th></tr></thead>
-          <tbody>${receiptRows || '<tr><td colspan="8" class="muted">Nenhum recibo de locação registrado.</td></tr>'}</tbody>
+          <thead><tr><th>Data</th><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Comissão assessor</th><th>Assessoria</th><th>Assessor</th><th>Recibo</th></tr></thead>
+          <tbody>${receiptRows || '<tr><td colspan="9" class="muted">Nenhum recibo de locação registrado.</td></tr>'}</tbody>
         </table>
       </div>
     </section>
@@ -1748,8 +1526,8 @@ $("#adminContent").addEventListener("click",async event=>{
 
   if(action==="new-property") propertyModal();
   if(action==="edit-property") propertyModal(propertyById(id));
-  if(action==="mark-rented") rentalReceiptModal(propertyById(id));
   if(action==="delete-property") await deleteProperty(id);
+  if(action==="view-rental-receipt") adminReceiptViewModal(state.receipts.find(r=>r.id===id));
 
   if(action==="grant-bonus") grantBonusModal(advisorById(id));
   if(action==="revoke-bonus"){
@@ -1803,11 +1581,6 @@ $("#adminModal").addEventListener("click",async event=>{
 $("#adminModal").addEventListener("submit",async event=>{
   event.preventDefault();
   const form=event.target;
-
-  if(form.id==="rentalReceiptForm"){
-    await markPropertyRented(form);
-    return;
-  }
 
   if(form.id==="propertyForm"){
     await saveProperty(form);
