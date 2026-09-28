@@ -63,31 +63,52 @@ function renderGallery(property) {
   `;
 }
 
-function renderUniversities(property) {
-  const routes = (property.property_university_routes || [])
-    .filter(route => route.universities)
-    .sort((a,b) => (a.universities.sort_order || 0) - (b.universities.sort_order || 0));
+function renderUniversities(property, universities = []) {
+  if (!universities.length) return "";
 
-  if (!routes.length) return "";
+  const origin = mapsQuery(property);
+  if (!origin) return "";
 
-  const rows = routes.map(route => {
-    const uni = route.universities;
-    const drive = routeText(route.driving_distance_m, route.driving_duration_s);
-    const walk = routeText(route.walking_distance_m, route.walking_duration_s);
-    if (!drive && !walk) return "";
-    return `
-      <div class="university-row">
-        <div>
-          <strong>${escapeHTML(uni.name)}</strong>
-          <span>${escapeHTML(uni.address)}</span>
+  const cached = new Map(
+    (property.property_university_routes || [])
+      .filter(route => route.university_id)
+      .map(route => [route.university_id, route])
+  );
+
+  const rows = universities
+    .filter(uni => uni.active !== false)
+    .sort((a,b) => (a.sort_order || 0) - (b.sort_order || 0) || String(a.name).localeCompare(String(b.name)))
+    .map(uni => {
+      const route = cached.get(uni.id);
+      const drive = route ? routeText(route.driving_distance_m, route.driving_duration_s) : "";
+      const walk = route ? routeText(route.walking_distance_m, route.walking_duration_s) : "";
+      const destination = (uni.latitude != null && uni.longitude != null)
+        ? `${uni.latitude},${uni.longitude}`
+        : uni.address;
+      if (!destination) return "";
+
+      const drivingUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+      const walkingUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=walking`;
+
+      return `
+        <div class="university-row">
+          <div>
+            <strong>${escapeHTML(uni.name)}</strong>
+            <span>${escapeHTML(uni.address || "")}</span>
+            ${drive || walk ? `
+              <div class="cached-route-info">
+                ${drive ? `<span>🚗 ${escapeHTML(drive)}</span>` : ""}
+                ${walk ? `<span>🚶 ${escapeHTML(walk)}</span>` : ""}
+              </div>
+            ` : ""}
+          </div>
+          <div class="route-modes">
+            <a class="btn ghost compact" href="${drivingUrl}" target="_blank" rel="noopener">🚗 Rota de carro</a>
+            <a class="btn ghost compact" href="${walkingUrl}" target="_blank" rel="noopener">🚶 Rota a pé</a>
+          </div>
         </div>
-        <div class="route-modes">
-          ${drive ? `<span>🚗 ${escapeHTML(drive)}</span>` : ""}
-          ${walk ? `<span>🚶 ${escapeHTML(walk)}</span>` : ""}
-        </div>
-      </div>
-    `;
-  }).filter(Boolean).join("");
+      `;
+    }).filter(Boolean).join("");
 
   if (!rows) return "";
 
@@ -97,7 +118,7 @@ function renderUniversities(property) {
         <div><p class="eyebrow">LOCALIZAÇÃO</p><h2>Universidades próximas</h2></div>
       </div>
       <div class="university-list">${rows}</div>
-      <p class="tiny-note">Tempos de caminhada podem variar conforme calçadas, acessos e condições da via.</p>
+      <p class="tiny-note">As rotas são abertas diretamente no Google Maps, que calcula distância e tempo atualizados sem exigir uma chave paga no nosso site.</p>
     </section>
   `;
 }
@@ -148,7 +169,8 @@ async function load() {
   $("#brandName").textContent = settings.site_name;
   $("#footerName").textContent = settings.site_name;
 
-  const { data: property, error } = await db
+  const [propertyResult, universitiesResult] = await Promise.all([
+    db
     .from("properties")
     .select(`
       *,
@@ -157,7 +179,13 @@ async function load() {
       property_university_routes(*, universities(*))
     `)
     .eq("id", id)
-    .maybeSingle();
+    .maybeSingle(),
+    db.from("universities").select("*").eq("active", true).order("sort_order").order("name")
+  ]);
+
+  const property = propertyResult.data;
+  const error = propertyResult.error;
+  const universities = universitiesResult.data || [];
 
   if (error || !property) {
     $("#detailRoot").innerHTML = '<div class="error-card">Este imóvel não está disponível no catálogo.</div>';
@@ -228,7 +256,7 @@ async function load() {
           </div>
         </section>
 
-        ${renderUniversities(property)}
+        ${renderUniversities(property, universities)}
         ${renderMap(property)}
       </div>
 
