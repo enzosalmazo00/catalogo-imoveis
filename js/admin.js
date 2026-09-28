@@ -812,7 +812,7 @@ function universityModal(row=null) {
       <label class="span-2">Endereço<input name="address" required value="${escapeHTML(row?.address||"")}" placeholder="Endereço da faculdade"></label>
       <label class="span-2">Link exato no Google Maps
         <input name="google_maps_url" type="url" required value="${escapeHTML(row?.google_maps_url||"")}" placeholder="Google Maps → Compartilhar → Copiar link">
-        <small>O sistema obtém latitude e longitude automaticamente deste link e todos os anúncios usam esta localização.</small>
+        <small>Use o link compartilhado a partir do pino/ficha exata da faculdade. Links que retornarem apenas o centro aproximado do mapa serão recusados.</small>
       </label>
       ${row?.latitude!=null&&row?.longitude!=null?`<div class="span-2 tiny-note">Localização registrada: ${row.latitude}, ${row.longitude}</div>`:""}
       <div id="universitySaveMessage" class="form-message span-2" aria-live="polite"></div>
@@ -1040,11 +1040,15 @@ async function saveUniversity(form){
     }
 
     if(resolved.data?.latitude==null || resolved.data?.longitude==null){
-      throw new Error("O link não retornou a localização exata. Abra o ponto da faculdade no Google Maps, toque em Compartilhar e copie o link novamente.");
+      throw new Error("O link não retornou coordenadas. Abra a ficha exata da faculdade no Google Maps, toque em Compartilhar e copie o link novamente.");
+    }
+
+    if(resolved.data?.precision!=="exact"){
+      throw new Error("Esse link retornou apenas o centro aproximado do mapa. Abra a ficha da faculdade no Google Maps, selecione exatamente o local/pino da faculdade e use Compartilhar → Copiar link.");
     }
 
     if(saveBtn) saveBtn.textContent="Salvando...";
-    if(msg) msg.textContent="Localização encontrada. Salvando faculdade...";
+    if(msg) msg.textContent="Pino exato encontrado. Salvando faculdade...";
 
     const row={
       name:String(fd.get("name")||"").trim(),
