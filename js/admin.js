@@ -765,13 +765,14 @@ function rentalReceiptModal(property) {
 
   const management=state.management.find(m=>m.property_id===property.id);
   const owner=state.owners.find(o=>o.id===management?.owner_id);
+  const showAdvisory=property.closing_mode!=="direct_owner" && property.has_advisory_fee;
 
   showModal(`
     <div class="modal-head">
       <div>
         <p class="eyebrow">FINALIZAR LOCAÇÃO</p>
         <h2>Preencher recibo obrigatório</h2>
-        <p class="muted">Ao confirmar, o imóvel será excluído da base de anúncios, sairá do catálogo e suas fotos/mídias serão removidas. Somente o recibo abaixo será preservado.</p>
+        <p class="muted">Este recibo é voltado ao cliente. Não contém comissão do proprietário nem informações financeiras internas.</p>
       </div>
       <button class="icon-btn" type="button" data-action="close-modal">✕</button>
     </div>
@@ -822,27 +823,19 @@ function rentalReceiptModal(property) {
         </select>
       </label>
 
-      <label>Comissão recebida do proprietário
-        <input name="commission_amount" type="number" min="0" step="1" required value="0">
+${showAdvisory?`
+      <div class="form-section-title property-section-title">Assessoria</div>
+      <label>Valor da assessoria
+        <input name="advisory_fee_amount" type="number" min="0" step="1" required value="${property.advisory_fee??0}">
       </label>
 
-      <label>Comissão paga?
-        <select name="commission_paid">
-          <option value="false">Não</option>
-          <option value="true">Sim</option>
-        </select>
-      </label>
-
-      <label>Taxa de assessoria
-        <input name="advisory_fee_amount" type="number" min="0" step="1" required value="${property.has_advisory_fee?(property.advisory_fee??0):0}">
-      </label>
-
-      <label>Taxa de assessoria paga?
+      <label>Assessoria paga?
         <select name="advisory_fee_paid">
           <option value="false">Não</option>
           <option value="true">Sim</option>
         </select>
       </label>
+      `:""}
 
       <label>Data de início da locação
         <input name="start_date" type="date" required>
@@ -880,6 +873,7 @@ async function markPropertyRented(form) {
     return;
   }
 
+  const showAdvisory=property.closing_mode!=="direct_owner" && property.has_advisory_fee;
   const receipt={
     owner_name:String(fd.get("owner_name")||"").trim(),
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
@@ -889,10 +883,8 @@ async function markPropertyRented(form) {
     monthly_rent:Number(fd.get("monthly_rent")||0),
     security_deposit:Number(fd.get("security_deposit")||0),
     security_deposit_paid:fd.get("security_deposit_paid")==="true",
-    commission_amount:Number(fd.get("commission_amount")||0),
-    commission_paid:fd.get("commission_paid")==="true",
-    advisory_fee_amount:Number(fd.get("advisory_fee_amount")||0),
-    advisory_fee_paid:fd.get("advisory_fee_paid")==="true",
+    advisory_fee_amount:showAdvisory?Number(fd.get("advisory_fee_amount")||0):null,
+    advisory_fee_paid:showAdvisory && fd.get("advisory_fee_paid")==="true",
     start_date:fd.get("start_date"),
     rent_due_day:fd.get("rent_due_day")?Number(fd.get("rent_due_day")):null,
     notes:String(fd.get("notes")||"").trim()||null
@@ -1384,8 +1376,7 @@ function renderCreditFinance(){
         <td><strong>${escapeHTML(r.tenant_name||"—")}</strong></td>
         <td>${money(r.monthly_rent||0,r.currency||"BRL")}</td>
         <td>${money(r.security_deposit||0,r.currency||"BRL")}</td>
-        <td>${money(r.commission_amount||0,r.currency||"BRL")}</td>
-        <td>${money(r.advisory_fee_amount||0,r.currency||"BRL")}</td>
+        <td>${r.had_advisory_fee && r.advisory_fee_amount!=null?money(r.advisory_fee_amount,r.currency||"BRL"):"—"}</td>
         <td>${escapeHTML(handledBy)}</td>
       </tr>
     `;
@@ -1427,8 +1418,8 @@ function renderCreditFinance(){
 
       <div class="admin-table-wrap">
         <table class="admin-table">
-          <thead><tr><th>Início</th><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Caução</th><th>Comissão</th><th>Assessoria</th><th>Responsável</th></tr></thead>
-          <tbody>${receiptRows || '<tr><td colspan="9" class="muted">Nenhum recibo de locação registrado.</td></tr>'}</tbody>
+          <thead><tr><th>Início</th><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Caução</th><th>Assessoria</th><th>Responsável</th></tr></thead>
+          <tbody>${receiptRows || '<tr><td colspan="8" class="muted">Nenhum recibo de locação registrado.</td></tr>'}</tbody>
         </table>
       </div>
     </section>
