@@ -54,6 +54,12 @@ function renderCard(property) {
         <div class="property-location">⌖ ${escapeHTML(locationText(property))}</div>
         <div class="property-public-code">${escapeHTML(property.public_code||"")}</div>
         <h3>${escapeHTML(property.title)}</h3>
+        <div class="property-commercial-tags">
+          <span>${property.advertiser_role==="owner"?"🏠 Proprietário":"🤝 Corretor / assessor"}</span>
+          ${property.has_advisory_fee
+            ? `<span class="fee">Assessoria: ${property.advisory_fee!=null?money(property.advisory_fee,property.currency):"sob consulta"}</span>`
+            : '<span>Sem taxa de assessoria</span>'}
+        </div>
 
         <div class="property-facts">
           <span>🛏 ${property.bedrooms ?? 0} quarto${Number(property.bedrooms) === 1 ? "" : "s"}</span>
