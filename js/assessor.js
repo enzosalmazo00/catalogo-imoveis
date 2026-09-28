@@ -702,65 +702,42 @@ async function markPropertyRented(form){
     return;
   }
 
-  const num=name=>Number(fd.get(name)||0);
-  const row={
-    advisor_id:currentUser.id,
-    property_id:property.id,
-    property_code:property.public_code||null,
-    property_title:property.title||null,
+  const receipt={
     owner_name:String(fd.get("owner_name")||"").trim(),
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
     tenant_name:String(fd.get("tenant_name")||"").trim(),
     tenant_phone:String(fd.get("tenant_phone")||"").trim()||null,
     currency:fd.get("currency")||property.currency||"BRL",
-    monthly_rent:num("monthly_rent"),
-    security_deposit:num("security_deposit"),
+    monthly_rent:Number(fd.get("monthly_rent")||0),
+    security_deposit:Number(fd.get("security_deposit")||0),
     security_deposit_paid:fd.get("security_deposit_paid")==="true",
-    commission_amount:num("commission_amount"),
+    commission_amount:Number(fd.get("commission_amount")||0),
     commission_paid:fd.get("commission_paid")==="true",
-    advisory_fee_amount:num("advisory_fee_amount"),
+    advisory_fee_amount:Number(fd.get("advisory_fee_amount")||0),
     advisory_fee_paid:fd.get("advisory_fee_paid")==="true",
     start_date:fd.get("start_date"),
-    end_date:null,
     rent_due_day:fd.get("rent_due_day")?Number(fd.get("rent_due_day")):null,
-    status:"active",
     notes:String(fd.get("notes")||"").trim()||null
   };
-
-  if(!row.owner_name || !row.tenant_name || !row.start_date){
-    if(msg) msg.textContent="Preencha os campos obrigatórios do recibo.";
-    return;
-  }
 
   if(submit){
     submit.disabled=true;
     submit.textContent="Finalizando...";
   }
-  if(msg) msg.textContent="Salvando recibo antes de remover o anúncio...";
+  if(msg) msg.textContent="Salvando recibo e removendo o anúncio...";
 
-  const receipt=await db.from("advisor_rental_control").insert(row).select("id").single();
-  if(receipt.error){
-    if(msg) msg.textContent=receipt.error.message;
+  const result=await db.rpc("finalize_property_rental",{
+    p_property_id:property.id,
+    p_receipt:receipt
+  });
+
+  if(result.error){
+    if(msg) msg.textContent=result.error.message;
     if(submit){submit.disabled=false;submit.textContent="Confirmar aluguel e excluir anúncio";}
     return;
   }
 
-  const paths=(property.property_media||[])
-    .filter(m=>m.media_type==="image" && m.storage_path)
-    .map(m=>m.storage_path);
-
-  const deletion=await db.from("properties")
-    .delete()
-    .eq("id",property.id)
-    .eq("advisor_id",currentUser.id);
-
-  if(deletion.error){
-    await db.from("advisor_rental_control").delete().eq("id",receipt.data.id).eq("advisor_id",currentUser.id);
-    if(msg) msg.textContent="Não foi possível excluir o anúncio: "+deletion.error.message;
-    if(submit){submit.disabled=false;submit.textContent="Confirmar aluguel e excluir anúncio";}
-    return;
-  }
-
+  const paths=Array.isArray(result.data?.storage_paths)?result.data.storage_paths:[];
   let cleanupWarning="";
   if(paths.length){
     const cleanup=await db.storage.from(STORAGE_BUCKET).remove(paths);
@@ -773,7 +750,7 @@ async function markPropertyRented(form){
   await loadData();
   closeAdvisorModal();
   renderPanel();
-  alert("Imóvel marcado como alugado. O anúncio foi excluído e o recibo foi preservado."+cleanupWarning);
+  alert("Imóvel marcado como alugado. O anúncio foi excluído e somente o recibo foi preservado."+cleanupWarning);
 }
 
 function renderPanel(){
