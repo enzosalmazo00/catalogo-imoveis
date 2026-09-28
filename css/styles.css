@@ -590,3 +590,18 @@ button,input,select,textarea{font-size:16px}
   .advisor-head-actions .btn{width:100%}
   .advisor-city-options{grid-template-columns:1fr}
 }
+
+.advisor-identity{display:flex;align-items:center;gap:14px;min-width:0}
+.advisor-avatar{width:54px;height:54px;border-radius:50%;background:#e8f1ee;color:var(--green-dark);display:grid;place-items:center;font-weight:900;font-size:18px;flex:0 0 auto;background-size:cover;background-position:center;border:2px solid #fff;box-shadow:0 0 0 1px var(--border)}
+.advisor-avatar.has-photo{color:transparent}
+.advisor-avatar-large{width:92px;height:92px;font-size:28px}
+.advisor-avatar-editor{display:flex;align-items:center;gap:18px;padding:14px;border:1px solid var(--border);border-radius:14px;background:#fafbfc}
+.advisor-avatar-upload{flex:1;min-width:0}
+.advisor-avatar-upload label{margin:0!important}
+.advisor-avatar-upload small{display:block;margin-top:7px;color:var(--muted);font-size:12px}
+@media(max-width:560px){
+  .advisor-panel-head{gap:14px}
+  .advisor-identity{width:100%}
+  .advisor-head-actions{grid-template-columns:1fr}
+  .advisor-avatar-editor{align-items:flex-start;flex-direction:column}
+}
