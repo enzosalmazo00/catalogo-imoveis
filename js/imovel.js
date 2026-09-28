@@ -171,6 +171,16 @@ async function load() {
   const nearby = featureList(property, "nearby");
   const wa = whatsappLink(settings, property);
   const waEnabled = property.status !== "rented" && wa !== "#";
+  const guaranteeType=property.guarantee_type||"deposit";
+  const depositCount=Number(property.security_deposit_count||1);
+  const depositUnit=Number(property.security_deposit||0);
+  const depositTotal=guaranteeType==="deposit"?depositUnit*depositCount:0;
+  const minimumTerm=property.minimum_contract_term==="6_months"
+    ? "6 meses"
+    : property.minimum_contract_term==="12_months"
+      ? "1 ano"
+      : "Sem tempo mínimo";
+  const contractPayer=property.contract_payer==="owner"?"proprietário":"inquilino";
 
   const currentIndex=catalogSequence.findIndex(item=>item.id===property.id);
   const previousProperty=currentIndex>0 ? catalogSequence[currentIndex-1] : null;
@@ -275,7 +285,14 @@ async function load() {
           <div class="feature-grid">
             <div class="feature-item">✓ Anunciante: ${property.advertiser_role==="owner"?"proprietário do imóvel":"corretor / assessor do imóvel"}</div>
             <div class="feature-item">✓ Fechamento: ${property.closing_mode === "direct_owner" ? "direto com o proprietário" : "via assessoria"}</div>
-            <div class="feature-item">✓ Caução: ${property.security_deposit_installment_allowed ? (property.security_deposit_max_installments ? `parcelável em até ${property.security_deposit_max_installments}x` : "parcelável") : "não parcelável"}</div>
+            <div class="feature-item">✓ Garantia: ${guaranteeType==="guarantor" ? "fiador" : `${depositCount} caução${depositCount===1?"":"ões"} de ${money(depositUnit,property.currency)} (total ${money(depositTotal,property.currency)})`}</div>
+            <div class="feature-item">✓ Tempo mínimo: ${minimumTerm}</div>
+            ${property.has_contract
+              ? `<div class="feature-item">✓ Contrato: ${money(property.contract_amount||0,property.currency)} • pago pelo ${contractPayer}</div>`
+              : '<div class="feature-item">✓ Contrato: não possui cobrança de contrato</div>'}
+            ${guaranteeType==="deposit"
+              ? `<div class="feature-item">✓ Caução: ${property.security_deposit_installment_allowed ? (property.security_deposit_max_installments ? `parcelável em até ${property.security_deposit_max_installments}x` : "parcelável") : "não parcelável"}</div>`
+              : ""}
           </div>
         </section>
 
@@ -287,8 +304,20 @@ async function load() {
         <div class="cost-card sticky-card">
           <h2 class="cost-card-title">Valores</h2>
           <div class="cost-row"><span>Aluguel</span><strong>${money(property.price, property.currency)}</strong></div>
-          <div class="cost-row"><span>Caução</span><strong>${property.security_deposit != null ? money(property.security_deposit, property.currency) : "Sob consulta"}</strong></div>
-          <div class="cost-row"><span>Parcelamento da caução</span><strong>${property.security_deposit_installment_allowed ? (property.security_deposit_max_installments ? `Até ${property.security_deposit_max_installments}x` : "Parcelável") : "Não parcelável"}</strong></div>
+          <div class="cost-row"><span>Garantia</span><strong>${guaranteeType==="guarantor"?"Fiador":"Caução"}</strong></div>
+          ${guaranteeType==="deposit"?`
+            <div class="cost-row"><span>Quantidade de cauções</span><strong>${depositCount}</strong></div>
+            <div class="cost-row"><span>Valor de cada caução</span><strong>${money(depositUnit,property.currency)}</strong></div>
+            <div class="cost-row"><span>Total das cauções</span><strong>${money(depositTotal,property.currency)}</strong></div>
+            <div class="cost-row"><span>Parcelamento da caução</span><strong>${property.security_deposit_installment_allowed ? (property.security_deposit_max_installments ? `Até ${property.security_deposit_max_installments}x` : "Parcelável") : "Não parcelável"}</strong></div>
+          `:""}
+          <div class="cost-row"><span>Tempo mínimo</span><strong>${minimumTerm}</strong></div>
+          ${property.has_contract?`
+            <div class="cost-row"><span>Valor do contrato</span><strong>${money(property.contract_amount||0,property.currency)}</strong></div>
+            <div class="cost-row"><span>Contrato pago por</span><strong>${contractPayer==="proprietário"?"Proprietário":"Inquilino"}</strong></div>
+          `:`
+            <div class="cost-row"><span>Contrato</span><strong>Sem cobrança</strong></div>
+          `}
           <div class="cost-row"><span>Fechamento</span><strong>${property.closing_mode === "direct_owner" ? "Direto com o proprietário" : "Via assessoria"}</strong></div>
           <div class="cost-row advisory-fee-row ${property.has_advisory_fee?"charged":"free"}"><span>Taxa de assessoria</span><strong>${property.has_advisory_fee ? (property.advisory_fee != null ? money(property.advisory_fee, property.currency) : "Informada pelo assessor") : "Não possui"}</strong></div>
           ${property.status === "rented"
