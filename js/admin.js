@@ -791,7 +791,13 @@ function simpleTable(kind, rows, columns) {
 function renderUniversities() {
   $("#adminContent").innerHTML = `
     <section class="admin-panel">
-      <div class="admin-panel-head"><div><p class="eyebrow">REFERÊNCIAS</p><h2>Faculdades / Universidades</h2></div><button class="btn primary" data-action="new-university">+ Nova faculdade</button></div>
+      <div class="admin-panel-head">
+      <div><p class="eyebrow">REFERÊNCIAS</p><h2>Faculdades / Universidades</h2></div>
+      <div class="table-actions">
+        <button class="btn ghost" data-action="revalidate-universities">Revalidar pinos</button>
+        <button class="btn primary" data-action="new-university">+ Nova faculdade</button>
+      </div>
+    </div>
       ${simpleTable("university",state.universities,[
         {label:"Nome",key:"name"},
         {label:"Endereço",key:"address"},
@@ -1001,6 +1007,69 @@ function renderCurrent() {
   })[state.tab]();
 }
 
+async function revalidateUniversityLocations(button=null){
+  const rows=state.universities.filter(u=>u.google_maps_url);
+  if(!rows.length){
+    alert("Nenhuma faculdade com link do Google Maps para revalidar.");
+    return;
+  }
+
+  const originalText=button?.textContent||"Revalidar pinos";
+  if(button){
+    button.disabled=true;
+    button.textContent="Revalidando...";
+  }
+
+  let updated=0;
+  const failures=[];
+
+  try{
+    for(const uni of rows){
+      try{
+        const resolved=await withTimeout(
+          db.functions.invoke("resolve-maps-link",{body:{url:uni.google_maps_url}}),
+          12000,
+          "Validação de "+uni.name
+        );
+
+        if(resolved.error || resolved.data?.error){
+          failures.push(uni.name);
+          continue;
+        }
+
+        if(resolved.data?.precision!=="exact" || resolved.data?.latitude==null || resolved.data?.longitude==null){
+          failures.push(uni.name);
+          continue;
+        }
+
+        const result=await db.from("universities").update({
+          latitude:Number(resolved.data.latitude),
+          longitude:Number(resolved.data.longitude)
+        }).eq("id",uni.id);
+
+        if(result.error) failures.push(uni.name);
+        else updated++;
+      }catch(err){
+        console.warn("Falha ao revalidar",uni.name,err);
+        failures.push(uni.name);
+      }
+    }
+
+    await refreshData();
+    renderCurrent();
+
+    const extra=failures.length
+      ? `\n\nPrecisa de novo link apenas para: ${failures.join(", ")}.`
+      : "";
+    alert(`${updated} faculdade(s) revalidada(s) com pino exato.${extra}`);
+  }finally{
+    if(button && document.body.contains(button)){
+      button.disabled=false;
+      button.textContent=originalText;
+    }
+  }
+}
+
 async function saveUniversity(form){
   const msg=form.querySelector("#universitySaveMessage");
   const saveBtn=form.querySelector('[data-action="save-university"]');
@@ -1125,6 +1194,7 @@ $("#adminContent").addEventListener("click",async event=>{
   if(action==="delete-property") await deleteProperty(id);
 
   if(action==="new-university") universityModal();
+  if(action==="revalidate-universities") await revalidateUniversityLocations(event.target.closest('[data-action="revalidate-universities"]'));
   if(action==="edit-university") universityModal(state.universities.find(x=>x.id===id));
   if(action==="delete-university") await deleteSimple("universities",id,"esta universidade");
 
