@@ -291,6 +291,17 @@ async function startPayment(planId,renewalOf=null,offerId=null){
 }
 
 async function boot(){
+  const hashParams=new URLSearchParams(location.hash.replace(/^#/,""));
+  const searchParams=new URLSearchParams(location.search);
+  const isRecovery=hashParams.get("type")==="recovery" || searchParams.get("type")==="recovery";
+
+  if(isRecovery){
+    $("#advisorAuth").classList.add("hidden");
+    $("#advisorPanel").classList.add("hidden");
+    $("#advisorResetPassword").classList.remove("hidden");
+    return;
+  }
+
   const {data:{user}}=await db.auth.getUser();
   currentUser=user;
   if(!user){
@@ -338,6 +349,61 @@ document.addEventListener("click",async e=>{
 $("#advisorModal").addEventListener("submit",async e=>{
   e.preventDefault();
   if(e.target.id==="advisorPropertyForm") await saveProperty(e.target);
+});
+
+$("#forgotPasswordBtn").addEventListener("click",async()=>{
+  const email=$("#advisorLoginEmail").value.trim();
+  const msg=$("#advisorAuthMessage");
+  if(!email){
+    msg.textContent="Digite seu e-mail primeiro para receber o link de recuperação.";
+    $("#advisorLoginEmail").focus();
+    return;
+  }
+  msg.textContent="Enviando link de recuperação...";
+  const redirectTo=location.origin + location.pathname + "?type=recovery";
+  const {error}=await db.auth.resetPasswordForEmail(email,{redirectTo});
+  if(error){
+    msg.textContent=error.message;
+    return;
+  }
+  msg.textContent="Se esse e-mail estiver cadastrado, enviaremos um link para redefinir sua senha.";
+});
+
+$("#advisorResetPasswordForm").addEventListener("submit",async e=>{
+  e.preventDefault();
+  const password=$("#advisorNewPassword").value;
+  const confirm=$("#advisorConfirmPassword").value;
+  const msg=$("#advisorResetMessage");
+
+  if(password.length<6){
+    msg.textContent="A nova senha deve ter pelo menos 6 caracteres.";
+    return;
+  }
+  if(password!==confirm){
+    msg.textContent="As senhas não coincidem.";
+    return;
+  }
+
+  msg.textContent="Salvando nova senha...";
+  const {error}=await db.auth.updateUser({password});
+  if(error){
+    msg.textContent=error.message;
+    return;
+  }
+
+  msg.textContent="Senha alterada com sucesso. Você já pode entrar com a nova senha.";
+  setTimeout(async()=>{
+    await db.auth.signOut();
+    location.href="assessor.html";
+  },1200);
+});
+
+db.auth.onAuthStateChange((event)=>{
+  if(event==="PASSWORD_RECOVERY"){
+    $("#advisorAuth").classList.add("hidden");
+    $("#advisorPanel").classList.add("hidden");
+    $("#advisorResetPassword").classList.remove("hidden");
+  }
 });
 
 $("#advisorLoginForm").addEventListener("submit",async e=>{
