@@ -423,7 +423,14 @@ $("#advisorSignupForm").addEventListener("submit",async e=>{
     whatsapp:$("#advisorSignupWhatsapp").value.replace(/\D/g,""),
     city:$("#advisorSignupCity").value.trim()
   };
-  const {data,error}=await db.auth.signUp({email:$("#advisorSignupEmail").value.trim(),password:$("#advisorSignupPassword").value,options:{data:meta}});
+  const {data,error}=await db.auth.signUp({
+    email:$("#advisorSignupEmail").value.trim(),
+    password:$("#advisorSignupPassword").value,
+    options:{
+      data:meta,
+      emailRedirectTo:location.origin + "/assessor.html"
+    }
+  });
   if(error){msg.textContent=error.message;return;}
   if(data.session){msg.textContent="";await boot();}
   else msg.textContent="Conta criada. Confirme seu e-mail e depois faça login.";
