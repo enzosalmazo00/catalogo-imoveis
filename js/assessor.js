@@ -957,32 +957,40 @@ async function boot(){
   if(bootActions) bootActions.classList.add("hidden");
   if(bootSpinner) bootSpinner.classList.remove("hidden");
   if(bootTitle) bootTitle.textContent="Abrindo sua área...";
-  if(bootText) bootText.textContent="Carregando sua sessão.";
+  if(bootText) bootText.textContent="Validando sua sessão.";
 
   try{
-    const sessionResult=await withTimeout(
-      db.auth.getSession(),
-      5000,
-      "Verificação da sessão"
+    // getUser valida o usuário atual no servidor e evita depender apenas
+    // de uma sessão local antiga do navegador.
+    const userResult=await withTimeout(
+      db.auth.getUser(),
+      7000,
+      "Validação da sessão"
     );
 
-    const user=sessionResult?.data?.session?.user||null;
-    currentUser=user;
+    const user=userResult?.data?.user||null;
+    const authError=userResult?.error||null;
 
-    if(!user){
+    if(authError || !user){
+      currentUser=null;
       loader?.classList.add("hidden");
       $("#advisorAuth").classList.remove("hidden");
       $("#advisorPanel").classList.add("hidden");
+
+      if(authError){
+        $("#advisorAuthMessage").textContent="Sua sessão neste aparelho expirou. Entre novamente.";
+      }
       return;
     }
 
+    currentUser=user;
     await enterAdvisorPanel(user);
   }catch(err){
-    console.warn("Sessão demorou para responder neste dispositivo:",err);
+    console.warn("Falha ao validar sessão neste dispositivo:",err);
 
     if(bootSpinner) bootSpinner.classList.add("hidden");
-    if(bootTitle) bootTitle.textContent="Não conseguimos abrir sua sessão neste aparelho.";
-    if(bootText) bootText.textContent="Isso pode acontecer por cache ou sessão presa no navegador. Você pode tentar novamente ou entrar de novo.";
+    if(bootTitle) bootTitle.textContent="Não conseguimos validar sua sessão neste aparelho.";
+    if(bootText) bootText.textContent="Tente novamente. Se continuar, entre novamente para criar uma sessão nova neste navegador.";
     if(bootActions) bootActions.classList.remove("hidden");
   }
 }
@@ -1071,14 +1079,24 @@ $("#advisorResetPasswordForm").addEventListener("submit",async e=>{
   },1200);
 });
 
-db.auth.onAuthStateChange((event)=>{
-  if(event==="PASSWORD_RECOVERY"){
-    $("#advisorBootLoader")?.classList.add("hidden");
-    $("#advisorAuth").classList.add("hidden");
-    $("#advisorPanel").classList.add("hidden");
-    $("#advisorResetPassword").classList.remove("hidden");
-  }
-});
+let authObserverRegistered=false;
+function registerAuthObserver(){
+  if(authObserverRegistered) return;
+  authObserverRegistered=true;
+
+  db.auth.onAuthStateChange((event)=>{
+    if(event==="PASSWORD_RECOVERY"){
+      $("#advisorBootLoader")?.classList.add("hidden");
+      $("#advisorAuth").classList.add("hidden");
+      $("#advisorPanel").classList.add("hidden");
+      $("#advisorResetPassword").classList.remove("hidden");
+    }
+
+    if(event==="SIGNED_OUT"){
+      currentUser=null;
+    }
+  });
+}
 
 $("#advisorLoginForm").addEventListener("submit",async e=>{
   e.preventDefault();
@@ -1138,19 +1156,40 @@ $("#advisorSignupForm").addEventListener("submit",async e=>{
 
 $("#advisorBootRetry")?.addEventListener("click",()=>boot());
 
-$("#advisorBootLogin")?.addEventListener("click",async()=>{
+$("#advisorBootLogin")?.addEventListener("click",()=>{
   try{
-    await withTimeout(db.auth.signOut({scope:"local"}),3000,"Limpeza da sessão");
+    const prefix="sb-jljkpeoxisljrseqjhgm-auth-token";
+    Object.keys(localStorage).forEach(key=>{
+      if(key.includes(prefix)) localStorage.removeItem(key);
+    });
+    Object.keys(sessionStorage).forEach(key=>{
+      if(key.includes(prefix)) sessionStorage.removeItem(key);
+    });
   }catch(err){
-    console.warn("Não foi possível limpar a sessão antiga:",err);
+    console.warn("Não foi possível limpar o armazenamento local:",err);
   }
 
+  currentUser=null;
   $("#advisorBootLoader")?.classList.add("hidden");
   $("#advisorPanel").classList.add("hidden");
   $("#advisorResetPassword").classList.add("hidden");
   $("#advisorAuth").classList.remove("hidden");
-  $("#advisorAuthMessage").textContent="Entre novamente neste aparelho.";
+  $("#advisorAuthMessage").textContent="Sessão deste aparelho limpa. Entre novamente.";
 });
 
-$("#advisorLogout").addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
-boot();
+$("#advisorLogout").addEventListener("click",async()=>{
+  try{
+    await withTimeout(db.auth.signOut(),7000,"Saída da conta");
+  }catch(err){
+    console.warn("Falha ao encerrar sessão pelo SDK:",err);
+    try{
+      const prefix="sb-jljkpeoxisljrseqjhgm-auth-token";
+      Object.keys(localStorage).forEach(key=>{
+        if(key.includes(prefix)) localStorage.removeItem(key);
+      });
+    }catch{}
+  }
+  location.reload();
+});
+
+boot().finally(()=>registerAuthObserver());
