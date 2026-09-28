@@ -816,3 +816,27 @@ button,input,select,textarea{font-size:16px}
 .advisor-credit-breakdown>span{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.1);font-size:11px;font-weight:800}
 .advisor-bonus-credit-box{background:rgba(255,220,120,.16)!important}
 .advisor-credit-coin.bonus{background:#fff8dc;border-color:#f0c85b;font-size:15px}
+
+.admin-advisor-list{display:flex;flex-direction:column;gap:14px}
+.admin-advisor-card{border:1px solid var(--border);border-radius:16px;padding:18px;background:#fff}
+.admin-advisor-head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.admin-advisor-head h3{margin:3px 0 3px;color:var(--navy)}
+.admin-advisor-head span,.admin-advisor-head small{display:block;color:var(--muted)}
+.admin-advisor-credit-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-top:14px}
+.admin-advisor-credit-grid>div{padding:12px;border:1px solid var(--border);border-radius:12px;background:#fafcfc;display:flex;flex-direction:column;gap:3px}
+.admin-advisor-credit-grid>div.bonus{background:#fff9e7;border-color:#ead28c}
+.admin-advisor-credit-grid span{font-size:11px;color:var(--muted)}
+.admin-advisor-credit-grid strong{font-size:22px;color:var(--navy)}
+.admin-bonus-batches{margin-top:14px;padding-top:12px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:8px}
+.admin-bonus-row{display:grid;grid-template-columns:1fr auto;gap:5px 10px;align-items:center;padding:10px 12px;border:1px solid #ead28c;border-radius:12px;background:#fffaf0}
+.admin-bonus-row small{grid-column:1;color:var(--muted)}
+.input-with-suffix{display:flex;align-items:center;gap:8px}
+.input-with-suffix input{flex:1}
+.input-with-suffix span{font-size:12px;color:var(--muted);font-weight:800}
+.credit-sales-table{min-width:920px}
+@media(max-width:760px){
+  .admin-advisor-head{flex-direction:column}
+  .admin-advisor-credit-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .admin-bonus-row{grid-template-columns:1fr}
+  .admin-bonus-row small{grid-column:auto}
+}
