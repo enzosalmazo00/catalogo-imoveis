@@ -174,7 +174,10 @@ async function load() {
         </div>
         <h1>${escapeHTML(property.title)}</h1>
         <p class="detail-location">⌖ ${escapeHTML(locationText(property))}</p>
-        ${property.advisor_name ? `<p class="detail-advisor">Assessor responsável: <strong>${escapeHTML(property.advisor_name)}</strong>${property.advisor_company?` · ${escapeHTML(property.advisor_company)}`:""}</p>` : ""}
+        <div class="listing-party-badge ${property.advertiser_role==="owner"?"owner":"broker"}">
+          ${property.advertiser_role==="owner"?"🏠 Anunciado pelo proprietário":"🤝 Anunciado por corretor / assessor"}
+        </div>
+        ${property.advisor_name ? `<p class="detail-advisor">${property.advertiser_role==="owner"?"Responsável pelo anúncio":"Assessor responsável"}: <strong>${escapeHTML(property.advisor_name)}</strong>${property.advisor_company?` · ${escapeHTML(property.advisor_company)}`:""}</p>` : ""}
       </div>
       <div class="detail-price">
         <span>Aluguel mensal</span>
@@ -254,6 +257,7 @@ async function load() {
         <section class="detail-section">
           <p class="eyebrow">CONDIÇÕES</p><h2>Condições do imóvel</h2>
           <div class="feature-grid">
+            <div class="feature-item">✓ Anunciante: ${property.advertiser_role==="owner"?"proprietário do imóvel":"corretor / assessor do imóvel"}</div>
             <div class="feature-item">✓ Fechamento: ${property.closing_mode === "direct_owner" ? "direto com o proprietário" : "via assessoria"}</div>
             <div class="feature-item">✓ Caução: ${property.security_deposit_installment_allowed ? (property.security_deposit_max_installments ? `parcelável em até ${property.security_deposit_max_installments}x` : "parcelável") : "não parcelável"}</div>
           </div>
@@ -270,7 +274,7 @@ async function load() {
           <div class="cost-row"><span>Caução</span><strong>${property.security_deposit != null ? money(property.security_deposit, property.currency) : "Sob consulta"}</strong></div>
           <div class="cost-row"><span>Parcelamento da caução</span><strong>${property.security_deposit_installment_allowed ? (property.security_deposit_max_installments ? `Até ${property.security_deposit_max_installments}x` : "Parcelável") : "Não parcelável"}</strong></div>
           <div class="cost-row"><span>Fechamento</span><strong>${property.closing_mode === "direct_owner" ? "Direto com o proprietário" : "Via assessoria"}</strong></div>
-          <div class="cost-row"><span>Taxa de assessoria</span><strong>${property.has_advisory_fee ? (property.advisory_fee != null ? money(property.advisory_fee, property.currency) : "Sob consulta") : "Não possui"}</strong></div>
+          <div class="cost-row advisory-fee-row ${property.has_advisory_fee?"charged":"free"}"><span>Taxa de assessoria</span><strong>${property.has_advisory_fee ? (property.advisory_fee != null ? money(property.advisory_fee, property.currency) : "Informada pelo assessor") : "Não possui"}</strong></div>
           ${property.status === "rented"
             ? '<div class="rented-notice">Este imóvel está alugado.</div>'
             : waEnabled
