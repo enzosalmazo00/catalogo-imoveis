@@ -157,10 +157,11 @@ function propertyTable(list) {
   return `
     <div class="admin-table-wrap">
       <table class="admin-table">
-        <thead><tr><th>Imóvel</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Publicação</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Código</th><th>Imóvel</th><th>Tipo</th><th>Valor</th><th>Status</th><th>Publicação</th><th>Ações</th></tr></thead>
         <tbody>
           ${list.map(p => `
             <tr>
+              <td><strong class="admin-property-code">${escapeHTML(p.public_code||"—")}</strong></td>
               <td><strong>${escapeHTML(p.title)}</strong><br><span class="muted">${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</span></td>
               <td>${escapeHTML(propertyTypeLabel(p.property_type))}</td>
               <td>${money(p.price,p.currency)}</td>
@@ -181,14 +182,73 @@ function propertyTable(list) {
   `;
 }
 
+function advisorPropertyGroups(){
+  const groups=new Map();
+
+  state.properties.forEach(property=>{
+    const key=property.advisor_id || "__admin__";
+    if(!groups.has(key)){
+      groups.set(key,{
+        key,
+        advisor_id:property.advisor_id||null,
+        advisor_name:property.advisor_id ? (property.advisor_name||"Assessor sem nome") : "Imóveis da administração",
+        advisor_company:property.advisor_id ? (property.advisor_company||"") : "Cadastro direto pelo administrador",
+        properties:[]
+      });
+    }
+    groups.get(key).properties.push(property);
+  });
+
+  return [...groups.values()].sort((a,b)=>{
+    if(a.key==="__admin__") return 1;
+    if(b.key==="__admin__") return -1;
+    return String(a.advisor_name).localeCompare(String(b.advisor_name),"pt-BR");
+  });
+}
+
+function advisorPropertyGroupCard(group){
+  const total=group.properties.length;
+  const available=group.properties.filter(p=>p.status==="available").length;
+  const rented=group.properties.filter(p=>p.status==="rented").length;
+  const published=group.properties.filter(p=>p.is_published).length;
+
+  return `
+    <section class="advisor-property-admin-group">
+      <div class="advisor-property-admin-head">
+        <div>
+          <p class="eyebrow">${group.advisor_id?"CORRETOR / ASSESSOR":"ADMINISTRAÇÃO"}</p>
+          <h3>${escapeHTML(group.advisor_name)}</h3>
+          ${group.advisor_company ? `<span>${escapeHTML(group.advisor_company)}</span>` : ""}
+        </div>
+        <div class="advisor-property-admin-stats">
+          <strong>${total} ${total===1?"imóvel":"imóveis"}</strong>
+          <span>${available} disponíveis · ${rented} alugados · ${published} publicados</span>
+        </div>
+      </div>
+      ${propertyTable(group.properties)}
+    </section>
+  `;
+}
+
 function renderProperties() {
+  const groups=advisorPropertyGroups();
+
   $("#adminContent").innerHTML = `
     <section class="admin-panel">
       <div class="admin-panel-head">
-        <div><p class="eyebrow">CATÁLOGO</p><h2>Imóveis cadastrados</h2></div>
+        <div>
+          <p class="eyebrow">CATÁLOGO</p>
+          <h2>Imóveis por corretor</h2>
+          <p class="muted">Cada corretor / assessor aparece em um bloco separado para facilitar a gestão dos anúncios.</p>
+        </div>
         <button class="btn primary" data-action="new-property">+ Cadastrar imóvel</button>
       </div>
-      ${propertyTable(state.properties)}
+
+      <div class="advisor-property-admin-groups">
+        ${groups.length
+          ? groups.map(advisorPropertyGroupCard).join("")
+          : '<div class="empty-state"><strong>Nenhum imóvel cadastrado.</strong></div>'}
+      </div>
     </section>
   `;
 }
