@@ -782,6 +782,7 @@ async function loadPropertyDraft(form,property){
 
   if(data?.draft_data){
     applyPropertyDraft(form,data.draft_data);
+    wirePropertyTechnicalFields(form);
     if(status){
       status.innerHTML=`<strong>Rascunho recuperado ✓</strong><span>Salvo em ${fmtDate(data.updated_at)}. Fotos precisam ser selecionadas novamente.</span>`;
       status.classList.remove("hidden");
@@ -840,6 +841,25 @@ async function deletePropertyDraft(form,{silent=false}={}){
   return true;
 }
 
+function wirePropertyTechnicalFields(form){
+  if(!form) return;
+
+  const update=()=>{
+    const type=form.querySelector('[name="property_type"]')?.value;
+    const housing=form.querySelector('[name="housing_context"]')?.value;
+    const garage=form.querySelector('[name="garage_scope"]')?.value;
+
+    form.querySelector("#distributionFields")?.classList.toggle("hidden",type==="monoambiente");
+    form.querySelector("#condominiumNameField")?.classList.toggle("hidden",housing!=="condominium");
+    form.querySelector("#garageDetails")?.classList.toggle("hidden",garage==="none");
+  };
+
+  ["property_type","housing_context","garage_scope"].forEach(name=>{
+    form.querySelector(`[name="${name}"]`)?.addEventListener("change",update);
+  });
+  update();
+}
+
 function propertyModal(property=null){
   pendingPropertyFiles=[];
   pendingPropertyCoverExplicit=false;
@@ -860,6 +880,8 @@ function propertyModal(property=null){
   const selectedIds=(property?.property_features||[]).map(x=>x.feature_id);
   const furnitureChips=featureChips("furniture",selectedIds);
   const includedChips=featureChips("included",selectedIds);
+  const securityChips=featureChips("security",selectedIds);
+  const nearbyChips=featureChips("nearby",selectedIds);
 
   showAdvisorPropertyPage(`
     <div class="modal-head">
@@ -914,12 +936,19 @@ function propertyModal(property=null){
 
       <div class="form-section-title property-section-title">2. Valores e condições</div>
 
+      <label>Moeda
+        <select name="currency" required>
+          <option value="BRL" ${(property?.currency||"BRL")==="BRL"?"selected":""}>Real brasileiro (R$)</option>
+          <option value="PYG" ${property?.currency==="PYG"?"selected":""}>Guarani paraguaio (₲)</option>
+        </select>
+      </label>
+
       <label>Valor mensal
-        <input name="price" type="number" min="0" step="0.01" required value="${property?.price??""}" placeholder="Ex.: 1500">
+        <input name="price" type="number" min="0" step="1" required value="${property?.price??""}" placeholder="Ex.: 1500">
       </label>
 
       <label>Valor da caução
-        <input name="security_deposit" type="number" min="0" step="0.01" value="${property?.security_deposit??""}" placeholder="Ex.: 1500">
+        <input name="security_deposit" type="number" min="0" step="1" value="${property?.security_deposit??""}" placeholder="Ex.: 1500">
       </label>
 
       <label>Caução pode ser parcelada?
@@ -943,21 +972,111 @@ function propertyModal(property=null){
         </select>
       </label>
 
-      <div></div>
+      <div class="form-section-title property-section-title">3. Tipo, acesso e distribuição</div>
 
-      <div class="form-section-title property-section-title">3. Mobília e estrutura</div>
+      <label>O imóvel é
+        <select name="housing_context" id="housingContext">
+          <option value="independent" ${property?.housing_context!=="condominium"?"selected":""}>Independente</option>
+          <option value="condominium" ${property?.housing_context==="condominium"?"selected":""}>Em condomínio</option>
+        </select>
+      </label>
+
+      <label id="condominiumNameField" class="${property?.housing_context==="condominium"?"":"hidden"}">Nome do condomínio
+        <input name="condominium_name" value="${escapeHTML(property?.condominium_name||"")}" placeholder="Ex.: Residencial Central">
+      </label>
+
+      <label>É imóvel de fundo?
+        <select name="is_rear_unit">
+          <option value="false" ${!property?.is_rear_unit?"selected":""}>Não</option>
+          <option value="true" ${property?.is_rear_unit?"selected":""}>Sim</option>
+        </select>
+      </label>
+
+      <label>Tem escada para acessar o imóvel?
+        <select name="has_stairs_access">
+          <option value="false" ${!property?.has_stairs_access?"selected":""}>Não</option>
+          <option value="true" ${property?.has_stairs_access?"selected":""}>Sim</option>
+        </select>
+      </label>
+
+      <div id="distributionFields" class="span-2 conditional-subgrid ${property?.property_type==="monoambiente"?"hidden":""}">
+        <label>Quantidade total de cômodos
+          <input name="room_count" type="number" min="1" step="1" value="${property?.room_count??""}" placeholder="Ex.: 5">
+        </label>
+
+        <label>Sala
+          <select name="has_living_room">
+            <option value="false" ${!property?.has_living_room?"selected":""}>Não</option>
+            <option value="true" ${property?.has_living_room?"selected":""}>Sim</option>
+          </select>
+        </label>
+
+        <label>Cozinha
+          <select name="has_kitchen">
+            <option value="false" ${!property?.has_kitchen?"selected":""}>Não</option>
+            <option value="true" ${property?.has_kitchen?"selected":""}>Sim</option>
+          </select>
+        </label>
+      </div>
+
+      <label>Lavanderia
+        <select name="laundry_type">
+          <option value="none" ${(property?.laundry_type||"none")==="none"?"selected":""}>Não possui</option>
+          <option value="private" ${property?.laundry_type==="private"?"selected":""}>Privativa</option>
+          <option value="shared" ${property?.laundry_type==="shared"?"selected":""}>Compartilhada</option>
+        </select>
+      </label>
+
+      <label>Garagem
+        <select name="garage_scope" id="garageScope">
+          <option value="none" ${(property?.garage_scope||"none")==="none"?"selected":""}>Não possui</option>
+          <option value="shared" ${property?.garage_scope==="shared"?"selected":""}>Coletiva / compartilhada</option>
+          <option value="private" ${property?.garage_scope==="private"?"selected":""}>Própria / privativa</option>
+        </select>
+      </label>
+
+      <div id="garageDetails" class="span-2 conditional-subgrid ${property?.garage_scope && property.garage_scope!=="none"?"":"hidden"}">
+        <label>Garagem para
+          <select name="garage_vehicle">
+            <option value="car_motorcycle" ${property?.garage_vehicle==="car_motorcycle"?"selected":""}>Carro e moto</option>
+            <option value="car" ${property?.garage_vehicle==="car"?"selected":""}>Somente carro</option>
+            <option value="motorcycle" ${property?.garage_vehicle==="motorcycle"?"selected":""}>Somente moto</option>
+          </select>
+        </label>
+
+        <label>Portão eletrônico?
+          <select name="has_electronic_gate">
+            <option value="false" ${!property?.has_electronic_gate?"selected":""}>Não</option>
+            <option value="true" ${property?.has_electronic_gate?"selected":""}>Sim</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="form-section-title property-section-title">4. Mobília e estrutura</div>
       <div class="span-2 property-options-help">Marque tudo que existe no imóvel.</div>
       <div class="span-2 checkbox-row property-option-grid">
         ${furnitureChips || '<span class="muted">Nenhuma opção cadastrada.</span>'}
       </div>
 
-      <div class="form-section-title property-section-title">4. O que está incluso no aluguel</div>
+      <div class="form-section-title property-section-title">5. Segurança</div>
+      <div class="span-2 property-options-help">Marque os recursos de segurança disponíveis.</div>
+      <div class="span-2 checkbox-row property-option-grid">
+        ${securityChips || '<span class="muted">Nenhuma opção cadastrada.</span>'}
+      </div>
+
+      <div class="form-section-title property-section-title">6. Comodidades próximas</div>
+      <div class="span-2 property-options-help">Marque o que existe nas proximidades do imóvel.</div>
+      <div class="span-2 checkbox-row property-option-grid">
+        ${nearbyChips || '<span class="muted">Nenhuma opção cadastrada.</span>'}
+      </div>
+
+      <div class="form-section-title property-section-title">7. O que está incluso no aluguel</div>
       <div class="span-2 property-options-help">Marque somente o que já está incluído no valor mensal.</div>
       <div class="span-2 checkbox-row property-option-grid">
         ${includedChips || '<span class="muted">Nenhuma opção cadastrada.</span>'}
       </div>
 
-      <div class="form-section-title property-section-title">5. Localização</div>
+      <div class="form-section-title property-section-title">8. Localização</div>
 
       <label class="span-2 maps-link-field">Link do imóvel no Google Maps
         <input name="google_maps_url" type="url" value="${escapeHTML(property?.google_maps_url||"")}" placeholder="Cole aqui o link compartilhado do Google Maps">
@@ -989,7 +1108,7 @@ function propertyModal(property=null){
 
       <div></div>
 
-      <div class="form-section-title property-section-title">6. Fotos, vídeo e descrição</div>
+      <div class="form-section-title property-section-title">9. Fotos, vídeo e descrição</div>
 
       <label class="span-2">Descrição do imóvel
         <textarea name="description" placeholder="Descreva o imóvel, condições e diferenciais.">${escapeHTML(property?.description||"")}</textarea>
@@ -1056,6 +1175,7 @@ function propertyModal(property=null){
     imageInput.value="";
   });
   renderPendingPropertyPhotos();
+  wirePropertyTechnicalFields($("#advisorPropertyForm"));
   loadPropertyDraft($("#advisorPropertyForm"),property);
 }
 
@@ -1116,7 +1236,7 @@ async function saveProperty(form){
     property_type:fd.get("property_type"),
     description:String(fd.get("description")||"").trim()||null,
     price:Number(fd.get("price")),
-    currency:"BRL",
+    currency:fd.get("currency")||"BRL",
     security_deposit:fd.get("security_deposit")?Number(fd.get("security_deposit")):null,
     security_deposit_installment_allowed:fd.get("security_deposit_installment_allowed")==="true",
     security_deposit_max_installments:fd.get("security_deposit_installment_allowed")==="true" && fd.get("security_deposit_max_installments")?Number(fd.get("security_deposit_max_installments")):null,
@@ -1125,6 +1245,17 @@ async function saveProperty(form){
     bedrooms:Number(fd.get("bedrooms")||0),
     bathrooms:Number(fd.get("bathrooms")||0),
     furnished:fd.get("furnished")==="true",
+    housing_context:fd.get("housing_context")||"independent",
+    condominium_name:fd.get("housing_context")==="condominium" ? String(fd.get("condominium_name")||"").trim()||null : null,
+    is_rear_unit:fd.get("is_rear_unit")==="true",
+    has_stairs_access:fd.get("has_stairs_access")==="true",
+    room_count:fd.get("property_type")==="monoambiente" ? null : (fd.get("room_count")?Number(fd.get("room_count")):null),
+    has_living_room:fd.get("property_type")==="monoambiente" ? false : fd.get("has_living_room")==="true",
+    has_kitchen:fd.get("property_type")==="monoambiente" ? false : fd.get("has_kitchen")==="true",
+    laundry_type:fd.get("laundry_type")||"none",
+    garage_scope:fd.get("garage_scope")||"none",
+    garage_vehicle:fd.get("garage_scope")==="none" ? "none" : (fd.get("garage_vehicle")||"none"),
+    has_electronic_gate:fd.get("garage_scope")==="none" ? false : fd.get("has_electronic_gate")==="true",
     neighborhood:String(fd.get("neighborhood")||"").trim()||null,
     city:String(fd.get("city")||"").trim()||null,
     address:String(fd.get("address")||"").trim()||null,
@@ -1142,7 +1273,6 @@ async function saveProperty(form){
     msg.textContent="2/4 • Salvando alterações...";
 
     const updateRow={...row};
-    delete updateRow.currency;
 
     const upd=await db.from("properties")
       .update(updateRow)
