@@ -972,3 +972,27 @@ button,input,select,textarea{font-size:16px}
   .credit-store-page-head{flex-direction:column}
   .credit-store-page-head .btn,.credit-store-bottom-back .btn{width:100%}
 }
+
+
+/* Feedback imediato durante a geração do PIX */
+.pix-generation-loading{
+  min-height:210px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  text-align:center;
+  padding:26px;
+}
+.pix-generation-loading strong{font-size:20px;color:var(--navy)}
+.pix-generation-loading span{font-size:13px;color:var(--muted)}
+.pix-generation-spinner{
+  width:38px;
+  height:38px;
+  border:4px solid rgba(16,36,63,.14);
+  border-top-color:var(--navy);
+  border-radius:50%;
+  animation:pixSpin .75s linear infinite;
+}
+@keyframes pixSpin{to{transform:rotate(360deg)}}
