@@ -511,3 +511,8 @@ button,input,select,textarea{font-size:16px}
   .top-nav .advisor-top-cta{padding:7px 9px}
 }
 
+
+.pix-payment-status{display:flex;flex-direction:column;gap:5px;padding:14px 16px;border-radius:12px;background:#f4f7f9;color:#536174;text-align:center}
+.pix-payment-status strong{color:var(--navy)}
+.pix-payment-status.pix-approved{background:#e8f5ef;color:#176548}
+.pix-payment-status.pix-approved strong{color:#176548}
