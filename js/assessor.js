@@ -56,7 +56,8 @@ async function ensureProfile(user){
     phone:String(meta.phone||"").replace(/\D/g,"")||null,
     company_name:meta.company_name||null,
     city:meta.city||null,
-    service_cities:["Pedro Juan Caballero","Ponta Porã"].includes(meta.city)?[meta.city]:[]
+    service_cities:["Pedro Juan Caballero","Ponta Porã"].includes(meta.city)?[meta.city]:[],
+    avatar_path:null
   };
 
   // O banco agora cria o perfil automaticamente no cadastro.
@@ -233,8 +234,34 @@ function renderAds(){
     </div>`;
 }
 
+function advisorAvatarUrl(path){
+  if(!path) return "";
+  return db.storage.from("advisor-avatars").getPublicUrl(path).data.publicUrl || "";
+}
+
+function advisorInitials(){
+  const name=String(profile?.company_name || profile?.full_name || "Assessor").trim();
+  return name.split(/\s+/).slice(0,2).map(p=>p[0]||"").join("").toUpperCase() || "A";
+}
+
+function renderAdvisorAvatar(){
+  const el=$("#advisorAvatar");
+  if(!el) return;
+  const url=advisorAvatarUrl(profile?.avatar_path);
+  if(url){
+    el.textContent="";
+    el.style.backgroundImage=`url("${url.replace(/"/g,"%22")}")`;
+    el.classList.add("has-photo");
+  }else{
+    el.style.backgroundImage="";
+    el.textContent=advisorInitials();
+    el.classList.remove("has-photo");
+  }
+}
+
 function renderPanel(){
   $("#advisorWelcome").textContent=profile?.company_name || profile?.full_name || "Meus anúncios";
+  renderAdvisorAvatar();
   renderExpiredNotice();
   renderPlans();
   renderAds();
@@ -256,6 +283,17 @@ function advisorProfileModal(){
     </div>
 
     <form id="advisorProfileForm" class="form-grid advisor-profile-form">
+      <div class="form-section-title property-section-title">Foto de perfil</div>
+      <div class="span-2 advisor-avatar-editor">
+        <div id="advisorAvatarPreview" class="advisor-avatar advisor-avatar-large">${profile?.avatar_path ? "" : advisorInitials()}</div>
+        <div class="advisor-avatar-upload">
+          <label>Escolher foto
+            <input name="avatar" type="file" accept="image/jpeg,image/png,image/webp,image/avif">
+          </label>
+          <small>JPG, PNG, WEBP ou AVIF. Máximo de 5 MB.</small>
+        </div>
+      </div>
+
       <div class="form-section-title property-section-title">Dados pessoais e profissionais</div>
 
       <label>Nome completo
@@ -316,6 +354,30 @@ function advisorProfileModal(){
       <div id="advisorProfileMessage" class="span-2 form-message"></div>
     </form>
   `);
+
+  const preview=$("#advisorAvatarPreview");
+  if(preview){
+    const currentUrl=advisorAvatarUrl(profile?.avatar_path);
+    if(currentUrl){
+      preview.textContent="";
+      preview.style.backgroundImage=`url("${currentUrl.replace(/"/g,"%22")}")`;
+      preview.classList.add("has-photo");
+    }
+
+    form.querySelector('input[name="avatar"]')?.addEventListener("change",e=>{
+      const file=e.target.files?.[0];
+      if(!file) return;
+      if(file.size>5*1024*1024){
+        e.target.value="";
+        alert("A foto deve ter no máximo 5 MB.");
+        return;
+      }
+      const local=URL.createObjectURL(file);
+      preview.textContent="";
+      preview.style.backgroundImage=`url("${local}")`;
+      preview.classList.add("has-photo");
+    });
+  }
 }
 
 async function saveAdvisorProfile(form){
@@ -363,6 +425,33 @@ async function saveAdvisorProfile(form){
 
   msg.textContent="Salvando perfil...";
 
+  const avatarFile=form.querySelector('input[name="avatar"]')?.files?.[0] || null;
+  let avatarPath=profile?.avatar_path || null;
+  let uploadedAvatarPath=null;
+
+  if(avatarFile){
+    if(avatarFile.size>5*1024*1024){
+      msg.textContent="A foto deve ter no máximo 5 MB.";
+      return;
+    }
+
+    const ext=(avatarFile.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"") || "jpg";
+    uploadedAvatarPath=`${currentUser.id}/avatar-${crypto.randomUUID()}.${ext}`;
+
+    msg.textContent="Enviando foto...";
+    const upload=await db.storage.from("advisor-avatars").upload(uploadedAvatarPath,avatarFile,{
+      cacheControl:"3600",
+      upsert:false
+    });
+
+    if(upload.error){
+      msg.textContent="Não foi possível enviar a foto: "+upload.error.message;
+      return;
+    }
+
+    avatarPath=uploadedAvatarPath;
+  }
+
   const profileRow={
     full_name:fullName,
     company_name:companyName,
@@ -370,6 +459,7 @@ async function saveAdvisorProfile(form){
     phone,
     service_cities:cities,
     city:cities.length===1?cities[0]:null,
+    avatar_path:avatarPath,
     updated_at:new Date().toISOString()
   };
 
@@ -381,8 +471,13 @@ async function saveAdvisorProfile(form){
     .single();
 
   if(profileError){
+    if(uploadedAvatarPath) await db.storage.from("advisor-avatars").remove([uploadedAvatarPath]);
     msg.textContent=profileError.message;
     return;
+  }
+
+  if(uploadedAvatarPath && profile?.avatar_path && profile.avatar_path!==uploadedAvatarPath){
+    await db.storage.from("advisor-avatars").remove([profile.avatar_path]);
   }
 
   const {error:metaError}=await db.auth.updateUser({
