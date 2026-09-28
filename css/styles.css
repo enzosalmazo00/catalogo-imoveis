@@ -840,3 +840,12 @@ button,input,select,textarea{font-size:16px}
   .admin-bonus-row{grid-template-columns:1fr}
   .admin-bonus-row small{grid-column:auto}
 }
+
+.property-commercial-tags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 10px}
+.property-commercial-tags span{display:inline-flex;align-items:center;padding:5px 8px;border-radius:999px;background:#f1f5f7;color:var(--navy);font-size:10px;font-weight:800}
+.property-commercial-tags span.fee{background:#fff5dc;color:#745500}
+.listing-party-badge{display:inline-flex;align-items:center;margin-top:8px;padding:7px 10px;border-radius:999px;font-size:12px;font-weight:900}
+.listing-party-badge.broker{background:#eaf4ff;color:#164d78}
+.listing-party-badge.owner{background:#eef8ef;color:#286237}
+.advisory-fee-row.charged{background:#fffaf0}
+.advisory-fee-row.charged strong{color:#745500}
