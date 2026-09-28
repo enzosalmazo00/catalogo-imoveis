@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Área do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609281625">
+  <link rel="stylesheet" href="css/styles.css?v=202609281745">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 </head>
 <body class="advisor-page">
@@ -36,12 +36,12 @@
     <div class="advisor-intro">
       <p class="eyebrow">ÁREA DO ASSESSOR</p>
       <h1>Publique seus imóveis no catálogo</h1>
-      <p>Crie sua conta, escolha um pacote de anúncios e acompanhe validade, renovações e imóveis publicados em um único painel.</p>
+      <p>Crie sua conta, compre créditos de anúncio via PIX e publique seus imóveis quando quiser.</p>
       <div class="advisor-benefits">
-        <div>✓ anúncios por 30 dias</div>
-        <div>✓ expiração automática</div>
-        <div>✓ renovação com 10% de desconto</div>
-        <div>✓ pagamento via PIX</div>
+        <div>✓ créditos não usados válidos por 90 dias</div>
+        <div>✓ cada publicação fica ativa por 30 dias</div>
+        <div>✓ edição não reinicia a validade</div>
+        <div>✓ liberação automática após confirmação do PIX</div>
       </div>
     </div>
 
@@ -101,21 +101,90 @@
       </div>
     </div>
 
-    <div id="advisorExpiredNotice"></div>
-
-    <section class="admin-panel">
-      <div class="admin-panel-head">
-        <div><p class="eyebrow">PLANOS</p><h2>Pacotes de anúncios</h2></div>
+    <section class="advisor-credit-wallet" aria-label="Saldo de créditos de anúncio">
+      <div class="advisor-credit-wallet-main">
+        <div>
+          <p class="eyebrow">CARTEIRA DE CRÉDITOS</p>
+          <div class="advisor-credit-balance-line">
+            <strong id="advisorCreditBalance">0</strong>
+            <span id="advisorCreditLabel">créditos disponíveis</span>
+          </div>
+          <p id="advisorCreditMeta" class="advisor-credit-meta">Carregando saldo...</p>
+        </div>
+        <div id="advisorCreditCoins" class="advisor-credit-coins" aria-label="Créditos disponíveis"></div>
       </div>
-      <div id="advisorPlans" class="advisor-plan-grid"></div>
     </section>
 
-    <section class="admin-panel">
+    <div class="advisor-panel-tabs">
+      <button class="advisor-panel-tab active" type="button" data-advisor-view="dashboard">Meu painel</button>
+      <button class="advisor-panel-tab" type="button" data-advisor-view="how">Como funciona</button>
+    </div>
+
+    <div id="advisorDashboardView">
+      <div id="advisorExpiredNotice"></div>
+
+      <section class="admin-panel">
+        <div class="admin-panel-head">
+          <div>
+            <p class="eyebrow">COMPRAR CRÉDITOS</p>
+            <h2>Pacotes de créditos de anúncio</h2>
+            <p class="muted">Créditos não utilizados vencem 90 dias após a compra.</p>
+          </div>
+        </div>
+        <div id="advisorPlans" class="advisor-plan-grid"></div>
+      </section>
+
+      <section class="admin-panel">
+        <div class="admin-panel-head">
+          <div><p class="eyebrow">MEUS ANÚNCIOS</p><h2>Imóveis cadastrados</h2></div>
+          <button id="newAdvisorProperty" class="btn primary">+ Novo anúncio</button>
+        </div>
+        <div id="advisorAds"></div>
+      </section>
+    </div>
+
+    <section id="advisorHowItWorks" class="admin-panel advisor-how-it-works hidden">
       <div class="admin-panel-head">
-        <div><p class="eyebrow">MEUS ANÚNCIOS</p><h2>Imóveis cadastrados</h2></div>
-        <button id="newAdvisorProperty" class="btn primary">+ Novo anúncio</button>
+        <div>
+          <p class="eyebrow">GUIA DO ASSESSOR</p>
+          <h2>Como funcionam os créditos e anúncios</h2>
+        </div>
       </div>
-      <div id="advisorAds"></div>
+
+      <div class="advisor-how-grid">
+        <article>
+          <span>1</span>
+          <div><strong>Escolha e compre seus créditos</strong><p>Escolha um pacote de 1, 2, 3, 4, 5, 6 ou 10 créditos. O pagamento é feito por PIX.</p></div>
+        </article>
+        <article>
+          <span>2</span>
+          <div><strong>Confirmação automática do PIX</strong><p>Assim que o Mercado Pago confirmar o pagamento, os créditos comprados entram automaticamente na sua carteira.</p></div>
+        </article>
+        <article>
+          <span>3</span>
+          <div><strong>Você tem 90 dias para usar cada crédito</strong><p>Crédito que ainda não foi usado vence 90 dias após a compra. Usar um crédito antes desse prazo retira ele da carteira.</p></div>
+        </article>
+        <article>
+          <span>4</span>
+          <div><strong>Publicar consome 1 crédito</strong><p>Ao publicar um imóvel, seu saldo diminui em 1 e aquele anúncio inicia imediatamente um período próprio de 30 dias no catálogo.</p></div>
+        </article>
+        <article>
+          <span>5</span>
+          <div><strong>Editar não muda os 30 dias</strong><p>Durante os 30 dias ativos você pode alterar preço, descrição, fotos, vídeo e demais informações. A data de vencimento original continua igual.</p></div>
+        </article>
+        <article>
+          <span>6</span>
+          <div><strong>Saldo zerado</strong><p>Com 0 créditos você não consegue publicar novos imóveis. Seus anúncios que ainda estiverem dentro dos 30 dias continuam ativos e podem ser editados normalmente.</p></div>
+        </article>
+        <article>
+          <span>7</span>
+          <div><strong>Anúncio expirado</strong><p>Ao completar 30 dias, o imóvel sai do catálogo. Para colocá-lo no ar novamente, use 1 novo crédito e começa um novo período de 30 dias.</p></div>
+        </article>
+        <article>
+          <span>8</span>
+          <div><strong>Excluir não devolve o crédito</strong><p>Um crédito é considerado utilizado no momento da publicação. Excluir o imóvel depois não devolve esse crédito para o saldo.</p></div>
+        </article>
+      </div>
     </section>
   </section>
 
@@ -124,7 +193,7 @@
 
 <div id="advisorModal" class="modal-layer hidden"></div>
 
-<script type="module" src="js/assessor.js?v=202609281625"></script>
+<script type="module" src="js/assessor.js?v=202609281745"></script>
 
 <script>
 (function(){
