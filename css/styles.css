@@ -693,3 +693,11 @@ button,input,select,textarea{font-size:16px}
   .property-draft-actions{display:grid;grid-template-columns:1fr 1fr}
   .property-draft-actions .btn{width:100%}
 }
+
+/* Seletor de fotos: mesmo padrão de interação usado no upload que funciona no painel de professor. */
+.upload-like-picker{position:relative;min-height:88px;border:1px dashed var(--border);border-radius:12px;display:flex;align-items:center;padding:12px;background:#fafcfc;overflow:hidden}
+.upload-like-picker .property-photo-slot-input{position:absolute!important;inset:0!important;width:100%!important;height:100%!important;min-height:0!important;padding:0!important;margin:0!important;opacity:0!important;cursor:pointer!important;z-index:2;font-size:16px}
+.upload-like-copy{display:flex;flex-direction:column;gap:4px;pointer-events:none}
+.upload-like-copy strong{font-size:14px}
+.upload-like-copy small{font-size:12px;color:var(--muted);white-space:normal;overflow:visible}
+.upload-like-copy em{font-size:10px;font-style:normal;color:var(--muted)}
