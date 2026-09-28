@@ -639,3 +639,26 @@ button,input,select,textarea{font-size:16px}
 .media-empty-note{grid-column:1/-1;padding:14px;border:1px dashed var(--border);border-radius:12px;color:var(--muted);font-size:13px;text-align:center}
 @media(max-width:820px){.property-media-editor-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:520px){.property-media-editor-grid{grid-template-columns:1fr}.property-media-editor-item img,.video-media-placeholder{height:210px}}
+
+.media-explainer{display:flex;flex-direction:column;gap:4px;padding:12px 14px;border-radius:12px;background:#f6f9f8;border:1px solid var(--border)}
+.media-explainer span{font-size:13px;color:var(--muted)}
+.advisor-media-existing{display:flex;flex-direction:column;gap:10px}
+.advisor-media-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.advisor-media-card{border:1px solid var(--border);border-radius:14px;overflow:hidden;background:#fff}
+.advisor-media-preview{position:relative;aspect-ratio:4/3;background:#eef1f3}
+.advisor-media-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.media-order-badge{position:absolute;left:8px;top:8px;background:rgba(15,27,35,.88);color:#fff;border-radius:999px;padding:5px 8px;font-size:11px;font-weight:800}
+.advisor-media-card-actions{padding:9px;display:flex;flex-direction:column;gap:7px;font-size:12px}
+.media-move-row{display:flex;gap:5px;flex-wrap:wrap}
+.media-mini-btn{border:1px solid var(--border);background:#fff;border-radius:8px;padding:6px 8px;cursor:pointer;font-weight:700}
+.media-mini-btn.danger{color:#a22929}
+.advisor-video-placeholder{aspect-ratio:4/3;display:grid;place-items:center;align-content:center;gap:5px;background:#101820;color:#fff;font-size:30px}
+.advisor-video-placeholder span{font-size:12px;font-weight:800}
+.new-media-preview-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px}
+.new-media-preview-card{position:relative;aspect-ratio:4/3;border-radius:10px;overflow:hidden;background:#eef1f3}
+.new-media-preview-card img{width:100%;height:100%;object-fit:cover;display:block}
+.new-media-preview-card span{position:absolute;left:6px;bottom:6px;background:rgba(15,27,35,.86);color:#fff;padding:4px 7px;border-radius:999px;font-size:10px;font-weight:800}
+@media(max-width:700px){
+ .advisor-media-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .new-media-preview-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
