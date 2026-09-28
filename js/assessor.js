@@ -667,6 +667,130 @@ function existingAdvisorMediaHTML(property){
 
 function setupNewMediaPreview(){ /* seletor múltiplo removido para compatibilidade com Safari iOS */ }
 
+function propertyDraftKey(property){
+  return property?.id ? `edit:${property.id}` : "new";
+}
+
+function collectPropertyDraft(form){
+  const data={};
+  const featureIds=[];
+
+  form.querySelectorAll("input[name],select[name],textarea[name]").forEach(el=>{
+    if(el.type==="file") return;
+    if(el.name==="features"){
+      if(el.checked) featureIds.push(el.value);
+      return;
+    }
+    if(el.type==="checkbox"){
+      data[el.name]=!!el.checked;
+      return;
+    }
+    data[el.name]=el.value;
+  });
+
+  data.features=featureIds;
+  return data;
+}
+
+function applyPropertyDraft(form,data){
+  if(!data || typeof data!=="object") return;
+
+  form.querySelectorAll("input[name],select[name],textarea[name]").forEach(el=>{
+    if(el.type==="file" || el.name==="id") return;
+
+    if(el.name==="features"){
+      const selected=Array.isArray(data.features)?data.features:[];
+      el.checked=selected.includes(el.value);
+      return;
+    }
+
+    if(!(el.name in data)) return;
+
+    if(el.type==="checkbox"){
+      el.checked=!!data[el.name];
+    }else{
+      el.value=data[el.name]??"";
+    }
+  });
+}
+
+async function loadPropertyDraft(form,property){
+  if(!currentUser || !form) return;
+  const draftKey=propertyDraftKey(property);
+  form.dataset.draftKey=draftKey;
+
+  const status=form.querySelector("#propertyDraftStatus");
+  const {data,error}=await db.from("advisor_property_drafts")
+    .select("draft_data,updated_at")
+    .eq("advisor_id",currentUser.id)
+    .eq("draft_key",draftKey)
+    .maybeSingle();
+
+  if(error){
+    console.warn("Não foi possível consultar o rascunho:",error);
+    return;
+  }
+
+  if(data?.draft_data){
+    applyPropertyDraft(form,data.draft_data);
+    if(status){
+      status.innerHTML=`<strong>Rascunho recuperado ✓</strong><span>Salvo em ${fmtDate(data.updated_at)}. Fotos precisam ser selecionadas novamente.</span>`;
+      status.classList.remove("hidden");
+    }
+  }
+}
+
+async function savePropertyDraft(form){
+  if(!currentUser || !form) return;
+  const status=form.querySelector("#propertyDraftStatus");
+  const draftKey=form.dataset.draftKey || propertyDraftKey(null);
+
+  if(status){
+    status.innerHTML="<strong>Salvando rascunho...</strong>";
+    status.classList.remove("hidden");
+  }
+
+  const {error}=await db.from("advisor_property_drafts").upsert({
+    advisor_id:currentUser.id,
+    draft_key:draftKey,
+    draft_data:collectPropertyDraft(form)
+  },{onConflict:"advisor_id,draft_key"});
+
+  if(error){
+    if(status) status.innerHTML=`<strong>Não foi possível salvar.</strong><span>${escapeHTML(error.message)}</span>`;
+    return;
+  }
+
+  if(status){
+    status.innerHTML="<strong>Rascunho salvo ✓</strong><span>Você pode sair e continuar depois. As fotos precisam ser escolhidas novamente quando voltar.</span>";
+  }
+}
+
+async function deletePropertyDraft(form,{silent=false}={}){
+  if(!currentUser || !form) return true;
+  const draftKey=form.dataset.draftKey || propertyDraftKey(null);
+  const status=form.querySelector("#propertyDraftStatus");
+
+  const {error}=await db.from("advisor_property_drafts")
+    .delete()
+    .eq("advisor_id",currentUser.id)
+    .eq("draft_key",draftKey);
+
+  if(error){
+    if(!silent && status){
+      status.innerHTML=`<strong>Não foi possível excluir o rascunho.</strong><span>${escapeHTML(error.message)}</span>`;
+      status.classList.remove("hidden");
+    }
+    return false;
+  }
+
+  if(!silent && status){
+    status.innerHTML="<strong>Rascunho excluído.</strong><span>Os campos atuais continuam na tela até você fechar ou publicar.</span>";
+    status.classList.remove("hidden");
+  }
+  return true;
+}
+
 function propertyModal(property=null){
   pendingPropertyFiles=[];
   pendingPropertyCoverExplicit=false;
@@ -849,6 +973,13 @@ function propertyModal(property=null){
       </label>
 
       ${property?`<div class="span-2 edit-expiry-lock">🔒 A validade permanece em <strong>${fmtDate(property.listing_expires_at)}</strong>. Editar não reinicia os 30 dias.</div>`:""}
+      <div id="propertyDraftStatus" class="span-2 property-draft-status hidden"></div>
+
+      <div class="span-2 property-draft-actions">
+        <button type="button" class="btn ghost" data-save-property-draft>💾 Salvar rascunho</button>
+        <button type="button" class="btn ghost draft-delete-btn" data-delete-property-draft>🗑️ Excluir rascunho</button>
+      </div>
+
       <div class="form-actions">
         <button type="button" class="btn ghost" data-close>Cancelar</button>
         <button class="btn primary" type="submit">${property?"Salvar alterações":"Publicar imóvel"}</button>
@@ -875,6 +1006,7 @@ function propertyModal(property=null){
     });
   });
   renderPendingPropertyPhotos();
+  loadPropertyDraft($("#advisorPropertyForm"),property);
 }
 
 async function saveProperty(form){
@@ -995,6 +1127,7 @@ async function saveProperty(form){
     const videoInsert=await db.from("property_media").insert({property_id:propertyId,media_type:"youtube",external_url:youtubeUrl,is_cover:false,sort_order:10000});
     if(videoInsert.error){msg.textContent=videoInsert.error.message;return;}
   }
+  await deletePropertyDraft(form,{silent:true});
   closeAdvisorModal();
   await loadData();
   renderPanel();
@@ -1265,6 +1398,20 @@ document.addEventListener("click",async e=>{
     $("#advisorLoginForm").classList.toggle("hidden",tab.dataset.authTab!=="login");
     $("#advisorSignupForm").classList.toggle("hidden",tab.dataset.authTab!=="signup");
   }
+  const saveDraftBtn=e.target.closest("[data-save-property-draft]");
+  if(saveDraftBtn){
+    const form=$("#advisorPropertyForm");
+    if(form) await savePropertyDraft(form);
+  }
+
+  const deleteDraftBtn=e.target.closest("[data-delete-property-draft]");
+  if(deleteDraftBtn){
+    const form=$("#advisorPropertyForm");
+    if(form && confirm("Excluir o rascunho salvo deste imóvel?")){
+      await deletePropertyDraft(form);
+    }
+  }
+
   const pendingLeft=e.target.closest("[data-pending-left]");
   if(pendingLeft){
     const i=Number(pendingLeft.dataset.pendingLeft);
