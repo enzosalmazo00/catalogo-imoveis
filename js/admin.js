@@ -26,7 +26,7 @@ const state = {
 const titles = {
   dashboard: "Visão geral",
   properties: "Imóveis",
-  universities: "Universidades",
+  universities: "Faculdades",
   owners: "Proprietários",
   tenants: "Locatários",
   rentals: "Locações",
@@ -140,7 +140,7 @@ function renderDashboard() {
       <div class="property-facts">
         <button class="btn ghost" data-goto="properties">Gerenciar imóveis</button>
         <button class="btn ghost" data-goto="finance">Abrir financeiro</button>
-        <button class="btn ghost" data-goto="universities">Universidades</button>
+        <button class="btn ghost" data-goto="universities">Faculdades</button>
         <button class="btn ghost" data-goto="settings">Configurações do catálogo</button>
       </div>
     </section>
@@ -723,7 +723,7 @@ function simpleTable(kind, rows, columns) {
 function renderUniversities() {
   $("#adminContent").innerHTML = `
     <section class="admin-panel">
-      <div class="admin-panel-head"><div><p class="eyebrow">REFERÊNCIAS</p><h2>Universidades</h2></div><button class="btn primary" data-action="new-university">+ Nova universidade</button></div>
+      <div class="admin-panel-head"><div><p class="eyebrow">REFERÊNCIAS</p><h2>Faculdades / Universidades</h2></div><button class="btn primary" data-action="new-university">+ Nova faculdade</button></div>
       ${simpleTable("university",state.universities,[
         {label:"Nome",key:"name"},
         {label:"Endereço",key:"address"},
