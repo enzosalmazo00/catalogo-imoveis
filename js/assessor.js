@@ -10,6 +10,8 @@ let features=[];
 let renewalOffers={};
 let countdownTimer=null;
 let paymentWatcher=null;
+let pendingPropertyFiles=[];
+let pendingPropertyCoverExplicit=false;
 
 function withTimeout(promise,ms=8000,label="requisição"){
   let timer;
@@ -550,7 +552,74 @@ function featureChips(category,selectedIds=[]){
     ).join("");
 }
 
+function propertyMediaPublicUrl(path){
+  if(!path) return "";
+  return db.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl || "";
+}
+
+function sortedPropertyImages(property){
+  return [...(property?.property_media||[])]
+    .filter(m=>m.media_type==="image")
+    .sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
+}
+
+function propertyYoutubeMedia(property){
+  return (property?.property_media||[]).find(m=>m.media_type==="youtube") || null;
+}
+
+function existingPropertyMediaHtml(property){
+  const images=sortedPropertyImages(property);
+  const video=propertyYoutubeMedia(property);
+  if(!images.length && !video) return "";
+  let html='<div class="span-2 current-property-media"><div class="property-options-help">Mídias já publicadas. Foto 1 é a principal exibida no catálogo.</div><div class="property-media-editor-grid">';
+  images.forEach((m,index)=>{
+    html+='<div class="property-media-editor-item'+(m.is_cover?' cover':'')+'">';
+    html+='<div class="property-media-order">Foto '+(index+1)+'</div>';
+    html+='<img src="'+escapeHTML(propertyMediaPublicUrl(m.storage_path))+'" alt="">';
+    if(m.is_cover) html+='<span class="media-cover-badge">PRINCIPAL</span>';
+    html+='<div class="property-media-editor-actions">';
+    html+='<button type="button" class="btn ghost compact" data-media-left="'+m.id+'" data-property="'+property.id+'"'+(index===0?' disabled':'')+'>←</button>';
+    html+='<button type="button" class="btn ghost compact" data-media-cover="'+m.id+'" data-property="'+property.id+'">Capa</button>';
+    html+='<button type="button" class="btn ghost compact" data-media-right="'+m.id+'" data-property="'+property.id+'"'+(index===images.length-1?' disabled':'')+'>→</button>';
+    html+='<button type="button" class="btn danger compact" data-media-delete="'+m.id+'" data-property="'+property.id+'">Excluir</button>';
+    html+='</div></div>';
+  });
+  if(video){
+    html+='<div class="property-media-editor-item video-media-item"><div class="property-media-order">Vídeo</div><div class="video-media-placeholder">▶</div><div class="property-media-editor-actions one-action"><button type="button" class="btn danger compact" data-video-delete="'+video.id+'" data-property="'+property.id+'">Excluir vídeo</button></div></div>';
+  }
+  html+='</div></div>';
+  return html;
+}
+
+function renderPendingPropertyPhotos(){
+  const box=$("#pendingPropertyPhotos");
+  if(!box) return;
+  box.innerHTML="";
+  if(!pendingPropertyFiles.length){
+    box.innerHTML='<div class="media-empty-note">Nenhuma foto nova selecionada.</div>';
+    return;
+  }
+  pendingPropertyFiles.forEach((file,index)=>{
+    const card=document.createElement("div");
+    card.className="property-media-editor-item"+(index===0?" cover":"");
+    const url=URL.createObjectURL(file);
+    card.innerHTML='<div class="property-media-order">Foto '+(index+1)+'</div>'+
+      '<img src="'+url+'" alt="Prévia da foto">'+
+      (index===0?'<span class="media-cover-badge">'+(pendingPropertyCoverExplicit?"PRINCIPAL":"FOTO 1")+'</span>':'')+
+      '<div class="property-media-editor-actions">'+
+      '<button type="button" class="btn ghost compact" data-pending-left="'+index+'"'+(index===0?' disabled':'')+'>←</button>'+
+      '<button type="button" class="btn ghost compact" data-pending-cover="'+index+'">Capa</button>'+
+      '<button type="button" class="btn ghost compact" data-pending-right="'+index+'"'+(index===pendingPropertyFiles.length-1?' disabled':'')+'>→</button>'+
+      '<button type="button" class="btn danger compact" data-pending-remove="'+index+'">Excluir</button>'+
+      '</div>';
+    box.appendChild(card);
+  });
+}
+
 function propertyModal(property=null){
+  pendingPropertyFiles=[];
+  pendingPropertyCoverExplicit=false;
+
   const active=activeSubscription();
   if(!property){
     if(!active){
@@ -702,19 +771,35 @@ function propertyModal(property=null){
         <textarea name="description" placeholder="Descreva o imóvel, condições e diferenciais.">${escapeHTML(property?.description||"")}</textarea>
       </label>
 
-      <label class="span-2">Fotos do imóvel
+      ${property?existingPropertyMediaHtml(property):""}
+
+      <label class="span-2">Adicionar fotos
         <input name="images" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple ${property?"":"required"}>
-        <small>Você pode selecionar várias fotos de uma vez.</small>
+        <small>Selecione várias fotos. Depois organize Foto 1, Foto 2, Foto 3... e escolha a principal.</small>
+      </label>
+
+      <div id="pendingPropertyPhotos" class="span-2 property-media-editor-grid"></div>
+
+      <label class="span-2">Vídeo do imóvel (YouTube)
+        <input name="youtube" type="url" value="${escapeHTML(propertyYoutubeMedia(property)?.external_url||"")}" placeholder="https://youtube.com/watch?v=...">
+        <small>Opcional. Cole o link do vídeo do imóvel publicado no YouTube.</small>
       </label>
 
       ${property?`<div class="span-2 edit-expiry-lock">🔒 A validade permanece em <strong>${fmtDate(property.listing_expires_at)}</strong>. Editar não reinicia os 30 dias.</div>`:""}
-
       <div class="form-actions">
         <button type="button" class="btn ghost" data-close>Cancelar</button>
         <button class="btn primary" type="submit">${property?"Salvar alterações":"Publicar imóvel"}</button>
       </div>
       <div id="advisorPropertyMessage" class="span-2 form-message"></div>
     </form>`);
+
+  const imageInput=document.querySelector('#advisorPropertyForm input[name="images"]');
+  imageInput?.addEventListener("change",()=>{
+    pendingPropertyFiles=[...(imageInput.files||[])];
+    pendingPropertyCoverExplicit=false;
+    renderPendingPropertyPhotos();
+  });
+  renderPendingPropertyPhotos();
 }
 
 async function saveProperty(form){
@@ -803,18 +888,38 @@ async function saveProperty(form){
     }
   }
 
-  const files=[...form.querySelector('input[name="images"]').files];
-  let first=!(existing?.property_media||[]).some(m=>m.media_type==="image");
-  for(const file of files){
+  const existingImages=sortedPropertyImages(existing);
+
+  if(pendingPropertyCoverExplicit && existingImages.length){
+    await db.from("property_media").update({is_cover:false}).eq("property_id",propertyId).eq("media_type","image");
+    for(let i=0;i<existingImages.length;i++){
+      await db.from("property_media").update({sort_order:(pendingPropertyFiles.length+i)*10}).eq("id",existingImages[i].id);
+    }
+  }
+
+  for(let index=0;index<pendingPropertyFiles.length;index++){
+    const file=pendingPropertyFiles[index];
     const safe=file.name.replace(/[^A-Za-z0-9._-]/g,"_");
     const path=`${currentUser.id}/${propertyId}/${crypto.randomUUID()}-${safe}`;
     const up=await db.storage.from(STORAGE_BUCKET).upload(path,file,{cacheControl:"3600",upsert:false});
     if(up.error){msg.textContent=up.error.message;return;}
-    const mediaInsert=await db.from("property_media").insert({property_id:propertyId,media_type:"image",storage_path:path,is_cover:first,sort_order:first?0:10});
+    const isNewProperty=!existingImages.length;
+    const shouldCover=(isNewProperty && index===0) || (pendingPropertyCoverExplicit && index===0);
+    const sortOrder=pendingPropertyCoverExplicit ? index*10 : (existingImages.length+index)*10;
+    const mediaInsert=await db.from("property_media").insert({property_id:propertyId,media_type:"image",storage_path:path,is_cover:shouldCover,sort_order:sortOrder});
     if(mediaInsert.error){msg.textContent=mediaInsert.error.message;return;}
-    first=false;
   }
 
+  const youtubeUrl=String(fd.get("youtube")||"").trim();
+  const existingYoutube=propertyYoutubeMedia(existing);
+  if(existingYoutube && existingYoutube.external_url!==youtubeUrl){
+    const delVideo=await db.from("property_media").delete().eq("id",existingYoutube.id);
+    if(delVideo.error){msg.textContent=delVideo.error.message;return;}
+  }
+  if(youtubeUrl && (!existingYoutube || existingYoutube.external_url!==youtubeUrl)){
+    const videoInsert=await db.from("property_media").insert({property_id:propertyId,media_type:"youtube",external_url:youtubeUrl,is_cover:false,sort_order:10000});
+    if(videoInsert.error){msg.textContent=videoInsert.error.message;return;}
+  }
   closeAdvisorModal();
   await loadData();
   renderPanel();
@@ -1001,6 +1106,96 @@ document.addEventListener("click",async e=>{
     document.querySelectorAll(".auth-tab").forEach(b=>b.classList.toggle("active",b===tab));
     $("#advisorLoginForm").classList.toggle("hidden",tab.dataset.authTab!=="login");
     $("#advisorSignupForm").classList.toggle("hidden",tab.dataset.authTab!=="signup");
+  }
+  const pendingLeft=e.target.closest("[data-pending-left]");
+  if(pendingLeft){
+    const i=Number(pendingLeft.dataset.pendingLeft);
+    if(i>0){
+      [pendingPropertyFiles[i-1],pendingPropertyFiles[i]]=[pendingPropertyFiles[i],pendingPropertyFiles[i-1]];
+      renderPendingPropertyPhotos();
+    }
+  }
+  const pendingRight=e.target.closest("[data-pending-right]");
+  if(pendingRight){
+    const i=Number(pendingRight.dataset.pendingRight);
+    if(i<pendingPropertyFiles.length-1){
+      [pendingPropertyFiles[i+1],pendingPropertyFiles[i]]=[pendingPropertyFiles[i],pendingPropertyFiles[i+1]];
+      renderPendingPropertyPhotos();
+    }
+  }
+  const pendingCover=e.target.closest("[data-pending-cover]");
+  if(pendingCover){
+    const i=Number(pendingCover.dataset.pendingCover);
+    if(i>=0 && i<pendingPropertyFiles.length){
+      const selected=pendingPropertyFiles.splice(i,1)[0];
+      pendingPropertyFiles.unshift(selected);
+      pendingPropertyCoverExplicit=true;
+      renderPendingPropertyPhotos();
+    }
+  }
+  const pendingRemove=e.target.closest("[data-pending-remove]");
+  if(pendingRemove){
+    const i=Number(pendingRemove.dataset.pendingRemove);
+    pendingPropertyFiles.splice(i,1);
+    renderPendingPropertyPhotos();
+  }
+
+  const mediaCover=e.target.closest("[data-media-cover]");
+  if(mediaCover){
+    const propertyId=mediaCover.dataset.property;
+    const item=properties.find(p=>p.id===propertyId);
+    const images=sortedPropertyImages(item);
+    const chosen=images.find(m=>m.id===mediaCover.dataset.mediaCover);
+    if(chosen){
+      const ordered=[chosen,...images.filter(m=>m.id!==chosen.id)];
+      await db.from("property_media").update({is_cover:false}).eq("property_id",propertyId).eq("media_type","image");
+      for(let i=0;i<ordered.length;i++){
+        await db.from("property_media").update({sort_order:i*10,is_cover:i===0}).eq("id",ordered[i].id);
+      }
+      await loadData();
+      propertyModal(properties.find(p=>p.id===propertyId));
+    }
+  }
+
+  const mediaDelete=e.target.closest("[data-media-delete]");
+  if(mediaDelete && confirm("Excluir esta foto?")){
+    const propertyId=mediaDelete.dataset.property;
+    const item=properties.find(p=>p.id===propertyId);
+    const media=(item?.property_media||[]).find(m=>m.id===mediaDelete.dataset.mediaDelete);
+    if(media?.storage_path) await db.storage.from(STORAGE_BUCKET).remove([media.storage_path]);
+    await db.from("property_media").delete().eq("id",mediaDelete.dataset.mediaDelete);
+    const {data:remaining}=await db.from("property_media").select("id,is_cover,sort_order").eq("property_id",propertyId).eq("media_type","image").order("sort_order");
+    if(remaining?.length){
+      for(let i=0;i<remaining.length;i++) await db.from("property_media").update({sort_order:i*10,is_cover:i===0}).eq("id",remaining[i].id);
+    }
+    await loadData();
+    propertyModal(properties.find(p=>p.id===propertyId));
+  }
+
+  const mediaLeft=e.target.closest("[data-media-left]");
+  const mediaRight=e.target.closest("[data-media-right]");
+  if(mediaLeft || mediaRight){
+    const button=mediaLeft||mediaRight;
+    const propertyId=button.dataset.property;
+    const item=properties.find(p=>p.id===propertyId);
+    const images=sortedPropertyImages(item);
+    const id=mediaLeft?button.dataset.mediaLeft:button.dataset.mediaRight;
+    const index=images.findIndex(m=>m.id===id);
+    const target=mediaLeft?index-1:index+1;
+    if(index>=0 && target>=0 && target<images.length){
+      [images[index],images[target]]=[images[target],images[index]];
+      for(let i=0;i<images.length;i++) await db.from("property_media").update({sort_order:i*10,is_cover:i===0}).eq("id",images[i].id);
+      await loadData();
+      propertyModal(properties.find(p=>p.id===propertyId));
+    }
+  }
+
+  const videoDelete=e.target.closest("[data-video-delete]");
+  if(videoDelete && confirm("Excluir o vídeo deste imóvel?")){
+    const propertyId=videoDelete.dataset.property;
+    await db.from("property_media").delete().eq("id",videoDelete.dataset.videoDelete);
+    await loadData();
+    propertyModal(properties.find(p=>p.id===propertyId));
   }
   const buy=e.target.closest("[data-buy]");
   if(buy) await startPayment(buy.dataset.buy,buy.dataset.renew||null,buy.dataset.offer||null);
