@@ -1,0 +1,51 @@
+/* Correções públicas do catálogo — 28/09/2026 */
+
+/* Exibe a foto inteira, sem corte/zoom provocado por object-fit: cover. */
+.property-photo,
+.main-property-image,
+.gallery-thumb img {
+  object-fit: contain !important;
+  object-position: center center !important;
+  background: #eef1f4;
+}
+
+/* A mensagem interna sobre ocultação da localização não deve aparecer ao cliente. */
+.protected-location-public {
+  display: none !important;
+}
+
+/* Remove também a observação técnica abaixo da lista de faculdades. */
+.university-list + .tiny-note {
+  display: none !important;
+}
+
+/* Faculdade mais próxima sobre a primeira foto da página do imóvel. */
+.detail-nearest-university-pill {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 5;
+  max-width: min(78%, 520px);
+  padding: 9px 12px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.96);
+  color: var(--navy);
+  border: 1px solid rgba(255,255,255,.82);
+  box-shadow: 0 6px 22px rgba(0,0,0,.16);
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(7px);
+}
+
+@media (max-width: 560px) {
+  .detail-nearest-university-pill {
+    right: 10px;
+    bottom: 10px;
+    max-width: calc(100% - 20px);
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+}
