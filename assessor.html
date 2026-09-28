@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Área do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609282230">
+  <link rel="stylesheet" href="css/styles.css?v=202609280700">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 </head>
 <body class="advisor-page">
@@ -132,8 +132,8 @@
         <div class="admin-panel-head">
           <div>
             <p class="eyebrow">COMPRAR CRÉDITOS</p>
-            <h2>Pacotes de créditos de anúncio</h2>
-            <p class="muted">Créditos não utilizados vencem 90 dias após a compra.</p>
+            <h2>Premium</h2>
+            <p class="muted">A opção com maior quantidade de créditos fica em destaque. Créditos não utilizados vencem 90 dias após a compra.</p>
           </div>
         </div>
         <div id="advisorPlans" class="advisor-plan-grid"></div>
@@ -147,6 +147,21 @@
         <div id="advisorAds"></div>
       </section>
     </div>
+
+    <section id="advisorCreditStore" class="admin-panel credit-store-page hidden">
+      <div class="credit-store-page-head">
+        <button class="btn ghost" type="button" data-close-credit-store>← Voltar ao painel</button>
+        <div>
+          <p class="eyebrow">LOJA DE CRÉDITOS</p>
+          <h2>Outras opções de compra de créditos</h2>
+          <p class="muted">Escolha a quantidade que melhor atende seus anúncios.</p>
+        </div>
+      </div>
+      <div id="advisorCreditStorePlans" class="advisor-standard-plan-grid"></div>
+      <div class="credit-store-bottom-back">
+        <button class="btn ghost" type="button" data-close-credit-store>← Voltar ao painel</button>
+      </div>
+    </section>
 
     <section id="advisorRentalControl" class="admin-panel hidden">
       <div class="admin-panel-head">
@@ -210,7 +225,7 @@
 
 <div id="advisorModal" class="modal-layer hidden"></div>
 
-<script type="module" src="js/assessor.js?v=202609280610"></script>
+<script type="module" src="js/assessor.js?v=202609280700"></script>
 
 <script>
 (function(){
