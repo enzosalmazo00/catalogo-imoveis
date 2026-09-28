@@ -616,6 +616,80 @@ function renderPendingPropertyPhotos(){
   });
 }
 
+function existingAdvisorMediaHTML(property){
+  const media=[...(property?.property_media||[])].sort((a,b)=>{
+    if(a.media_type==="image" && b.media_type==="image"){
+      return Number(b.is_cover)-Number(a.is_cover) || Number(a.sort_order||0)-Number(b.sort_order||0);
+    }
+    if(a.media_type==="image") return -1;
+    if(b.media_type==="image") return 1;
+    return Number(a.sort_order||0)-Number(b.sort_order||0);
+  });
+
+  if(!media.length) return "";
+
+  return `
+    <div class="span-2 advisor-media-existing">
+      <strong>Mídias já publicadas</strong>
+      <div class="advisor-media-grid">
+        ${media.map((m,index)=>{
+          if(m.media_type==="image"){
+            const url=db.storage.from(STORAGE_BUCKET).getPublicUrl(m.storage_path).data.publicUrl;
+            return `
+              <article class="advisor-media-card">
+                <div class="advisor-media-preview">
+                  <img src="${escapeHTML(url)}" alt="">
+                  <span class="media-order-badge">${m.is_cover?"CAPA":`Foto ${index+1}`}</span>
+                </div>
+                <div class="advisor-media-card-actions">
+                  ${m.is_cover?'<strong>Foto principal ✓</strong>':`<button type="button" class="media-mini-btn" data-advisor-cover="${m.id}" data-property="${property.id}">Definir como capa</button>`}
+                  <div class="media-move-row">
+                    <button type="button" class="media-mini-btn" data-media-move="-1" data-media-id="${m.id}" data-property="${property.id}" aria-label="Mover foto para antes">←</button>
+                    <button type="button" class="media-mini-btn" data-media-move="1" data-media-id="${m.id}" data-property="${property.id}" aria-label="Mover foto para depois">→</button>
+                    <button type="button" class="media-mini-btn danger" data-advisor-delete-media="${m.id}" data-property="${property.id}">Excluir</button>
+                  </div>
+                </div>
+              </article>`;
+          }
+          return `
+            <article class="advisor-media-card">
+              <div class="advisor-video-placeholder">▶<span>Vídeo</span></div>
+              <div class="advisor-media-card-actions">
+                <strong>Vídeo do imóvel</strong>
+                <button type="button" class="media-mini-btn danger" data-advisor-delete-media="${m.id}" data-property="${property.id}">Excluir vídeo</button>
+              </div>
+            </article>`;
+        }).join("")}
+      </div>
+      <small>Use as setas para definir a sequência Foto 1, Foto 2, Foto 3... A capa é sempre a imagem principal do catálogo.</small>
+    </div>`;
+}
+
+function setupNewMediaPreview(form){
+  const input=form.querySelector('input[name="images"]');
+  const root=form.querySelector("#newMediaPreview");
+  if(!input||!root) return;
+
+  input.addEventListener("change",()=>{
+    const files=[...input.files];
+    root.innerHTML=files.map((file,index)=>{
+      const url=URL.createObjectURL(file);
+      return `
+        <div class="new-media-preview-card">
+          <img src="${url}" alt="">
+          <span>${index===0?"Nova Foto 1":`Nova Foto ${index+1}`}</span>
+        </div>`;
+    }).join("");
+
+    const note=form.querySelector("#newMediaOrderNote");
+    if(note){
+      note.textContent=files.length
+        ? "As novas fotos serão adicionadas nesta ordem. Se o imóvel ainda não tiver fotos, a Foto 1 será a capa automaticamente."
+        : "";
+    }
+  });
+}
+
 function propertyModal(property=null){
   pendingPropertyFiles=[];
   pendingPropertyCoverExplicit=false;
@@ -925,6 +999,89 @@ async function saveProperty(form){
   renderPanel();
 }
 
+async function setAdvisorCover(mediaId,propertyId){
+  const property=properties.find(p=>p.id===propertyId);
+  if(!property) return;
+
+  const images=(property.property_media||[])
+    .filter(m=>m.media_type==="image")
+    .sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0));
+
+  const chosen=images.find(m=>m.id===mediaId);
+  if(!chosen) return;
+
+  const {error:clearError}=await db.from("property_media")
+    .update({is_cover:false})
+    .eq("property_id",propertyId)
+    .eq("media_type","image");
+  if(clearError) return alert(clearError.message);
+
+  const {error:setError}=await db.from("property_media")
+    .update({is_cover:true,sort_order:0})
+    .eq("id",mediaId);
+  if(setError) return alert(setError.message);
+
+  let order=10;
+  for(const image of images.filter(m=>m.id!==mediaId)){
+    await db.from("property_media").update({sort_order:order}).eq("id",image.id);
+    order+=10;
+  }
+
+  await loadData();
+  propertyModal(properties.find(p=>p.id===propertyId));
+}
+
+async function moveAdvisorMedia(mediaId,propertyId,direction){
+  const property=properties.find(p=>p.id===propertyId);
+  if(!property) return;
+
+  const images=(property.property_media||[])
+    .filter(m=>m.media_type==="image")
+    .sort((a,b)=>Number(b.is_cover)-Number(a.is_cover) || Number(a.sort_order||0)-Number(b.sort_order||0));
+
+  const index=images.findIndex(m=>m.id===mediaId);
+  const target=index+Number(direction);
+  if(index<0 || target<0 || target>=images.length) return;
+
+  const reordered=[...images];
+  [reordered[index],reordered[target]]=[reordered[target],reordered[index]];
+
+  // A capa continua sendo capa; as setas alteram apenas a sequência das demais fotos.
+  const cover=reordered.find(m=>m.is_cover);
+  const rest=reordered.filter(m=>!m.is_cover);
+  let order=cover?10:0;
+  for(const image of rest){
+    await db.from("property_media").update({sort_order:order}).eq("id",image.id);
+    order+=10;
+  }
+  if(cover) await db.from("property_media").update({sort_order:0}).eq("id",cover.id);
+
+  await loadData();
+  propertyModal(properties.find(p=>p.id===propertyId));
+}
+
+async function deleteAdvisorMedia(mediaId,propertyId){
+  const property=properties.find(p=>p.id===propertyId);
+  const media=(property?.property_media||[]).find(m=>m.id===mediaId);
+  if(!media || !confirm("Excluir esta mídia do anúncio?")) return;
+
+  if(media.media_type==="image" && media.storage_path){
+    await db.storage.from(STORAGE_BUCKET).remove([media.storage_path]);
+  }
+  const {error}=await db.from("property_media").delete().eq("id",mediaId);
+  if(error) return alert(error.message);
+
+  await loadData();
+  const refreshed=properties.find(p=>p.id===propertyId);
+  const images=(refreshed?.property_media||[]).filter(m=>m.media_type==="image");
+  if(media.is_cover && images.length){
+    const next=[...images].sort((a,b)=>Number(a.sort_order||0)-Number(b.sort_order||0))[0];
+    await db.from("property_media").update({is_cover:true,sort_order:0}).eq("id",next.id);
+    await loadData();
+  }
+  propertyModal(properties.find(p=>p.id===propertyId));
+}
+
 async function watchPaymentStatus(subscriptionId){
   if(paymentWatcher) clearInterval(paymentWatcher);
 
@@ -1201,6 +1358,15 @@ document.addEventListener("click",async e=>{
   if(buy) await startPayment(buy.dataset.buy,buy.dataset.renew||null,buy.dataset.offer||null);
   if(e.target.closest("#advisorProfileBtn")) advisorProfileModal();
   if(e.target.closest("#newAdvisorProperty")) propertyModal();
+
+  const coverBtn=e.target.closest("[data-advisor-cover]");
+  if(coverBtn) await setAdvisorCover(coverBtn.dataset.advisorCover,coverBtn.dataset.property);
+
+  const moveBtn=e.target.closest("[data-media-move]");
+  if(moveBtn) await moveAdvisorMedia(moveBtn.dataset.mediaId,moveBtn.dataset.property,moveBtn.dataset.mediaMove);
+
+  const deleteMediaBtn=e.target.closest("[data-advisor-delete-media]");
+  if(deleteMediaBtn) await deleteAdvisorMedia(deleteMediaBtn.dataset.advisorDeleteMedia,deleteMediaBtn.dataset.property);
   const edit=e.target.closest("[data-edit-ad]");
   if(edit){
     const item=properties.find(p=>p.id===edit.dataset.editAd);
