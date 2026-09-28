@@ -40,6 +40,12 @@ function n(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function countOptions(value,max=10) {
+  return Array.from({length:max+1},(_,i) =>
+    `<option value="${i}" ${Number(value ?? 0) === i ? "selected" : ""}>${i}</option>`
+  ).join("");
+}
+
 function dateBR(value) {
   if (!value) return "—";
   const [y,m,d] = String(value).slice(0,10).split("-");
@@ -271,11 +277,11 @@ function propertyModal(property=null) {
       </label>
 
       <label>Quartos
-        <input name="bedrooms" type="number" min="0" step="1" value="${property?.bedrooms ?? ""}">
+        <select name="bedrooms">${countOptions(property?.bedrooms,10)}</select>
       </label>
 
       <label>Banheiros
-        <input name="bathrooms" type="number" min="0" step="1" value="${property?.bathrooms ?? ""}">
+        <select name="bathrooms">${countOptions(property?.bathrooms,10)}</select>
       </label>
 
       <label>Status
@@ -293,6 +299,13 @@ function propertyModal(property=null) {
         </select>
       </label>
 
+      <div class="form-section-title">Localização</div>
+
+      <label class="span-2 maps-link-field">Link do imóvel no Google Maps
+        <input name="google_maps_url" type="url" value="${escapeHTML(property?.google_maps_url || "")}" placeholder="Cole aqui o link compartilhado do Google Maps">
+        <small>Google Maps → Compartilhar → Copiar link. Latitude e longitude são obtidas automaticamente quando possível.</small>
+      </label>
+
       <label>Bairro
         <input name="neighborhood" value="${escapeHTML(property?.neighborhood || "")}">
       </label>
@@ -301,25 +314,19 @@ function propertyModal(property=null) {
         <input name="city" value="${escapeHTML(property?.city || "")}">
       </label>
 
-      <label class="span-2">Endereço completo
+      <label class="span-2">Endereço escrito (opcional)
         <input name="address" value="${escapeHTML(property?.address || "")}" placeholder="Rua, número, bairro, cidade">
       </label>
 
-      <label>Latitude
-        <input name="latitude" type="number" step="0.0000001" value="${property?.latitude ?? ""}">
-      </label>
-
-      <label>Longitude
-        <input name="longitude" type="number" step="0.0000001" value="${property?.longitude ?? ""}">
-      </label>
-
       <label>
-        Mostrar localização exata?
+        Exibir localização
         <select name="show_exact_location">
-          <option value="false" ${!property?.show_exact_location ? "selected" : ""}>Não, mostrar só região</option>
-          <option value="true" ${property?.show_exact_location ? "selected" : ""}>Sim</option>
+          <option value="false" ${!property?.show_exact_location ? "selected" : ""}>Apenas região aproximada</option>
+          <option value="true" ${property?.show_exact_location ? "selected" : ""}>Localização exata</option>
         </select>
       </label>
+
+      <div></div>
 
       <label>
         Proprietário
@@ -404,6 +411,29 @@ async function saveProperty(form) {
   const title = String(fd.get("title") || "").trim();
   if (!title) return;
 
+  const googleMapsUrl = String(fd.get("google_maps_url") || "").trim() || null;
+  let latitude = current?.latitude ?? null;
+  let longitude = current?.longitude ?? null;
+
+  const msg = $("#propertyFormMessage");
+  msg.innerHTML = message("Salvando...", true);
+
+  if (googleMapsUrl) {
+    msg.innerHTML = message("Lendo o link do Google Maps...", true);
+    const resolved = await db.functions.invoke("resolve-maps-link", { body: { url: googleMapsUrl } });
+    if (resolved.error || resolved.data?.error) {
+      msg.innerHTML = message(resolved.data?.error || resolved.error?.message || "Não foi possível ler o link do Google Maps.");
+      return;
+    }
+    if (resolved.data?.latitude != null && resolved.data?.longitude != null) {
+      latitude = Number(resolved.data.latitude);
+      longitude = Number(resolved.data.longitude);
+    }
+  } else if (current?.google_maps_url) {
+    latitude = null;
+    longitude = null;
+  }
+
   const row = {
     title,
     slug: current?.slug || `${slugify(title)}-${Date.now().toString(36)}`,
@@ -420,8 +450,9 @@ async function saveProperty(form) {
     address: String(fd.get("address") || "").trim() || null,
     neighborhood: String(fd.get("neighborhood") || "").trim() || null,
     city: String(fd.get("city") || "").trim() || null,
-    latitude: n(fd.get("latitude")),
-    longitude: n(fd.get("longitude")),
+    google_maps_url: googleMapsUrl,
+    latitude,
+    longitude,
     show_exact_location: fd.get("show_exact_location") === "true",
     bedrooms: n(fd.get("bedrooms")),
     bathrooms: n(fd.get("bathrooms")),
@@ -431,7 +462,6 @@ async function saveProperty(form) {
     featured: fd.get("featured") === "true"
   };
 
-  const msg = $("#propertyFormMessage");
   msg.innerHTML = message("Salvando...", true);
 
   let propertyId = id;
