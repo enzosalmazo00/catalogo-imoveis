@@ -617,3 +617,9 @@ button,input,select,textarea{font-size:16px}
   .advisor-identity>div:last-child{min-width:0}
   .advisor-identity h1{margin-top:4px}
 }
+
+.advisor-boot-actions{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:12px}
+@media(max-width:560px){
+  .advisor-boot-actions{width:min(360px,100%);flex-direction:column}
+  .advisor-boot-actions .btn{width:100%}
+}
