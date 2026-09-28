@@ -8,7 +8,7 @@ import {
   statusLabel,
   isAdmin,
   slugify
-} from "./common.js";
+} from "./common.js?v=202609281300";
 
 const state = {
   tab: "dashboard",
