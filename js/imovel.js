@@ -81,10 +81,17 @@ function formatDistanceKm(km){
   return `${km.toLocaleString("pt-BR",{maximumFractionDigits:1})} km`;
 }
 
+function exactPropertyMapQuery(property){
+  const lat=Number(property?.latitude);
+  const lng=Number(property?.longitude);
+  if(Number.isFinite(lat) && Number.isFinite(lng)) return `${lat},${lng}`;
+  return mapsQuery(property);
+}
+
 function renderUniversities(property, universities = []) {
   if (!universities.length) return "";
 
-  const origin = mapsQuery(property);
+  const origin = exactPropertyMapQuery(property);
   if (!origin) return "";
 
   const cached = new Map(
@@ -144,7 +151,7 @@ function renderUniversities(property, universities = []) {
 }
 
 function renderMap(property) {
-  const query = mapsQuery(property);
+  const query = exactPropertyMapQuery(property);
   if (!query) return "";
 
   const encoded = encodeURIComponent(query);
@@ -162,7 +169,9 @@ function renderMap(property) {
           referrerpolicy="no-referrer-when-downgrade">
         </iframe>
       </div>
-      ${!property.show_exact_location ? '<p class="tiny-note">A localização exibida é aproximada. O endereço exato é informado no atendimento.</p>' : ""}
+      ${property.latitude!=null && property.longitude!=null
+        ? '<p class="tiny-note">Mapa posicionado pelas coordenadas exatas cadastradas para este imóvel.</p>'
+        : '<p class="tiny-note">Este anúncio ainda não possui coordenadas exatas cadastradas.</p>'}
     </section>
   `;
 }
