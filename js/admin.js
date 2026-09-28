@@ -1080,42 +1080,71 @@ function grantBonusModal(advisor){
       <div id="bonusCreditsMessage" class="form-message span-2"></div>
       <div class="form-actions span-2">
         <button class="btn ghost" type="button" data-action="close-modal">Cancelar</button>
-        <button class="btn primary" type="submit">🎁 Conceder bônus</button>
+        <button class="btn primary" type="button" data-action="save-bonus">🎁 Conceder bônus</button>
       </div>
     </form>
   `);
 }
 
 async function saveBonusCredits(form){
+  if(!form) return;
+
   const fd=new FormData(form);
-  const msg=$("#bonusCreditsMessage");
+  const msg=form.querySelector("#bonusCreditsMessage");
+  const saveBtn=form.querySelector('[data-action="save-bonus"]');
+  const originalText=saveBtn?.textContent||"🎁 Conceder bônus";
+
   const advisorId=String(fd.get("advisor_id")||"");
   const credits=Number(fd.get("credits"));
   const days=Number(fd.get("validity_days"));
   const note=String(fd.get("note")||"").trim()||null;
 
-  if(!advisorId || !Number.isInteger(credits) || credits<1 || !Number.isInteger(days) || days<1){
-    if(msg) msg.textContent="Confira quantidade e validade.";
+  if(!advisorId || !Number.isInteger(credits) || credits<1 || credits>100){
+    if(msg) msg.textContent="Informe uma quantidade entre 1 e 100 créditos.";
     return;
   }
 
-  if(msg) msg.textContent="Concedendo créditos bônus...";
-
-  const {error}=await db.rpc("admin_grant_bonus_credits",{
-    p_advisor_id:advisorId,
-    p_credits:credits,
-    p_validity_days:days,
-    p_note:note
-  });
-
-  if(error){
-    if(msg) msg.textContent=error.message;
+  if(!Number.isInteger(days) || days<1 || days>365){
+    if(msg) msg.textContent="Informe uma validade entre 1 e 365 dias.";
     return;
   }
 
-  await refreshData();
-  closeModal();
-  renderAdvisors();
+  if(saveBtn){
+    saveBtn.disabled=true;
+    saveBtn.textContent="Concedendo...";
+  }
+  if(msg) msg.textContent="Adicionando créditos bônus à carteira do assessor...";
+
+  try{
+    const {data,error}=await db.rpc("admin_grant_bonus_credits",{
+      p_advisor_id:advisorId,
+      p_credits:credits,
+      p_validity_days:days,
+      p_note:note
+    });
+
+    if(error) throw error;
+
+    if(msg) msg.textContent=`🎁 ${credits} crédito${credits===1?" bônus concedido":"s bônus concedidos"} com sucesso ✓`;
+    if(saveBtn) saveBtn.textContent="Bônus concedido ✓";
+
+    await refreshData();
+
+    setTimeout(()=>{
+      closeModal();
+      renderAdvisors();
+    },500);
+
+    return data;
+  }catch(err){
+    console.error("Erro ao conceder créditos bônus:",err);
+    if(msg) msg.textContent=err?.message||"Não foi possível conceder os créditos bônus.";
+    if(saveBtn){
+      saveBtn.disabled=false;
+      saveBtn.textContent=originalText;
+    }
+    return null;
+  }
 }
 
 function renderCreditFinance(){
@@ -1439,6 +1468,10 @@ $("#adminModal").addEventListener("click",async event=>{
     const form=$("#universityForm");
     if(form) await saveUniversity(form);
   }
+  if(action==="save-bonus"){
+    const form=$("#bonusCreditsForm");
+    if(form) await saveBonusCredits(form);
+  }
   if(action==="delete-media") await deleteMedia(button.dataset.id);
   if(action==="cover-media") await setCover(button.dataset.id,button.dataset.property);
 });
@@ -1453,6 +1486,11 @@ $("#adminModal").addEventListener("submit",async event=>{
 
   if(form.id==="universityForm"){
     await saveUniversity(form);
+  }
+
+  if(form.id==="bonusCreditsForm"){
+    await saveBonusCredits(form);
+    return;
   }
 
   if(form.id==="personForm"){
