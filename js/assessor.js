@@ -469,7 +469,7 @@ function renderRentalControl(){
       <div><span>Locações ativas</span><strong>${active.length}</strong></div>
       <div><span>Com assessoria</span><strong>${withAdvisory}</strong></div>
     </div>
-    <p class="tiny-note">O PDF do cliente não exibe comissão do proprietário ou qualquer dado financeiro interno.</p>
+    <p class="tiny-note">O PDF do cliente não exibe comissão do proprietário ou qualquer dado financeiro interno. É apenas um recibo de controle do assessor, sem caráter jurídico, e não substitui contrato de locação ou outro instrumento jurídico.</p>
     ${rows?`
       <div class="admin-table-wrap advisor-rental-table-wrap">
         <table class="admin-table advisor-rental-table">
@@ -514,7 +514,7 @@ function rentalControlModal(row=null){
       <div>
         <p class="eyebrow">RECIBO DE LOCAÇÃO</p>
         <h2>${row?"Editar":"Registrar"} recibo</h2>
-        <p class="muted">Este registro pode ser exportado em PDF para o cliente. Comissão e dados financeiros internos não fazem parte do recibo.</p>
+        <p class="muted">Este registro pode ser exportado em PDF para o cliente. Comissão e dados financeiros internos não fazem parte do recibo. O documento é apenas para controle do assessor, sem caráter jurídico, e não substitui contrato de locação ou outro instrumento jurídico.</p>
       </div>
       <button class="icon-btn" type="button" data-close>✕</button>
     </div>
@@ -664,7 +664,7 @@ function rentalReceiptModal(property){
       <div>
         <p class="eyebrow">FINALIZAR LOCAÇÃO</p>
         <h2>Preencher recibo obrigatório</h2>
-        <p class="muted">Este recibo é voltado ao cliente. Não contém comissão do proprietário nem informações financeiras internas.</p>
+        <p class="muted">Este recibo é voltado ao cliente. Não contém comissão do proprietário nem informações financeiras internas. É apenas um recibo de controle do assessor, sem caráter jurídico, e não substitui contrato de locação ou outro instrumento jurídico.</p>
       </div>
       <button class="icon-btn" type="button" data-close>✕</button>
     </div>
@@ -905,7 +905,22 @@ function generateRentalReceiptPdf(row){
     y+=notes.length*5+4;
   }
 
-  y=Math.max(y+14,215);
+  y+=8;
+  doc.setFillColor(248,248,248);
+  doc.setDrawColor(190);
+  doc.roundedRect(left,y,width,22,2,2,"FD");
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(8.5);
+  doc.setTextColor(70);
+  doc.text("AVISO",left+4,y+6);
+  doc.setFont("helvetica","normal");
+  doc.setFontSize(8);
+  const disclaimer=doc.splitTextToSize("Este documento é apenas um recibo de controle do assessor, sem caráter jurídico. Não substitui contrato de locação ou qualquer outro instrumento jurídico.",width-8);
+  doc.text(disclaimer,left+4,y+11);
+  doc.setTextColor(0);
+  y+=28;
+
+  y=Math.max(y+8,225);
   doc.setDrawColor(160);
   doc.line(left,y,left+70,y);
   doc.line(right-70,y,right,y);
