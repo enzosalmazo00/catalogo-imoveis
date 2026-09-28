@@ -996,3 +996,42 @@ button,input,select,textarea{font-size:16px}
   animation:pixSpin .75s linear infinite;
 }
 @keyframes pixSpin{to{transform:rotate(360deg)}}
+
+
+/* Recibos de locação: evita sobreposição em iPad/Safari */
+.form-grid > *,
+.form-grid label,
+.conditional-subgrid > *,
+.conditional-subgrid label{
+  min-width:0;
+}
+.form-grid input,
+.form-grid select,
+.form-grid textarea,
+.conditional-subgrid input,
+.conditional-subgrid select,
+.conditional-subgrid textarea{
+  width:100%;
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box;
+}
+.rental-receipt-form input[type="date"],
+.rental-receipt-form input[type="number"]{
+  min-width:0;
+  max-width:100%;
+}
+.receipt-payment-date.hidden{display:none!important}
+@media(max-width:820px){
+  .rental-receipt-form{
+    grid-template-columns:1fr!important;
+  }
+  .rental-receipt-form .span-2,
+  .rental-receipt-form .form-section-title,
+  .rental-receipt-form .form-actions{
+    grid-column:auto!important;
+  }
+  .rental-receipt-form .conditional-subgrid{
+    grid-template-columns:1fr!important;
+  }
+}
