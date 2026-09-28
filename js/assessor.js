@@ -1007,18 +1007,6 @@ function propertyModal(property=null){
     imageInput.value="";
   });
   renderPendingPropertyPhotos();
-  };
-
-  photoInputs.forEach(input=>{
-    input.addEventListener("change",()=>{
-      const slot=input.dataset.photoSlot;
-      const label=document.querySelector(`[data-photo-slot-name="${slot}"]`);
-      const file=input.files?.[0]||null;
-      if(label) label.textContent=file?file.name:"Nenhuma foto selecionada";
-      syncPendingPhotos();
-    });
-  });
-  renderPendingPropertyPhotos();
   loadPropertyDraft($("#advisorPropertyForm"),property);
 }
 
@@ -1394,7 +1382,7 @@ async function boot(){
       $("#advisorPanel").classList.add("hidden");
 
       if(authError){
-        $("#advisorAuthMessage").textContent="Sua sessão neste aparelho expirou. Entre novamente.";
+        $("#advisorAuthMessage").textContent="Sua sessão neste navegador expirou. Entre novamente.";
       }
       return;
     }
@@ -1405,7 +1393,7 @@ async function boot(){
     console.warn("Falha ao validar sessão neste dispositivo:",err);
 
     if(bootSpinner) bootSpinner.classList.add("hidden");
-    if(bootTitle) bootTitle.textContent="Não conseguimos validar sua sessão neste aparelho.";
+    if(bootTitle) bootTitle.textContent="Não conseguimos validar sua sessão neste navegador.";
     if(bootText) bootText.textContent="Tente novamente. Se continuar, entre novamente para criar uma sessão nova neste navegador.";
     if(bootActions) bootActions.classList.remove("hidden");
   }
@@ -1703,7 +1691,7 @@ $("#advisorBootLogin")?.addEventListener("click",()=>{
   $("#advisorPanel").classList.add("hidden");
   $("#advisorResetPassword").classList.add("hidden");
   $("#advisorAuth").classList.remove("hidden");
-  $("#advisorAuthMessage").textContent="Sessão deste aparelho limpa. Entre novamente.";
+  $("#advisorAuthMessage").textContent="Sessão deste navegador limpa. Entre novamente.";
 });
 
 $("#advisorLogout").addEventListener("click",async()=>{
