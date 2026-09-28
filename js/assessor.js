@@ -53,8 +53,10 @@ async function ensureProfile(user){
     user_id:user.id,
     full_name:meta.full_name||user.email?.split("@")[0]||"Assessor",
     whatsapp:String(meta.whatsapp||"").replace(/\D/g,"")||null,
+    phone:String(meta.phone||"").replace(/\D/g,"")||null,
     company_name:meta.company_name||null,
-    city:meta.city||null
+    city:meta.city||null,
+    service_cities:["Pedro Juan Caballero","Ponta Porã"].includes(meta.city)?[meta.city]:[]
   };
 
   // O banco agora cria o perfil automaticamente no cadastro.
@@ -236,6 +238,199 @@ function renderPanel(){
   renderExpiredNotice();
   renderPlans();
   renderAds();
+}
+
+function advisorProfileModal(){
+  const cities=Array.isArray(profile?.service_cities)?profile.service_cities:[];
+  const pjcChecked=cities.includes("Pedro Juan Caballero") || (!cities.length && profile?.city==="Pedro Juan Caballero");
+  const ppChecked=cities.includes("Ponta Porã") || (!cities.length && profile?.city==="Ponta Porã");
+
+  showAdvisorModal(`
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">MEU PERFIL</p>
+        <h2>Dados do assessor</h2>
+        <p class="muted property-form-lead">Atualize seus dados de contato, cidades de atuação e senha.</p>
+      </div>
+      <button class="icon-btn" data-close>✕</button>
+    </div>
+
+    <form id="advisorProfileForm" class="form-grid advisor-profile-form">
+      <div class="form-section-title property-section-title">Dados pessoais e profissionais</div>
+
+      <label>Nome completo
+        <input name="full_name" required value="${escapeHTML(profile?.full_name||"")}">
+      </label>
+
+      <label>Nome da assessoria / empresa
+        <input name="company_name" value="${escapeHTML(profile?.company_name||"")}" placeholder="Ex.: AF Assessoria">
+      </label>
+
+      <label>WhatsApp
+        <input name="whatsapp" inputmode="tel" required value="${escapeHTML(profile?.whatsapp||"")}" placeholder="Ex.: 595981123456">
+      </label>
+
+      <label>Telefone
+        <input name="phone" inputmode="tel" value="${escapeHTML(profile?.phone||"")}" placeholder="Ex.: 6734321234">
+      </label>
+
+      <label class="span-2">E-mail da conta
+        <input value="${escapeHTML(currentUser?.email||"")}" readonly class="readonly-input">
+        <small>O e-mail de acesso não é alterado por esta tela.</small>
+      </label>
+
+      <div class="form-section-title property-section-title">Cidades onde atua</div>
+      <div class="span-2 advisor-city-options">
+        <label class="check-chip property-option-chip">
+          <input type="checkbox" name="service_cities" value="Pedro Juan Caballero" ${pjcChecked?"checked":""}>
+          <span>Pedro Juan Caballero</span>
+        </label>
+        <label class="check-chip property-option-chip">
+          <input type="checkbox" name="service_cities" value="Ponta Porã" ${ppChecked?"checked":""}>
+          <span>Ponta Porã</span>
+        </label>
+      </div>
+      <div class="span-2 property-options-help">Você pode marcar as duas cidades.</div>
+
+      <div class="form-section-title property-section-title">Alterar senha</div>
+      <div class="span-2 profile-password-note">Deixe os campos abaixo vazios se não quiser alterar a senha.</div>
+
+      <label>Senha atual
+        <input name="current_password" type="password" autocomplete="current-password" minlength="6">
+      </label>
+
+      <label>Nova senha
+        <input name="new_password" type="password" autocomplete="new-password" minlength="6">
+      </label>
+
+      <label>Confirmar nova senha
+        <input name="confirm_password" type="password" autocomplete="new-password" minlength="6">
+      </label>
+
+      <div></div>
+
+      <div class="form-actions">
+        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button class="btn primary" type="submit">Salvar perfil</button>
+      </div>
+      <div id="advisorProfileMessage" class="span-2 form-message"></div>
+    </form>
+  `);
+}
+
+async function saveAdvisorProfile(form){
+  const fd=new FormData(form);
+  const msg=$("#advisorProfileMessage");
+
+  const fullName=String(fd.get("full_name")||"").trim();
+  const companyName=String(fd.get("company_name")||"").trim()||null;
+  const whatsapp=String(fd.get("whatsapp")||"").replace(/\D/g,"")||null;
+  const phone=String(fd.get("phone")||"").replace(/\D/g,"")||null;
+  const cities=[...form.querySelectorAll('input[name="service_cities"]:checked')].map(el=>el.value);
+
+  if(!fullName){
+    msg.textContent="Informe seu nome completo.";
+    return;
+  }
+  if(!whatsapp){
+    msg.textContent="Informe seu WhatsApp.";
+    return;
+  }
+  if(!cities.length){
+    msg.textContent="Selecione pelo menos uma cidade onde você atua.";
+    return;
+  }
+
+  const currentPassword=String(fd.get("current_password")||"");
+  const newPassword=String(fd.get("new_password")||"");
+  const confirmPassword=String(fd.get("confirm_password")||"");
+  const wantsPasswordChange=currentPassword || newPassword || confirmPassword;
+
+  if(wantsPasswordChange){
+    if(!currentPassword || !newPassword || !confirmPassword){
+      msg.textContent="Para alterar a senha, preencha senha atual, nova senha e confirmação.";
+      return;
+    }
+    if(newPassword.length<6){
+      msg.textContent="A nova senha deve ter pelo menos 6 caracteres.";
+      return;
+    }
+    if(newPassword!==confirmPassword){
+      msg.textContent="A confirmação da nova senha não confere.";
+      return;
+    }
+  }
+
+  msg.textContent="Salvando perfil...";
+
+  const profileRow={
+    full_name:fullName,
+    company_name:companyName,
+    whatsapp,
+    phone,
+    service_cities:cities,
+    city:cities.length===1?cities[0]:null,
+    updated_at:new Date().toISOString()
+  };
+
+  const {data:updated,error:profileError}=await db
+    .from("advisor_profiles")
+    .update(profileRow)
+    .eq("user_id",currentUser.id)
+    .select("*")
+    .single();
+
+  if(profileError){
+    msg.textContent=profileError.message;
+    return;
+  }
+
+  const {error:metaError}=await db.auth.updateUser({
+    data:{
+      full_name:fullName,
+      company_name:companyName||"",
+      whatsapp:whatsapp||"",
+      phone:phone||"",
+      city:cities.length===1?cities[0]:""
+    }
+  });
+
+  if(metaError){
+    msg.textContent="Perfil salvo, mas não foi possível atualizar os dados da sessão: "+metaError.message;
+    profile=updated;
+    renderPanel();
+    return;
+  }
+
+  if(wantsPasswordChange){
+    msg.textContent="Confirmando sua senha atual...";
+    const {error:reauthError}=await db.auth.signInWithPassword({
+      email:currentUser.email,
+      password:currentPassword
+    });
+
+    if(reauthError){
+      profile=updated;
+      renderPanel();
+      msg.textContent="Os dados do perfil foram salvos, mas a senha atual informada está incorreta.";
+      return;
+    }
+
+    msg.textContent="Alterando senha...";
+    const {error:passwordError}=await db.auth.updateUser({password:newPassword});
+    if(passwordError){
+      profile=updated;
+      renderPanel();
+      msg.textContent="Os dados do perfil foram salvos, mas não foi possível alterar a senha: "+passwordError.message;
+      return;
+    }
+  }
+
+  profile=updated;
+  renderPanel();
+  msg.textContent=wantsPasswordChange?"Perfil e senha atualizados com sucesso.":"Perfil atualizado com sucesso.";
+
+  setTimeout(()=>closeAdvisorModal(),900);
 }
 
 function countOptions(value,max=10){
@@ -677,6 +872,7 @@ document.addEventListener("click",async e=>{
   }
   const buy=e.target.closest("[data-buy]");
   if(buy) await startPayment(buy.dataset.buy,buy.dataset.renew||null,buy.dataset.offer||null);
+  if(e.target.closest("#advisorProfileBtn")) advisorProfileModal();
   if(e.target.closest("#newAdvisorProperty")) propertyModal();
   const edit=e.target.closest("[data-edit-ad]");
   if(edit){
@@ -701,6 +897,7 @@ document.addEventListener("click",async e=>{
 $("#advisorModal").addEventListener("submit",async e=>{
   e.preventDefault();
   if(e.target.id==="advisorPropertyForm") await saveProperty(e.target);
+  if(e.target.id==="advisorProfileForm") await saveAdvisorProfile(e.target);
 });
 
 $("#forgotPasswordBtn").addEventListener("click",async()=>{
