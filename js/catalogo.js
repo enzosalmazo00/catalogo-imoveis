@@ -85,7 +85,6 @@ function applyFilters() {
   let filtered = properties.filter(property => {
     const haystack = normalize([
       property.title,
-      property.address,
       property.neighborhood,
       property.city
     ].filter(Boolean).join(" "));
@@ -131,8 +130,8 @@ async function load() {
   }
 
   const { data, error } = await db
-    .from("properties")
-    .select("*, property_media(*)")
+    .from("catalog_properties_public")
+    .select("*")
     .order("featured", { ascending: false })
     .order("sort_order", { ascending: true })
     .order("created_at", { ascending: false });
