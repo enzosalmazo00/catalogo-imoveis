@@ -32,6 +32,7 @@ function renderCard(property) {
           : `<div class="property-photo placeholder-photo"><span>Sem foto</span></div>`
         }
         <div class="property-type-pill">${escapeHTML(propertyTypeLabel(property.property_type))}</div>
+        ${property.city ? `<div class="property-city-pill">${escapeHTML(property.city)}</div>` : ""}
         ${property.featured ? '<div class="featured-pill">Destaque</div>' : ""}
         ${rented ? '<div class="rented-ribbon">ALUGADO</div>' : ""}
       </a>
