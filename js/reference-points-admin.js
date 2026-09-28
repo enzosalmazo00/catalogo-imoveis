@@ -146,12 +146,15 @@ async function savePoint(form){
   const fd=new FormData(form);
   const id=String(fd.get("id")||"").trim()||null;
   const mapsUrl=String(fd.get("google_maps_url")||"").trim();
+  const name=String(fd.get("name")||"").trim();
+  const address=String(fd.get("address")||"").trim();
+  const fallbackQuery=[name,address].filter(Boolean).join(", ");
 
   if(msg) msg.textContent="Lendo a localização no Google Maps...";
 
   try{
     const resolved=await withTimeout(
-      db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl}}),
+      db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl,query:fallbackQuery}}),
       15000,
       "Leitura do Google Maps"
     );
@@ -167,8 +170,8 @@ async function savePoint(form){
     }
 
     const row={
-      name:String(fd.get("name")||"").trim(),
-      address:String(fd.get("address")||"").trim()||null,
+      name,
+      address:address||null,
       google_maps_url:mapsUrl,
       latitude:Number(resolved.data.latitude),
       longitude:Number(resolved.data.longitude),
