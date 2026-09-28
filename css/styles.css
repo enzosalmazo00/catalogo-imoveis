@@ -764,3 +764,5 @@ button,input,select,textarea{font-size:16px}
   .advisor-property-admin-head{align-items:flex-start;flex-direction:column}
   .advisor-property-admin-stats{text-align:left}
 }
+
+.advisor-plan-unit{margin-top:-4px;font-size:12px;font-weight:800;color:var(--muted)}
