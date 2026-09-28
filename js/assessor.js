@@ -44,7 +44,8 @@ function latestRenewable(){
     .sort((a,b)=>new Date(b.created_at)-new Date(a.created_at))[0] || null;
 }
 function adCountFor(subId){
-  return properties.filter(p=>p.advisor_subscription_id===subId).length;
+  const sub=subscriptions.find(s=>s.id===subId);
+  return Number(sub?.ads_used||0);
 }
 function closeAdvisorModal(){
   if(paymentWatcher){
@@ -1028,7 +1029,7 @@ function propertyModal(property=null){
 
       <div class="form-actions">
         <button type="button" class="btn ghost" data-property-close>Cancelar</button>
-        <button class="btn primary" type="submit">${property?"Salvar alterações":"Publicar imóvel"}</button>
+        <button class="btn primary" type="button" data-publish-property>${property?"Salvar alterações":"Publicar imóvel"}</button>
       </div>
       <div id="advisorPropertyMessage" class="span-2 form-message"></div>
     </form>`);
@@ -1062,35 +1063,46 @@ async function saveProperty(form){
   const fd=new FormData(form);
   const id=fd.get("id")||null;
   const existing=id?properties.find(p=>p.id===id):null;
-  const active=existing?activeSubscription():availableSubscription();
+  const active=existing?null:availableSubscription();
+  const msg=$("#advisorPropertyMessage");
+
   if(!existing && !active){
-    const msg=$("#advisorPropertyMessage");
-    if(msg) msg.textContent="Seu pacote não possui uma vaga disponível para um novo anúncio.";
-    return;
+    msg.textContent="Seu pacote não possui uma vaga disponível para um novo anúncio.";
+    return false;
   }
 
   const title=String(fd.get("title")||"").trim();
+  if(!title){
+    msg.textContent="Informe o título do anúncio.";
+    return false;
+  }
 
   const existingImageCount=(existing?.property_media||[]).filter(m=>m.media_type==="image").length;
   if(!existingImageCount && !pendingPropertyFiles.length){
-    const msg=$("#advisorPropertyMessage");
     msg.textContent="Você precisa adicionar pelo menos uma foto do imóvel.";
-    return;
+    return false;
   }
-  const googleMapsUrl=String(fd.get("google_maps_url")||"").trim()||null;
 
+  const youtubeUrl=String(fd.get("youtube")||"").trim();
+  if(youtubeUrl && !/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{6,})/.test(youtubeUrl)){
+    msg.textContent="Cole um link válido do YouTube ou deixe o campo de vídeo vazio.";
+    return false;
+  }
+
+  const googleMapsUrl=String(fd.get("google_maps_url")||"").trim()||null;
   let latitude=existing?.latitude??null;
   let longitude=existing?.longitude??null;
 
-  const msg=$("#advisorPropertyMessage");
-  msg.textContent=existing?"Salvando alterações...":"Publicando...";
-
   if(googleMapsUrl){
-    msg.textContent="Lendo o link do Google Maps...";
-    const resolved=await db.functions.invoke("resolve-maps-link",{body:{url:googleMapsUrl}});
+    msg.textContent="1/4 • Validando localização...";
+    const resolved=await withTimeout(
+      db.functions.invoke("resolve-maps-link",{body:{url:googleMapsUrl}}),
+      12000,
+      "Leitura do Google Maps"
+    );
     if(resolved.error || resolved.data?.error){
-      msg.textContent=resolved.data?.error || "Não foi possível ler o link do Google Maps.";
-      return;
+      msg.textContent=resolved.data?.error || resolved.error?.message || "Não foi possível ler o link do Google Maps.";
+      return false;
     }
     if(resolved.data?.latitude!=null && resolved.data?.longitude!=null){
       latitude=Number(resolved.data.latitude);
@@ -1104,6 +1116,7 @@ async function saveProperty(form){
     property_type:fd.get("property_type"),
     description:String(fd.get("description")||"").trim()||null,
     price:Number(fd.get("price")),
+    currency:"BRL",
     security_deposit:fd.get("security_deposit")?Number(fd.get("security_deposit")):null,
     security_deposit_installment_allowed:fd.get("security_deposit_installment_allowed")==="true",
     security_deposit_max_installments:fd.get("security_deposit_installment_allowed")==="true" && fd.get("security_deposit_max_installments")?Number(fd.get("security_deposit_max_installments")):null,
@@ -1115,90 +1128,195 @@ async function saveProperty(form){
     neighborhood:String(fd.get("neighborhood")||"").trim()||null,
     city:String(fd.get("city")||"").trim()||null,
     address:String(fd.get("address")||"").trim()||null,
-    google_maps_url:fd.get("show_exact_location")==="true" ? googleMapsUrl : null,
+    google_maps_url:googleMapsUrl,
     latitude,
     longitude,
     show_exact_location:fd.get("show_exact_location")==="true",
-    status:fd.get("status"),
-    is_published:true,
-    advisor_id:currentUser.id,
-    advisor_subscription_id:existing?.advisor_subscription_id || active?.id
+    status:fd.get("status")
   };
 
-  msg.textContent=existing?"Salvando alterações...":"Publicando...";
-
-  let propertyId=id;
-  if(existing){
-    delete row.advisor_id;
-    delete row.advisor_subscription_id;
-    delete row.is_published;
-    const upd=await db.from("properties").update(row).eq("id",id).eq("advisor_id",currentUser.id);
-    if(upd.error){msg.textContent=upd.error.message;return;}
-  }else{
-    const ins=await db.from("properties").insert(row).select("id").single();
-    if(ins.error){
-      msg.textContent="Não foi possível publicar o imóvel: "+ins.error.message;
-      return;
-    }
-    propertyId=ins.data.id;
-
-    // A vaga já foi consumida com sucesso. O rascunho de "novo imóvel" não deve reaparecer.
-    await deletePropertyDraft(form,{silent:true});
-    form.dataset.draftKey=`edit:${propertyId}`;
-  }
-
   const selectedFeatureIds=[...form.querySelectorAll('input[name="features"]:checked')].map(el=>el.value);
-  const delFeatures=await db.from("property_features").delete().eq("property_id",propertyId);
-  if(delFeatures.error){
-    msg.textContent=delFeatures.error.message;
-    return;
-  }
-  if(selectedFeatureIds.length){
-    const featureRows=selectedFeatureIds.map(feature_id=>({property_id:propertyId,feature_id}));
-    const featureInsert=await db.from("property_features").insert(featureRows);
-    if(featureInsert.error){
-      msg.textContent=featureInsert.error.message;
-      return;
+
+  // EDITAR: mantém identidade e prazo do anúncio original.
+  if(existing){
+    msg.textContent="2/4 • Salvando alterações...";
+
+    const updateRow={...row};
+    delete updateRow.currency;
+
+    const upd=await db.from("properties")
+      .update(updateRow)
+      .eq("id",existing.id)
+      .eq("advisor_id",currentUser.id);
+
+    if(upd.error){
+      msg.textContent="Não foi possível salvar: "+upd.error.message;
+      return false;
     }
-  }
 
-  const existingImages=sortedPropertyImages(existing);
-
-  if(pendingPropertyCoverExplicit && existingImages.length){
-    await db.from("property_media").update({is_cover:false}).eq("property_id",propertyId).eq("media_type","image");
-    for(let i=0;i<existingImages.length;i++){
-      await db.from("property_media").update({sort_order:(pendingPropertyFiles.length+i)*10}).eq("id",existingImages[i].id);
+    const delFeatures=await db.from("property_features").delete().eq("property_id",existing.id);
+    if(delFeatures.error){
+      msg.textContent="Não foi possível atualizar as características: "+delFeatures.error.message;
+      return false;
     }
+
+    if(selectedFeatureIds.length){
+      const featureRows=selectedFeatureIds.map(feature_id=>({property_id:existing.id,feature_id}));
+      const featureInsert=await db.from("property_features").insert(featureRows);
+      if(featureInsert.error){
+        msg.textContent="Não foi possível atualizar as características: "+featureInsert.error.message;
+        return false;
+      }
+    }
+
+    const existingImages=sortedPropertyImages(existing);
+
+    if(pendingPropertyCoverExplicit && existingImages.length){
+      await db.from("property_media").update({is_cover:false}).eq("property_id",existing.id).eq("media_type","image");
+      for(let i=0;i<existingImages.length;i++){
+        await db.from("property_media")
+          .update({sort_order:(pendingPropertyFiles.length+i)*10})
+          .eq("id",existingImages[i].id);
+      }
+    }
+
+    msg.textContent="3/4 • Enviando novas fotos...";
+    for(let index=0;index<pendingPropertyFiles.length;index++){
+      const file=pendingPropertyFiles[index];
+      const safe=file.name.replace(/[^A-Za-z0-9._-]/g,"_");
+      const path=`${currentUser.id}/${existing.id}/${crypto.randomUUID()}-${safe}`;
+
+      const up=await db.storage.from(STORAGE_BUCKET).upload(path,file,{
+        contentType:file.type||undefined,
+        cacheControl:"3600",
+        upsert:false
+      });
+      if(up.error){
+        msg.textContent="Falha ao enviar foto: "+up.error.message;
+        return false;
+      }
+
+      const shouldCover=(!existingImages.length && index===0) || (pendingPropertyCoverExplicit && index===0);
+      const sortOrder=pendingPropertyCoverExplicit ? index*10 : (existingImages.length+index)*10;
+      const mediaInsert=await db.from("property_media").insert({
+        property_id:existing.id,
+        media_type:"image",
+        storage_path:path,
+        is_cover:shouldCover,
+        sort_order:sortOrder
+      });
+      if(mediaInsert.error){
+        await db.storage.from(STORAGE_BUCKET).remove([path]);
+        msg.textContent="Falha ao registrar foto: "+mediaInsert.error.message;
+        return false;
+      }
+    }
+
+    const existingYoutube=propertyYoutubeMedia(existing);
+    if(existingYoutube && existingYoutube.external_url!==youtubeUrl){
+      const delVideo=await db.from("property_media").delete().eq("id",existingYoutube.id);
+      if(delVideo.error){
+        msg.textContent="Não foi possível atualizar o vídeo: "+delVideo.error.message;
+        return false;
+      }
+    }
+    if(youtubeUrl && (!existingYoutube || existingYoutube.external_url!==youtubeUrl)){
+      const videoInsert=await db.from("property_media").insert({
+        property_id:existing.id,
+        media_type:"youtube",
+        external_url:youtubeUrl,
+        is_cover:false,
+        sort_order:10000
+      });
+      if(videoInsert.error){
+        msg.textContent="Não foi possível registrar o vídeo: "+videoInsert.error.message;
+        return false;
+      }
+    }
+
+    await deletePropertyDraft(form,{silent:true});
+    msg.textContent="4/4 • Alterações salvas com sucesso.";
+    await loadData();
+    renderPanel();
+    closeAdvisorPropertyPage();
+    return true;
   }
 
-  for(let index=0;index<pendingPropertyFiles.length;index++){
-    const file=pendingPropertyFiles[index];
-    const safe=file.name.replace(/[^A-Za-z0-9._-]/g,"_");
-    const path=`${currentUser.id}/${propertyId}/${crypto.randomUUID()}-${safe}`;
-    const up=await db.storage.from(STORAGE_BUCKET).upload(path,file,{cacheControl:"3600",upsert:false});
-    if(up.error){msg.textContent=up.error.message;return;}
-    const isNewProperty=!existingImages.length;
-    const shouldCover=(isNewProperty && index===0) || (pendingPropertyCoverExplicit && index===0);
-    const sortOrder=pendingPropertyCoverExplicit ? index*10 : (existingImages.length+index)*10;
-    const mediaInsert=await db.from("property_media").insert({property_id:propertyId,media_type:"image",storage_path:path,is_cover:shouldCover,sort_order:sortOrder});
-    if(mediaInsert.error){msg.textContent=mediaInsert.error.message;return;}
-  }
+  // NOVA PUBLICAÇÃO: primeiro envia as fotos para um ID reservado.
+  // O imóvel só é criado e publicado depois que todas as fotos estiverem prontas.
+  const propertyId=crypto.randomUUID();
+  const uploadedPaths=[];
+  const media=[];
 
-  const youtubeUrl=String(fd.get("youtube")||"").trim();
-  const existingYoutube=propertyYoutubeMedia(existing);
-  if(existingYoutube && existingYoutube.external_url!==youtubeUrl){
-    const delVideo=await db.from("property_media").delete().eq("id",existingYoutube.id);
-    if(delVideo.error){msg.textContent=delVideo.error.message;return;}
+  try{
+    msg.textContent="2/4 • Enviando fotos...";
+    for(let index=0;index<pendingPropertyFiles.length;index++){
+      const file=pendingPropertyFiles[index];
+      const safe=file.name.replace(/[^A-Za-z0-9._-]/g,"_");
+      const path=`${currentUser.id}/${propertyId}/${crypto.randomUUID()}-${safe}`;
+
+      const up=await db.storage.from(STORAGE_BUCKET).upload(path,file,{
+        contentType:file.type||undefined,
+        cacheControl:"3600",
+        upsert:false
+      });
+      if(up.error) throw new Error("Falha ao enviar a foto "+(index+1)+": "+up.error.message);
+
+      uploadedPaths.push(path);
+      media.push({
+        media_type:"image",
+        storage_path:path,
+        is_cover:index===0,
+        sort_order:index*10
+      });
+    }
+
+    if(youtubeUrl){
+      media.push({
+        media_type:"youtube",
+        external_url:youtubeUrl,
+        is_cover:false,
+        sort_order:10000
+      });
+    }
+
+    msg.textContent="3/4 • Registrando e publicando imóvel...";
+    const published=await withTimeout(
+      db.rpc("publish_advisor_property",{
+        p_property_id:propertyId,
+        p_subscription_id:active.id,
+        p_property:row,
+        p_feature_ids:selectedFeatureIds,
+        p_media:media
+      }),
+      15000,
+      "Publicação do imóvel"
+    );
+
+    if(published.error) throw new Error(published.error.message);
+
+    msg.textContent="4/4 • Imóvel publicado com sucesso.";
+    await deletePropertyDraft(form,{silent:true});
+    await loadData();
+    renderPanel();
+
+    const created=properties.find(p=>p.id===propertyId);
+    if(!created){
+      throw new Error("O imóvel foi publicado, mas o painel ainda não conseguiu recarregá-lo.");
+    }
+
+    closeAdvisorPropertyPage();
+    return true;
+  }catch(err){
+    console.error("Falha na publicação atômica do imóvel:",err);
+
+    if(uploadedPaths.length){
+      try{ await db.storage.from(STORAGE_BUCKET).remove(uploadedPaths); }catch{}
+    }
+
+    msg.textContent="Não foi possível publicar: "+(err?.message||"erro desconhecido");
+    return false;
   }
-  if(youtubeUrl && (!existingYoutube || existingYoutube.external_url!==youtubeUrl)){
-    const videoInsert=await db.from("property_media").insert({property_id:propertyId,media_type:"youtube",external_url:youtubeUrl,is_cover:false,sort_order:10000});
-    if(videoInsert.error){msg.textContent=videoInsert.error.message;return;}
-  }
-  await deletePropertyDraft(form,{silent:true});
-  msg.textContent=existing?"Alterações salvas com sucesso.":"Imóvel publicado com sucesso.";
-  await loadData();
-  renderPanel();
-  closeAdvisorPropertyPage();
 }
 
 async function setAdvisorCover(mediaId,propertyId){
@@ -1474,6 +1592,13 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+    const publishPropertyBtn=e.target.closest("[data-publish-property]");
+  if(publishPropertyBtn){
+    e.preventDefault();
+    await runPropertySave($("#advisorPropertyForm"));
+    return;
+  }
+
     const saveDraftBtn=e.target.closest("[data-save-property-draft]");
   if(saveDraftBtn){
     const form=$("#advisorPropertyForm");
@@ -1624,13 +1749,22 @@ $("#advisorModal").addEventListener("submit",async e=>{
   if(e.target.id==="advisorProfileForm") await saveAdvisorProfile(e.target);
 });
 
-$("#advisorPropertyPage")?.addEventListener("submit",async e=>{
-  if(e.target.id!=="advisorPropertyForm") return;
-  e.preventDefault();
+async function runPropertySave(form){
+  if(!form) return;
 
-  const form=e.target;
-  const submit=form.querySelector('button[type="submit"]');
+  const submit=form.querySelector("[data-publish-property]");
   const originalText=submit?.textContent||"";
+
+  if(!form.checkValidity()){
+    const invalid=form.querySelector(":invalid");
+    const label=invalid?.closest("label");
+    const fieldName=(label?.childNodes?.[0]?.textContent||"campo obrigatório").trim();
+    const msg=form.querySelector("#advisorPropertyMessage");
+    if(msg) msg.textContent="Revise o campo: "+fieldName+".";
+    invalid?.scrollIntoView({behavior:"smooth",block:"center"});
+    setTimeout(()=>invalid?.reportValidity(),250);
+    return;
+  }
 
   if(submit){
     submit.disabled=true;
@@ -1642,15 +1776,20 @@ $("#advisorPropertyPage")?.addEventListener("submit",async e=>{
   try{
     await saveProperty(form);
   }catch(err){
-    console.error("Falha inesperada ao publicar imóvel:",err);
+    console.error("Falha inesperada ao salvar imóvel:",err);
     const msg=form.querySelector("#advisorPropertyMessage");
-    if(msg) msg.textContent="Não foi possível concluir a publicação. Tente novamente.";
+    if(msg) msg.textContent="Não foi possível concluir: "+(err?.message||"erro inesperado");
   }finally{
     if(document.body.contains(form) && submit){
       submit.disabled=false;
       submit.textContent=originalText;
     }
   }
+}
+
+$("#advisorPropertyPage")?.addEventListener("submit",e=>{
+  // Evita qualquer submit nativo acidental.
+  if(e.target.id==="advisorPropertyForm") e.preventDefault();
 });
 
 $("#forgotPasswordBtn").addEventListener("click",async()=>{
