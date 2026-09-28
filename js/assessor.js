@@ -340,16 +340,14 @@ async function watchPaymentStatus(subscriptionId){
     attempts++;
 
     try{
-      const {data,error}=await db
-        .from("advisor_subscriptions")
-        .select("status,paid_at,starts_at,ends_at")
-        .eq("id",subscriptionId)
-        .maybeSingle();
+      const {data,error}=await db.functions.invoke("check-advisor-pix",{
+        body:{subscription_id:subscriptionId}
+      });
 
-      if(error) throw error;
+      if(error || data?.error) throw new Error(data?.error || error?.message || "Falha ao verificar pagamento.");
 
       const statusEl=$("#pixStatus");
-      if(data?.status==="active" || data?.status==="paid"){
+      if(data?.status==="active"){
         if(paymentWatcher){
           clearInterval(paymentWatcher);
           paymentWatcher=null;
