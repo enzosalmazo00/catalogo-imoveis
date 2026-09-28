@@ -889,7 +889,17 @@ function adminReceiptViewModal(row){
       <div><small>Inquilino</small><strong>${escapeHTML(row.tenant_name||"—")}</strong><span>${escapeHTML(row.tenant_phone||"")}</span></div>
 
       <div><small>Aluguel</small><strong>${money(row.monthly_rent||0,row.currency||"BRL")}</strong><span>${escapeHTML(paymentLine(row.rent_paid,row.rent_payment_date))}</span></div>
-      <div><small>Caução</small><strong>${money(row.security_deposit||0,row.currency||"BRL")}</strong><span>${escapeHTML(paymentLine(row.security_deposit_paid,row.security_deposit_payment_date))}</span></div>
+      ${(row.guarantee_type||"deposit")==="guarantor" ? `
+        <div><small>Garantia</small><strong>Fiador</strong><span>Sem caução</span></div>
+      ` : `
+        <div><small>Garantia</small><strong>Caução</strong><span>${Number(row.security_deposit_count||1)}x de ${money(row.security_deposit||0,row.currency||"BRL")} • Total ${money(Number(row.security_deposit||0)*Number(row.security_deposit_count||1),row.currency||"BRL")} • ${escapeHTML(paymentLine(row.security_deposit_paid,row.security_deposit_payment_date))}</span></div>
+      `}
+      <div><small>Tempo mínimo</small><strong>${row.minimum_contract_term==="6_months"?"6 meses":row.minimum_contract_term==="12_months"?"1 ano":"Sem tempo mínimo"}</strong></div>
+      ${row.has_contract?`
+        <div><small>Contrato</small><strong>${money(row.contract_amount||0,row.currency||"BRL")}</strong><span>Pago pelo ${row.contract_payer==="owner"?"proprietário":"inquilino"}</span></div>
+      `:`
+        <div><small>Contrato</small><strong>Sem cobrança</strong></div>
+      `}
 
       ${row.advisor_commission_charged && row.commission_amount!=null?`
         <div><small>Comissão cobrada pelo assessor</small><strong>${money(row.commission_amount,row.currency||"BRL")}</strong><span>${escapeHTML(paymentLine(row.commission_paid,row.advisor_commission_payment_date))}</span></div>
