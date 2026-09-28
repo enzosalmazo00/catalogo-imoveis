@@ -380,8 +380,12 @@ function propertyModal(property=null){
         <input name="neighborhood" value="${escapeHTML(property?.neighborhood||"")}" placeholder="Ex.: Centro">
       </label>
 
-      <label>Cidade
-        <input name="city" value="${escapeHTML(property?.city||profile?.city||"")}" placeholder="Ex.: Pedro Juan Caballero">
+      <label>Cidade do imóvel
+        <select name="city" required>
+          <option value="">Selecione a cidade</option>
+          <option value="Pedro Juan Caballero" ${(property?.city||profile?.city)==="Pedro Juan Caballero"?"selected":""}>Pedro Juan Caballero</option>
+          <option value="Ponta Porã" ${(property?.city||profile?.city)==="Ponta Porã"?"selected":""}>Ponta Porã</option>
+        </select>
       </label>
 
       <label class="span-2">Endereço escrito (opcional)
