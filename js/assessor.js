@@ -49,6 +49,27 @@ function showAdvisorModal(html){
   $("#advisorModal").classList.remove("hidden");
 }
 
+function showAdvisorPropertyPage(html){
+  const page=$("#advisorPropertyPage");
+  if(!page) return;
+  $("#advisorPanel")?.classList.add("hidden");
+  page.innerHTML='<div class="advisor-property-page-card">'+html+'</div>';
+  page.classList.remove("hidden");
+  window.scrollTo({top:0,behavior:"auto"});
+}
+
+function closeAdvisorPropertyPage(){
+  const page=$("#advisorPropertyPage");
+  if(page){
+    page.classList.add("hidden");
+    page.innerHTML="";
+  }
+  $("#advisorPanel")?.classList.remove("hidden");
+  pendingPropertyFiles=[];
+  pendingPropertyCoverExplicit=false;
+  window.scrollTo({top:0,behavior:"auto"});
+}
+
 async function ensureProfile(user){
   const meta=user.user_metadata||{};
   const fallback={
@@ -812,14 +833,14 @@ function propertyModal(property=null){
   const furnitureChips=featureChips("furniture",selectedIds);
   const includedChips=featureChips("included",selectedIds);
 
-  showAdvisorModal(`
+  showAdvisorPropertyPage(`
     <div class="modal-head">
       <div>
         <p class="eyebrow">${property?"EDITAR ANÚNCIO":"NOVO ANÚNCIO"}</p>
         <h2>${property?"Editar imóvel":"Cadastrar imóvel"}</h2>
         <p class="muted property-form-lead">Preencha as informações do imóvel. Os campos estão organizados por etapas para facilitar pelo celular.</p>
       </div>
-      <button class="icon-btn" data-close>✕</button>
+      <button class="icon-btn" data-property-close>✕</button>
     </div>
 
     <form id="advisorPropertyForm" class="form-grid advisor-property-form">
@@ -979,7 +1000,7 @@ function propertyModal(property=null){
       </div>
 
       <div class="form-actions">
-        <button type="button" class="btn ghost" data-close>Cancelar</button>
+        <button type="button" class="btn ghost" data-property-close>Cancelar</button>
         <button class="btn primary" type="submit">${property?"Salvar alterações":"Publicar imóvel"}</button>
       </div>
       <div id="advisorPropertyMessage" class="span-2 form-message"></div>
@@ -1136,7 +1157,7 @@ async function saveProperty(form){
     if(videoInsert.error){msg.textContent=videoInsert.error.message;return;}
   }
   await deletePropertyDraft(form,{silent:true});
-  closeAdvisorModal();
+  closeAdvisorPropertyPage();
   await loadData();
   renderPanel();
 }
@@ -1319,6 +1340,7 @@ async function enterAdvisorPanel(user){
   $("#advisorBootLoader")?.classList.add("hidden");
   $("#advisorAuth").classList.add("hidden");
   $("#advisorResetPassword").classList.add("hidden");
+  $("#advisorPropertyPage")?.classList.add("hidden");
   $("#advisorPanel").classList.remove("hidden");
   $("#advisorWelcome").textContent="Carregando sua área...";
 
@@ -1347,6 +1369,7 @@ async function boot(){
     $("#advisorBootLoader")?.classList.add("hidden");
     $("#advisorAuth").classList.add("hidden");
     $("#advisorPanel").classList.add("hidden");
+    $("#advisorPropertyPage")?.classList.add("hidden");
     $("#advisorResetPassword").classList.remove("hidden");
     return;
   }
@@ -1406,7 +1429,13 @@ document.addEventListener("click",async e=>{
     $("#advisorLoginForm").classList.toggle("hidden",tab.dataset.authTab!=="login");
     $("#advisorSignupForm").classList.toggle("hidden",tab.dataset.authTab!=="signup");
   }
-  const saveDraftBtn=e.target.closest("[data-save-property-draft]");
+  const propertyClose=e.target.closest("[data-property-close]");
+  if(propertyClose){
+    closeAdvisorPropertyPage();
+    return;
+  }
+
+    const saveDraftBtn=e.target.closest("[data-save-property-draft]");
   if(saveDraftBtn){
     const form=$("#advisorPropertyForm");
     if(form) await savePropertyDraft(form);
