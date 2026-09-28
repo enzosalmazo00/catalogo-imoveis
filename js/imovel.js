@@ -137,11 +137,13 @@ async function load() {
       .from("catalog_properties_public")
       .select("*")
       .eq("id",id)
+      .eq("status","available")
       .maybeSingle(),
     db.rpc("get_public_property_university_distances",{p_property_id:id}),
     db
       .from("catalog_properties_public")
       .select("id,title,public_code,catalog_priority,featured,sort_order,created_at")
+      .eq("status","available")
       .order("catalog_priority",{ascending:false})
       .order("featured",{ascending:false})
       .order("sort_order",{ascending:true})
