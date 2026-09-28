@@ -197,6 +197,8 @@ function featureChecks(selected = []) {
   const selectedSet = new Set(selected);
   const furniture = state.features.filter(f => f.category === "furniture");
   const included = state.features.filter(f => f.category === "included");
+  const security = state.features.filter(f => f.category === "security");
+  const nearby = state.features.filter(f => f.category === "nearby");
   const render = items => items.map(f => `
     <label class="check-chip">
       <input type="checkbox" name="features" value="${f.id}" ${selectedSet.has(f.id) ? "checked" : ""}>
@@ -206,7 +208,9 @@ function featureChecks(selected = []) {
 
   return {
     furniture: render(furniture),
-    included: render(included)
+    included: render(included),
+    security: render(security),
+    nearby: render(nearby)
   };
 }
 
@@ -235,8 +239,15 @@ function propertyModal(property=null) {
         </select>
       </label>
 
+      <label>Moeda
+        <select name="currency" required>
+          <option value="BRL" ${(property?.currency||"BRL")==="BRL"?"selected":""}>Real brasileiro (R$)</option>
+          <option value="PYG" ${property?.currency==="PYG"?"selected":""}>Guarani paraguaio (₲)</option>
+        </select>
+      </label>
+
       <label>Valor mensal
-        <input name="price" type="number" min="0" step="0.01" required value="${property?.price ?? ""}">
+        <input name="price" type="number" min="0" step="1" required value="${property?.price ?? ""}">
       </label>
 
       <label>Valor da caução
@@ -297,6 +308,68 @@ function propertyModal(property=null) {
           <option value="false" ${!property?.furnished ? "selected" : ""}>Sem mobília</option>
           <option value="true" ${property?.furnished ? "selected" : ""}>Mobiliado</option>
         </select>
+      </label>
+
+      <div class="form-section-title">Ficha técnica</div>
+
+      <label>Contexto do imóvel
+        <select name="housing_context">
+          <option value="independent" ${property?.housing_context!=="condominium"?"selected":""}>Independente</option>
+          <option value="condominium" ${property?.housing_context==="condominium"?"selected":""}>Em condomínio</option>
+        </select>
+      </label>
+
+      <label>Nome do condomínio
+        <input name="condominium_name" value="${escapeHTML(property?.condominium_name||"")}" placeholder="Se houver">
+      </label>
+
+      <label>Imóvel de fundo?
+        <select name="is_rear_unit"><option value="false" ${!property?.is_rear_unit?"selected":""}>Não</option><option value="true" ${property?.is_rear_unit?"selected":""}>Sim</option></select>
+      </label>
+
+      <label>Escada para acesso?
+        <select name="has_stairs_access"><option value="false" ${!property?.has_stairs_access?"selected":""}>Não</option><option value="true" ${property?.has_stairs_access?"selected":""}>Sim</option></select>
+      </label>
+
+      <label>Quantidade de cômodos
+        <input name="room_count" type="number" min="1" step="1" value="${property?.room_count??""}" placeholder="Não se aplica a monoambiente">
+      </label>
+
+      <label>Sala?
+        <select name="has_living_room"><option value="false" ${!property?.has_living_room?"selected":""}>Não</option><option value="true" ${property?.has_living_room?"selected":""}>Sim</option></select>
+      </label>
+
+      <label>Cozinha?
+        <select name="has_kitchen"><option value="false" ${!property?.has_kitchen?"selected":""}>Não</option><option value="true" ${property?.has_kitchen?"selected":""}>Sim</option></select>
+      </label>
+
+      <label>Lavanderia
+        <select name="laundry_type">
+          <option value="none" ${(property?.laundry_type||"none")==="none"?"selected":""}>Não possui</option>
+          <option value="private" ${property?.laundry_type==="private"?"selected":""}>Privativa</option>
+          <option value="shared" ${property?.laundry_type==="shared"?"selected":""}>Compartilhada</option>
+        </select>
+      </label>
+
+      <label>Garagem
+        <select name="garage_scope">
+          <option value="none" ${(property?.garage_scope||"none")==="none"?"selected":""}>Não possui</option>
+          <option value="shared" ${property?.garage_scope==="shared"?"selected":""}>Coletiva / compartilhada</option>
+          <option value="private" ${property?.garage_scope==="private"?"selected":""}>Própria / privativa</option>
+        </select>
+      </label>
+
+      <label>Garagem para
+        <select name="garage_vehicle">
+          <option value="none" ${(property?.garage_vehicle||"none")==="none"?"selected":""}>Não informar</option>
+          <option value="car_motorcycle" ${property?.garage_vehicle==="car_motorcycle"?"selected":""}>Carro e moto</option>
+          <option value="car" ${property?.garage_vehicle==="car"?"selected":""}>Somente carro</option>
+          <option value="motorcycle" ${property?.garage_vehicle==="motorcycle"?"selected":""}>Somente moto</option>
+        </select>
+      </label>
+
+      <label>Portão eletrônico?
+        <select name="has_electronic_gate"><option value="false" ${!property?.has_electronic_gate?"selected":""}>Não</option><option value="true" ${property?.has_electronic_gate?"selected":""}>Sim</option></select>
       </label>
 
       <div class="form-section-title">Localização</div>
@@ -362,6 +435,12 @@ function propertyModal(property=null) {
 
       <div class="form-section-title">Mobília e estrutura</div>
       <div class="span-2 checkbox-row">${checks.furniture}</div>
+
+      <div class="form-section-title">Segurança</div>
+      <div class="span-2 checkbox-row">${checks.security}</div>
+
+      <div class="form-section-title">Comodidades próximas</div>
+      <div class="span-2 checkbox-row">${checks.nearby}</div>
 
       <div class="form-section-title">Itens inclusos no aluguel</div>
       <div class="span-2 checkbox-row">${checks.included}</div>
@@ -444,6 +523,7 @@ async function saveProperty(form) {
     property_type: fd.get("property_type"),
     description: String(fd.get("description") || "").trim() || null,
     price: n(fd.get("price")),
+    currency:fd.get("currency")||"BRL",
     security_deposit: n(fd.get("security_deposit")),
     security_deposit_installment_allowed: fd.get("security_deposit_installment_allowed") === "true",
     security_deposit_max_installments: fd.get("security_deposit_installment_allowed") === "true" ? n(fd.get("security_deposit_max_installments")) : null,
@@ -461,6 +541,17 @@ async function saveProperty(form) {
     bedrooms: n(fd.get("bedrooms")),
     bathrooms: n(fd.get("bathrooms")),
     furnished: fd.get("furnished") === "true",
+    housing_context:fd.get("housing_context")||"independent",
+    condominium_name:fd.get("housing_context")==="condominium" ? String(fd.get("condominium_name")||"").trim()||null : null,
+    is_rear_unit:fd.get("is_rear_unit")==="true",
+    has_stairs_access:fd.get("has_stairs_access")==="true",
+    room_count:fd.get("property_type")==="monoambiente" ? null : n(fd.get("room_count")),
+    has_living_room:fd.get("property_type")==="monoambiente" ? false : fd.get("has_living_room")==="true",
+    has_kitchen:fd.get("property_type")==="monoambiente" ? false : fd.get("has_kitchen")==="true",
+    laundry_type:fd.get("laundry_type")||"none",
+    garage_scope:fd.get("garage_scope")||"none",
+    garage_vehicle:fd.get("garage_scope")==="none" ? "none" : (fd.get("garage_vehicle")||"none"),
+    has_electronic_gate:fd.get("garage_scope")==="none" ? false : fd.get("has_electronic_gate")==="true",
     status: fd.get("status"),
     is_published: fd.get("is_published") === "true",
     featured: fd.get("featured") === "true"
@@ -650,9 +741,12 @@ function universityModal(row=null) {
       <input type="hidden" name="id" value="${row?.id||""}">
       <label>Nome<input name="name" required value="${escapeHTML(row?.name||"")}"></label>
       <label>Ativa?<select name="active"><option value="true" ${row?.active!==false?"selected":""}>Sim</option><option value="false" ${row?.active===false?"selected":""}>Não</option></select></label>
-      <label class="span-2">Endereço<input name="address" required value="${escapeHTML(row?.address||"")}"></label>
-      <label>Latitude<input name="latitude" type="number" step="0.0000001" value="${row?.latitude??""}"></label>
-      <label>Longitude<input name="longitude" type="number" step="0.0000001" value="${row?.longitude??""}"></label>
+      <label class="span-2">Endereço<input name="address" required value="${escapeHTML(row?.address||"")}" placeholder="Endereço da faculdade"></label>
+      <label class="span-2">Link exato no Google Maps
+        <input name="google_maps_url" type="url" required value="${escapeHTML(row?.google_maps_url||"")}" placeholder="Google Maps → Compartilhar → Copiar link">
+        <small>O sistema obtém latitude e longitude automaticamente deste link e todos os anúncios usam esta localização.</small>
+      </label>
+      ${row?.latitude!=null&&row?.longitude!=null?`<div class="span-2 tiny-note">Localização registrada: ${row.latitude}, ${row.longitude}</div>`:""}
       <div class="form-actions"><button class="btn ghost" type="button" data-action="close-modal">Cancelar</button><button class="btn primary" type="submit">Salvar</button></div>
     </form>
   `);
@@ -838,6 +932,39 @@ function renderCurrent() {
   })[state.tab]();
 }
 
+async function saveUniversity(form){
+  const fd=new FormData(form);
+  const id=fd.get("id")||null;
+  const mapsUrl=String(fd.get("google_maps_url")||"").trim();
+  if(!mapsUrl) return alert("Informe o link exato da faculdade no Google Maps.");
+
+  const resolved=await db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl}});
+  if(resolved.error || resolved.data?.error){
+    return alert(resolved.data?.error || resolved.error?.message || "Não foi possível ler o link do Google Maps.");
+  }
+  if(resolved.data?.latitude==null || resolved.data?.longitude==null){
+    return alert("O link não retornou coordenadas. Abra o ponto exato no Google Maps e copie novamente.");
+  }
+
+  const row={
+    name:String(fd.get("name")||"").trim(),
+    address:String(fd.get("address")||"").trim(),
+    google_maps_url:mapsUrl,
+    latitude:Number(resolved.data.latitude),
+    longitude:Number(resolved.data.longitude),
+    active:fd.get("active")==="true"
+  };
+
+  const result=id
+    ? await db.from("universities").update(row).eq("id",id)
+    : await db.from("universities").insert(row);
+  if(result.error) return alert(result.error.message);
+
+  await refreshData();
+  closeModal();
+  renderCurrent();
+}
+
 async function saveSimple(form, table, transform) {
   const fd = new FormData(form);
   const id = fd.get("id") || null;
@@ -919,13 +1046,7 @@ $("#adminModal").addEventListener("submit",async event=>{
   }
 
   if(form.id==="universityForm"){
-    await saveSimple(form,"universities",fd=>({
-      name:String(fd.get("name")||"").trim(),
-      address:String(fd.get("address")||"").trim(),
-      latitude:n(fd.get("latitude")),
-      longitude:n(fd.get("longitude")),
-      active:fd.get("active")==="true"
-    }));
+    await saveUniversity(form);
   }
 
   if(form.id==="personForm"){
