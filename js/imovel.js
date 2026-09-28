@@ -12,7 +12,7 @@ import {
   locationText,
   routeText,
   mapsQuery
-} from "./common.js";
+} from "./common.js?v=202609281300";
 
 const params = new URLSearchParams(location.search);
 const id = params.get("id");
@@ -63,6 +63,24 @@ function renderGallery(property) {
   `;
 }
 
+function straightLineKm(lat1,lon1,lat2,lon2){
+  const nums=[lat1,lon1,lat2,lon2].map(Number);
+  if(nums.some(v=>!Number.isFinite(v))) return null;
+  const [a,b,c,d]=nums;
+  const toRad=x=>x*Math.PI/180;
+  const earth=6371;
+  const dLat=toRad(c-a);
+  const dLon=toRad(d-b);
+  const h=Math.sin(dLat/2)**2 + Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dLon/2)**2;
+  return 2*earth*Math.asin(Math.sqrt(h));
+}
+
+function formatDistanceKm(km){
+  if(km==null) return "";
+  if(km<1) return `${Math.max(1,Math.round(km*1000))} m`;
+  return `${km.toLocaleString("pt-BR",{maximumFractionDigits:1})} km`;
+}
+
 function renderUniversities(property, universities = []) {
   if (!universities.length) return "";
 
@@ -82,6 +100,7 @@ function renderUniversities(property, universities = []) {
       const route = cached.get(uni.id);
       const drive = route ? routeText(route.driving_distance_m, route.driving_duration_s) : "";
       const walk = route ? routeText(route.walking_distance_m, route.walking_duration_s) : "";
+      const approxKm = straightLineKm(property.latitude,property.longitude,uni.latitude,uni.longitude);
       const destination = (uni.latitude != null && uni.longitude != null)
         ? `${uni.latitude},${uni.longitude}`
         : uni.address;
@@ -95,6 +114,7 @@ function renderUniversities(property, universities = []) {
           <div>
             <strong>${escapeHTML(uni.name)}</strong>
             <span>${escapeHTML(uni.address || "")}</span>
+            ${approxKm!=null?`<div class="university-distance">📍 Aproximadamente ${escapeHTML(formatDistanceKm(approxKm))} do imóvel</div>`:""}
             ${drive || walk ? `
               <div class="cached-route-info">
                 ${drive ? `<span>🚗 ${escapeHTML(drive)}</span>` : ""}
@@ -118,7 +138,7 @@ function renderUniversities(property, universities = []) {
         <div><p class="eyebrow">LOCALIZAÇÃO</p><h2>Universidades próximas</h2></div>
       </div>
       <div class="university-list">${rows}</div>
-      <p class="tiny-note">As rotas são abertas diretamente no Google Maps, que calcula distância e tempo atualizados sem exigir uma chave paga no nosso site.</p>
+      <p class="tiny-note">A distância exibida é aproximada pelas coordenadas do imóvel e da faculdade. O botão de rota abre o Google Maps para calcular o percurso real pelas ruas e o tempo atualizado.</p>
     </section>
   `;
 }
@@ -196,6 +216,8 @@ async function load() {
 
   const furniture = featureList(property, "furniture");
   const included = featureList(property, "included");
+  const security = featureList(property, "security");
+  const nearby = featureList(property, "nearby");
   const wa = whatsappLink(settings, property);
   const waEnabled = property.status !== "rented" && wa !== "#";
 
@@ -234,6 +256,45 @@ async function load() {
           </div>
           ${property.description ? `<div class="description-text">${escapeHTML(property.description).replace(/\n/g,"<br>")}</div>` : ""}
         </section>
+
+        <section class="detail-section">
+          <p class="eyebrow">FICHA TÉCNICA</p><h2>Configuração e acesso</h2>
+          <div class="feature-grid">
+            <div class="feature-item">🏠 ${property.housing_context==="condominium" ? `Condomínio${property.condominium_name?`: ${escapeHTML(property.condominium_name)}`:""}` : "Imóvel independente"}</div>
+            <div class="feature-item">↩️ Imóvel de fundo: ${property.is_rear_unit?"Sim":"Não"}</div>
+            <div class="feature-item">🪜 Escada para acesso: ${property.has_stairs_access?"Sim":"Não"}</div>
+            <div class="feature-item">🧺 Lavanderia: ${property.laundry_type==="private"?"Privativa":property.laundry_type==="shared"?"Compartilhada":"Não possui"}</div>
+            <div class="feature-item">🚗 Garagem: ${property.garage_scope==="private"?"Própria / privativa":property.garage_scope==="shared"?"Coletiva / compartilhada":"Não possui"}</div>
+            ${property.garage_scope!=="none" ? `<div class="feature-item">🚘 Uso da garagem: ${property.garage_vehicle==="car_motorcycle"?"Carro e moto":property.garage_vehicle==="car"?"Somente carro":property.garage_vehicle==="motorcycle"?"Somente moto":"Não informado"}</div>` : ""}
+            ${property.garage_scope!=="none" ? `<div class="feature-item">🔐 Portão eletrônico: ${property.has_electronic_gate?"Sim":"Não"}</div>` : ""}
+          </div>
+        </section>
+
+        ${property.property_type!=="monoambiente" ? `
+          <section class="detail-section">
+            <p class="eyebrow">DISTRIBUIÇÃO</p><h2>Cômodos do imóvel</h2>
+            <div class="facts-grid">
+              <div class="fact-box"><span>Total de cômodos</span><strong>${property.room_count??"Não informado"}</strong></div>
+              <div class="fact-box"><span>Sala</span><strong>${property.has_living_room?"Sim":"Não"}</strong></div>
+              <div class="fact-box"><span>Cozinha</span><strong>${property.has_kitchen?"Sim":"Não"}</strong></div>
+              <div class="fact-box"><span>Lavanderia</span><strong>${property.laundry_type==="private"?"Privativa":property.laundry_type==="shared"?"Compartilhada":"Não"}</strong></div>
+            </div>
+          </section>
+        ` : ""}
+
+        ${security.length ? `
+          <section class="detail-section">
+            <p class="eyebrow">SEGURANÇA</p><h2>Recursos de segurança</h2>
+            <div class="feature-grid">${security.map(item => `<div class="feature-item">${escapeHTML(item.icon||"✓")} ${escapeHTML(item.name)}</div>`).join("")}</div>
+          </section>
+        ` : ""}
+
+        ${nearby.length ? `
+          <section class="detail-section">
+            <p class="eyebrow">PROXIMIDADES</p><h2>Comodidades por perto</h2>
+            <div class="feature-grid">${nearby.map(item => `<div class="feature-item">${escapeHTML(item.icon||"✓")} ${escapeHTML(item.name)}</div>`).join("")}</div>
+          </section>
+        ` : ""}
 
         ${furniture.length ? `
           <section class="detail-section">
