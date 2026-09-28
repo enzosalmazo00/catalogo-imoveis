@@ -1,4 +1,4 @@
-import { db, STORAGE_BUCKET } from "./config.js";
+import { advisorDb as db, STORAGE_BUCKET } from "./config.js?v=202609282145";
 import { $, escapeHTML, money, propertyTypeLabel, statusLabel } from "./common.js?v=202609281430";
 
 let currentUser=null;
@@ -242,9 +242,9 @@ function renderCreditWallet(){
   const purchasedCoins=Array.from({length:purchasedBalance},(_,i)=>
     `<span class="advisor-credit-coin" title="Crédito comprado disponível">${i+1}</span>`
   ).join("");
-  const bonusCoins=Array.from({length:bonusBalance},(_,i)=>
-    `<span class="advisor-credit-coin bonus" title="Crédito bônus para anúncio">🎁</span>`
-  ).join("");
+  const bonusCoins=bonusBalance>0
+    ? '<span class="advisor-credit-coin bonus" title="Créditos bônus para anúncio">🎁</span>'
+    : "";
 
   const nextExpiry=nextCreditExpiry();
   const activeListings=properties.filter(
@@ -1849,6 +1849,29 @@ async function startPayment(planId){
 
 async function enterAdvisorPanel(user){
   if(!user) throw new Error("Usuário não identificado após o login.");
+
+  const {data:adminRow,error:adminCheckError}=await db
+    .from("admin_users")
+    .select("user_id")
+    .eq("user_id",user.id)
+    .maybeSingle();
+
+  if(adminCheckError){
+    console.warn("Não foi possível verificar o tipo da conta:",adminCheckError);
+  }
+
+  if(adminRow){
+    await db.auth.signOut();
+    currentUser=null;
+    profile=null;
+    $("#advisorBootLoader")?.classList.add("hidden");
+    $("#advisorPanel")?.classList.add("hidden");
+    $("#advisorPropertyPage")?.classList.add("hidden");
+    $("#advisorResetPassword")?.classList.add("hidden");
+    $("#advisorAuth")?.classList.remove("hidden");
+    $("#advisorAuthMessage").textContent="Esta conta é exclusiva do painel administrativo. Entre com uma conta de assessor.";
+    throw new Error("Conta administrativa não pode acessar a Área do Assessor.");
+  }
 
   currentUser=user;
 
