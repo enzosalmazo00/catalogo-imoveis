@@ -290,6 +290,29 @@ async function startPayment(planId,renewalOf=null,offerId=null){
   $("#copyPix")?.addEventListener("click",async()=>{await navigator.clipboard.writeText($("#pixCopy").value);$("#copyPix").textContent="PIX copiado ✓";});
 }
 
+async function enterAdvisorPanel(user){
+  if(!user) throw new Error("Usuário não identificado após o login.");
+
+  currentUser=user;
+
+  // Mostra o painel imediatamente após a autenticação.
+  $("#advisorAuth").classList.add("hidden");
+  $("#advisorResetPassword").classList.add("hidden");
+  $("#advisorPanel").classList.remove("hidden");
+  $("#advisorWelcome").textContent="Carregando sua área...";
+
+  try{
+    await ensureProfile(user);
+    await loadData();
+    renderPanel();
+  }catch(err){
+    console.error("Erro ao carregar a Área do Assessor:",err);
+    $("#advisorWelcome").textContent="Área do Assessor";
+    $("#advisorExpiredNotice").innerHTML=
+      '<div class="advisor-expired-alert"><strong>Login realizado.</strong><span>Houve um erro ao carregar os dados do painel. Atualize a página para tentar novamente.</span></div>';
+  }
+}
+
 async function boot(){
   const hashParams=new URLSearchParams(location.hash.replace(/^#/,""));
   const searchParams=new URLSearchParams(location.search);
@@ -309,11 +332,7 @@ async function boot(){
     $("#advisorPanel").classList.add("hidden");
     return;
   }
-  await ensureProfile(user);
-  await loadData();
-  $("#advisorAuth").classList.add("hidden");
-  $("#advisorPanel").classList.remove("hidden");
-  renderPanel();
+  await enterAdvisorPanel(user);
 }
 
 document.addEventListener("click",async e=>{
@@ -408,10 +427,31 @@ db.auth.onAuthStateChange((event)=>{
 
 $("#advisorLoginForm").addEventListener("submit",async e=>{
   e.preventDefault();
-  const msg=$("#advisorAuthMessage"); msg.textContent="Entrando...";
-  const {error}=await db.auth.signInWithPassword({email:$("#advisorLoginEmail").value.trim(),password:$("#advisorLoginPassword").value});
-  if(error){msg.textContent="E-mail ou senha incorretos.";return;}
-  msg.textContent="";await boot();
+  const msg=$("#advisorAuthMessage");
+  const email=$("#advisorLoginEmail").value.trim();
+  const password=$("#advisorLoginPassword").value;
+
+  msg.textContent="Entrando...";
+
+  try{
+    const {data,error}=await db.auth.signInWithPassword({email,password});
+
+    if(error){
+      msg.textContent="Não foi possível entrar: "+error.message;
+      return;
+    }
+
+    if(!data?.user){
+      msg.textContent="Login realizado, mas o usuário não foi identificado. Atualize a página e tente novamente.";
+      return;
+    }
+
+    msg.textContent="";
+    await enterAdvisorPanel(data.user);
+  }catch(err){
+    console.error("Erro no login do assessor:",err);
+    msg.textContent="O login foi processado, mas ocorreu um erro ao abrir o painel. Atualize a página e tente novamente.";
+  }
 });
 
 $("#advisorSignupForm").addEventListener("submit",async e=>{
@@ -429,12 +469,15 @@ $("#advisorSignupForm").addEventListener("submit",async e=>{
     options:{data:meta}
   });
   if(error){msg.textContent=error.message;return;}
-  if(data.session){
+  if(data.session && data.user){
     msg.textContent="";
-    await boot();
+    await enterAdvisorPanel(data.user);
   }else{
-    msg.textContent="";
-    showEmailConfirmation($("#advisorSignupEmail").value.trim());
+    msg.textContent="A conta foi criada, mas a sessão não foi iniciada. Tente entrar com o mesmo e-mail e senha.";
+    document.querySelectorAll(".auth-tab").forEach(b=>b.classList.toggle("active",b.dataset.authTab==="login"));
+    $("#advisorLoginForm").classList.remove("hidden");
+    $("#advisorSignupForm").classList.add("hidden");
+    $("#advisorLoginEmail").value=$("#advisorSignupEmail").value.trim();
   }
 });
 
