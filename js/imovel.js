@@ -93,7 +93,7 @@ function renderUniversities(distances=[]){
   return `
     <section class="detail-section">
       <div class="section-title-row">
-        <div><p class="eyebrow">LOCALIZAÇÃO</p><h2>Faculdades próximas</h2></div>
+        <div><h2>Faculdades próximas</h2></div>
       </div>
       <div class="university-list">${rows}</div>
       <p class="tiny-note">As distâncias são calculadas internamente usando a localização precisa do imóvel. O endereço e as coordenadas do imóvel não são exibidos ao público.</p>
@@ -104,7 +104,6 @@ function renderUniversities(distances=[]){
 function renderProtectedLocation(){
   return `
     <section class="detail-section protected-location-public">
-      <p class="eyebrow">LOCALIZAÇÃO PROTEGIDA</p>
       <h2>Visita acompanhada pelo assessor</h2>
       <p>Por segurança e para preservar a intermediação do imóvel, o endereço exato não é exibido no catálogo. A localização precisa é utilizada somente para cálculos de proximidade e organização da visita.</p>
     </section>
@@ -133,18 +132,29 @@ async function load() {
   $("#brandName").textContent = settings.site_name;
   $("#footerName").textContent = settings.site_name;
 
-  const [propertyResult, distanceResult] = await Promise.all([
+  const [propertyResult, distanceResult, sequenceResult] = await Promise.all([
     db
       .from("catalog_properties_public")
       .select("*")
       .eq("id",id)
       .maybeSingle(),
-    db.rpc("get_public_property_university_distances",{p_property_id:id})
+    db.rpc("get_public_property_university_distances",{p_property_id:id}),
+    db
+      .from("catalog_properties_public")
+      .select("id,title,public_code,catalog_priority,featured,sort_order,created_at")
+      .order("catalog_priority",{ascending:false})
+      .order("featured",{ascending:false})
+      .order("sort_order",{ascending:true})
+      .order("created_at",{ascending:false})
+      .order("id",{ascending:true})
   ]);
 
   const property=propertyResult.data;
   const error=propertyResult.error;
   const universityDistances=distanceResult.data||[];
+  const catalogSequence=(sequenceResult.data||[]).filter((item,index,array)=>
+    array.findIndex(other=>other.id===item.id)===index
+  );
 
   if (error || !property) {
     $("#detailRoot").innerHTML = '<div class="error-card">Este imóvel não está disponível no catálogo.</div>';
@@ -160,6 +170,10 @@ async function load() {
   const wa = whatsappLink(settings, property);
   const waEnabled = property.status !== "rented" && wa !== "#";
 
+  const currentIndex=catalogSequence.findIndex(item=>item.id===property.id);
+  const previousProperty=currentIndex>0 ? catalogSequence[currentIndex-1] : null;
+  const nextProperty=currentIndex>=0 && currentIndex<catalogSequence.length-1 ? catalogSequence[currentIndex+1] : null;
+
   $("#detailRoot").innerHTML = `
     <div class="detail-breadcrumb"><a href="index.html">Início</a><span>›</span><span>${escapeHTML(propertyTypeLabel(property.property_type))}</span></div>
 
@@ -169,6 +183,7 @@ async function load() {
           <span class="status-chip ${property.status}">${escapeHTML(statusLabel(property.status))}</span>
           <span class="type-chip">${escapeHTML(propertyTypeLabel(property.property_type))}</span>
           ${property.public_code ? `<span class="type-chip">Código: ${escapeHTML(property.public_code)}</span>` : ""}
+          ${Number(property.catalog_priority||0)>0 ? '<span class="type-chip priority-detail-chip">★ Destaque</span>' : ""}
           ${property.city ? `<span class="type-chip city-chip">${escapeHTML(property.city)}</span>` : ""}
           ${property.furnished ? '<span class="type-chip">Mobiliado</span>' : '<span class="type-chip">Sem mobília</span>'}
         </div>
@@ -190,7 +205,6 @@ async function load() {
     <div class="detail-layout">
       <div class="detail-main">
         <section class="detail-section">
-          <p class="eyebrow">CARACTERÍSTICAS</p>
           <h2>Sobre o imóvel</h2>
           <div class="facts-grid">
             <div class="fact-box"><span>Tipo</span><strong>${escapeHTML(propertyTypeLabel(property.property_type))}</strong></div>
@@ -202,7 +216,7 @@ async function load() {
         </section>
 
         <section class="detail-section">
-          <p class="eyebrow">FICHA TÉCNICA</p><h2>Configuração e acesso</h2>
+          <h2>Configuração e acesso</h2>
           <div class="feature-grid">
             <div class="feature-item">🏠 ${property.housing_context==="condominium" ? `Condomínio${property.condominium_name?`: ${escapeHTML(property.condominium_name)}`:""}` : "Imóvel independente"}</div>
             <div class="feature-item">↩️ Imóvel de fundo: ${property.is_rear_unit?"Sim":"Não"}</div>
@@ -216,7 +230,7 @@ async function load() {
 
         ${property.property_type!=="monoambiente" ? `
           <section class="detail-section">
-            <p class="eyebrow">DISTRIBUIÇÃO</p><h2>Cômodos do imóvel</h2>
+            <h2>Cômodos do imóvel</h2>
             <div class="facts-grid">
               <div class="fact-box"><span>Total de cômodos</span><strong>${property.room_count??"Não informado"}</strong></div>
               <div class="fact-box"><span>Sala</span><strong>${property.has_living_room?"Sim":"Não"}</strong></div>
@@ -228,34 +242,34 @@ async function load() {
 
         ${security.length ? `
           <section class="detail-section">
-            <p class="eyebrow">SEGURANÇA</p><h2>Recursos de segurança</h2>
+            <h2>Recursos de segurança</h2>
             <div class="feature-grid">${security.map(item => `<div class="feature-item">${escapeHTML(item.icon||"✓")} ${escapeHTML(item.name)}</div>`).join("")}</div>
           </section>
         ` : ""}
 
         ${nearby.length ? `
           <section class="detail-section">
-            <p class="eyebrow">PROXIMIDADES</p><h2>Comodidades por perto</h2>
+            <h2>Comodidades por perto</h2>
             <div class="feature-grid">${nearby.map(item => `<div class="feature-item">${escapeHTML(item.icon||"✓")} ${escapeHTML(item.name)}</div>`).join("")}</div>
           </section>
         ` : ""}
 
         ${furniture.length ? `
           <section class="detail-section">
-            <p class="eyebrow">ESTRUTURA</p><h2>O imóvel possui</h2>
+            <h2>O imóvel possui</h2>
             <div class="feature-grid">${furniture.map(item => `<div class="feature-item">✓ ${escapeHTML(item.name)}</div>`).join("")}</div>
           </section>
         ` : ""}
 
         ${included.length ? `
           <section class="detail-section">
-            <p class="eyebrow">INCLUSO</p><h2>Incluso no aluguel</h2>
+            <h2>Incluso no aluguel</h2>
             <div class="feature-grid">${included.map(item => `<div class="feature-item">✓ ${escapeHTML(item.name)}</div>`).join("")}</div>
           </section>
         ` : ""}
 
         <section class="detail-section">
-          <p class="eyebrow">CONDIÇÕES</p><h2>Condições do imóvel</h2>
+          <h2>Condições do imóvel</h2>
           <div class="feature-grid">
             <div class="feature-item">✓ Anunciante: ${property.advertiser_role==="owner"?"proprietário do imóvel":"corretor / assessor do imóvel"}</div>
             <div class="feature-item">✓ Fechamento: ${property.closing_mode === "direct_owner" ? "direto com o proprietário" : "via assessoria"}</div>
@@ -269,7 +283,7 @@ async function load() {
 
       <aside class="detail-sidebar">
         <div class="cost-card sticky-card">
-          <p class="eyebrow">VALORES</p>
+          <h2 class="cost-card-title">Valores</h2>
           <div class="cost-row"><span>Aluguel</span><strong>${money(property.price, property.currency)}</strong></div>
           <div class="cost-row"><span>Caução</span><strong>${property.security_deposit != null ? money(property.security_deposit, property.currency) : "Sob consulta"}</strong></div>
           <div class="cost-row"><span>Parcelamento da caução</span><strong>${property.security_deposit_installment_allowed ? (property.security_deposit_max_installments ? `Até ${property.security_deposit_max_installments}x` : "Parcelável") : "Não parcelável"}</strong></div>
@@ -284,6 +298,25 @@ async function load() {
         </div>
       </aside>
     </div>
+
+    <nav class="property-sequence-nav" aria-label="Navegação entre anúncios">
+      <a class="property-sequence-btn previous ${previousProperty?"":"disabled"}"
+         ${previousProperty?`href="imovel.html?id=${encodeURIComponent(previousProperty.id)}"`:'aria-disabled="true" tabindex="-1"'}>
+        <span>← Anterior</span>
+        <small>${previousProperty?escapeHTML(previousProperty.title):"Você está no primeiro anúncio"}</small>
+      </a>
+
+      <a class="property-sequence-home" href="index.html">
+        <strong>⌂ Voltar ao catálogo completo</strong>
+        <small>Página principal do catálogo</small>
+      </a>
+
+      <a class="property-sequence-btn next ${nextProperty?"":"disabled"}"
+         ${nextProperty?`href="imovel.html?id=${encodeURIComponent(nextProperty.id)}"`:'aria-disabled="true" tabindex="-1"'}>
+        <span>Próximo anúncio →</span>
+        <small>${nextProperty?escapeHTML(nextProperty.title):"Você chegou ao último anúncio"}</small>
+      </a>
+    </nav>
   `;
 
   wireGallery();
