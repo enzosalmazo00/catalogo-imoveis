@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Área do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609280015">
+  <link rel="stylesheet" href="css/styles.css?v=202609280025">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
 </head>
 <body class="advisor-page">
@@ -23,9 +23,13 @@
 
 <main class="container advisor-main">
   <section id="advisorBootLoader" class="advisor-boot-loader" aria-live="polite">
-    <div class="advisor-boot-spinner" aria-hidden="true"></div>
-    <strong>Abrindo sua área...</strong>
-    <span>Carregando sua sessão.</span>
+    <div id="advisorBootSpinner" class="advisor-boot-spinner" aria-hidden="true"></div>
+    <strong id="advisorBootTitle">Abrindo sua área...</strong>
+    <span id="advisorBootText">Carregando sua sessão.</span>
+    <div id="advisorBootActions" class="advisor-boot-actions hidden">
+      <button id="advisorBootRetry" class="btn primary" type="button">Tentar novamente</button>
+      <button id="advisorBootLogin" class="btn ghost" type="button">Entrar novamente</button>
+    </div>
   </section>
 
   <section id="advisorAuth" class="advisor-auth-grid hidden">
@@ -118,6 +122,6 @@
 
 <div id="advisorModal" class="modal-layer hidden"></div>
 
-<script type="module" src="js/assessor.js?v=202609280015"></script>
+<script type="module" src="js/assessor.js?v=202609280025"></script>
 </body>
 </html>
