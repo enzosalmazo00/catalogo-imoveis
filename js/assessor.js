@@ -8,6 +8,7 @@ let subscriptions=[];
 let properties=[];
 let renewalOffers={};
 let countdownTimer=null;
+let paymentWatcher=null;
 
 function withTimeout(promise,ms=8000,label="requisição"){
   let timer;
@@ -33,6 +34,10 @@ function adCountFor(subId){
   return properties.filter(p=>p.advisor_subscription_id===subId).length;
 }
 function closeAdvisorModal(){
+  if(paymentWatcher){
+    clearInterval(paymentWatcher);
+    paymentWatcher=null;
+  }
   $("#advisorModal").classList.add("hidden");
   $("#advisorModal").innerHTML="";
 }
@@ -325,6 +330,75 @@ async function saveProperty(form){
   renderPanel();
 }
 
+async function watchPaymentStatus(subscriptionId){
+  if(paymentWatcher) clearInterval(paymentWatcher);
+
+  let attempts=0;
+  const maxAttempts=90; // ~3 minutos
+
+  const check=async()=>{
+    attempts++;
+
+    try{
+      const {data,error}=await db
+        .from("advisor_subscriptions")
+        .select("status,paid_at,starts_at,ends_at")
+        .eq("id",subscriptionId)
+        .maybeSingle();
+
+      if(error) throw error;
+
+      const statusEl=$("#pixStatus");
+      if(data?.status==="active" || data?.status==="paid"){
+        if(paymentWatcher){
+          clearInterval(paymentWatcher);
+          paymentWatcher=null;
+        }
+
+        if(statusEl){
+          statusEl.innerHTML='<strong>Pagamento aprovado ✓</strong><span>Seu pacote foi liberado. Abrindo sua Área do Assessor...</span>';
+          statusEl.classList.add("pix-approved");
+        }
+
+        await loadData();
+        renderPanel();
+
+        setTimeout(()=>{
+          closeAdvisorModal();
+        },1200);
+
+        return;
+      }
+
+      if(data?.status==="cancelled" || data?.status==="expired"){
+        if(paymentWatcher){
+          clearInterval(paymentWatcher);
+          paymentWatcher=null;
+        }
+        if(statusEl){
+          statusEl.innerHTML='<strong>Pagamento não concluído.</strong><span>Feche esta janela e gere um novo PIX.</span>';
+        }
+        return;
+      }
+
+      if(attempts>=maxAttempts){
+        clearInterval(paymentWatcher);
+        paymentWatcher=null;
+        if(statusEl){
+          statusEl.innerHTML='<strong>Ainda aguardando confirmação.</strong><span>Se você já pagou, pode fechar esta janela. O pacote será liberado automaticamente assim que o Mercado Pago confirmar.</span>';
+        }
+      }
+    }catch(err){
+      console.warn("Falha temporária ao consultar pagamento:",err);
+    }
+  };
+
+  await check();
+  if(!paymentWatcher){
+    paymentWatcher=setInterval(check,2000);
+  }
+}
+
 async function startPayment(planId,renewalOf=null,offerId=null){
   const cpf=prompt("Informe o CPF do pagador para gerar o PIX (somente números):");
   if(!cpf) return;
@@ -340,9 +414,10 @@ async function startPayment(planId,renewalOf=null,offerId=null){
       ${data.discount_percent?'<span class="promo-label">Oferta promocional aplicada</span>':""}
       ${data.qr_code_base64?`<img class="pix-qr" src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX">`:""}
       ${data.qr_code?`<textarea id="pixCopy" readonly>${escapeHTML(data.qr_code)}</textarea><button class="btn primary" id="copyPix">Copiar PIX</button>`:""}
-      <p class="muted">Após a confirmação do Mercado Pago, o pacote é liberado automaticamente.</p>
+      <div id="pixStatus" class="pix-payment-status"><strong>Aguardando confirmação do pagamento...</strong><span>Assim que o Mercado Pago confirmar, esta tela será atualizada automaticamente.</span></div>
     </div>`);
   $("#copyPix")?.addEventListener("click",async()=>{await navigator.clipboard.writeText($("#pixCopy").value);$("#copyPix").textContent="PIX copiado ✓";});
+  if(data.subscription_id) watchPaymentStatus(data.subscription_id);
 }
 
 async function enterAdvisorPanel(user){
