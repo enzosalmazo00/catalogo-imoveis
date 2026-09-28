@@ -28,7 +28,7 @@ function fmtDate(v){
 function validCreditBatches(){
   const now=Date.now();
   return creditBatches
-    .filter(batch=>Number(batch.remaining_credits||0)>0 && new Date(batch.expires_at).getTime()>now)
+    .filter(batch=>Number(batch.remaining_credits||0)>0 && !batch.revoked_at && new Date(batch.expires_at).getTime()>now)
     .sort((a,b)=>new Date(a.expires_at)-new Date(b.expires_at));
 }
 function creditBalance(){
@@ -230,9 +230,20 @@ function renderPlans(){
 }
 
 function renderCreditWallet(){
-  const balance=creditBalance();
-  const circles=Array.from({length:balance},(_,i)=>
-    `<span class="advisor-credit-coin" title="Crédito de anúncio disponível">${i+1}</span>`
+  const usable=validCreditBatches();
+  const purchasedBalance=usable
+    .filter(batch=>(batch.source||"purchase")==="purchase")
+    .reduce((sum,batch)=>sum+Number(batch.remaining_credits||0),0);
+  const bonusBalance=usable
+    .filter(batch=>batch.source==="bonus")
+    .reduce((sum,batch)=>sum+Number(batch.remaining_credits||0),0);
+  const balance=purchasedBalance+bonusBalance;
+
+  const purchasedCoins=Array.from({length:purchasedBalance},(_,i)=>
+    `<span class="advisor-credit-coin" title="Crédito comprado disponível">${i+1}</span>`
+  ).join("");
+  const bonusCoins=Array.from({length:bonusBalance},(_,i)=>
+    `<span class="advisor-credit-coin bonus" title="Crédito bônus para anúncio">🎁</span>`
   ).join("");
 
   const nextExpiry=nextCreditExpiry();
@@ -243,8 +254,17 @@ function renderCreditWallet(){
   $("#advisorCreditBalance").textContent=String(balance);
   $("#advisorCreditLabel").textContent=balance===1?"crédito disponível":"créditos disponíveis";
   $("#advisorCreditCoins").innerHTML=balance
-    ? circles
+    ? purchasedCoins+bonusCoins
     : '<span class="advisor-credit-zero">Saldo zerado</span>';
+
+  const purchasedEl=$("#advisorPurchasedCredits");
+  const bonusEl=$("#advisorBonusCredits");
+  const bonusBox=$("#advisorBonusCreditBox");
+
+  if(purchasedEl) purchasedEl.textContent=String(purchasedBalance);
+  if(bonusEl) bonusEl.textContent=String(bonusBalance);
+  if(bonusBox) bonusBox.classList.toggle("hidden",bonusBalance<=0);
+
   $("#advisorCreditMeta").textContent=nextExpiry
     ? `Próximo vencimento de crédito não usado: ${creditExpiryDate(nextExpiry)} • ${activeListings} anúncio${activeListings===1?"":"s"} ativo${activeListings===1?"":"s"}`
     : `Nenhum crédito disponível • ${activeListings} anúncio${activeListings===1?"":"s"} ativo${activeListings===1?"":"s"}`;
