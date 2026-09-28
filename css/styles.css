@@ -942,3 +942,33 @@ button,input,select,textarea{font-size:16px}
   .premium-plan-copy h3{font-size:24px}
   .premium-plan-price-box>strong{font-size:32px}
 }
+
+
+/* Loja de créditos do assessor */
+.credit-store-entry{
+  grid-column:1/-1;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:14px;
+  margin-top:2px;
+  padding:15px 16px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:#f8fafc;
+}
+.credit-store-entry span{font-size:13px;color:var(--muted);font-weight:700}
+.credit-store-entry .btn{white-space:nowrap}
+.credit-store-page{max-width:1100px;margin:0 auto}
+.credit-store-page-head{display:flex;align-items:flex-start;gap:18px;margin-bottom:20px;padding-bottom:18px;border-bottom:1px solid var(--border)}
+.credit-store-page-head>div{flex:1}
+.credit-store-page-head h2{margin:3px 0 6px;color:var(--navy)}
+.credit-store-bottom-back{display:flex;justify-content:flex-start;margin-top:20px;padding-top:18px;border-top:1px solid var(--border)}
+.credit-store-plan-card{display:flex;flex-direction:column}
+.credit-store-plan-card .btn{margin-top:auto}
+@media(max-width:700px){
+  .credit-store-entry{align-items:stretch;flex-direction:column}
+  .credit-store-entry .btn{width:100%;white-space:normal}
+  .credit-store-page-head{flex-direction:column}
+  .credit-store-page-head .btn,.credit-store-bottom-back .btn{width:100%}
+}
