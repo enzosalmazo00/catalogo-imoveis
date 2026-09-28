@@ -1423,6 +1423,7 @@ function propertyModal(property=null){
         <button type="button" class="btn ghost" data-property-close>Cancelar</button>
         <button class="btn primary" type="button" data-publish-property>${property?"Salvar alterações":"Publicar imóvel"}</button>
       </div>
+      ${!property?`<div class="span-2 publish-lock-preview"><strong>⚠️ Antes de publicar:</strong> você verá uma confirmação mostrando o que poderá e o que não poderá mais ser alterado neste anúncio.</div>`:""}
       <div id="advisorPropertyMessage" class="span-2 form-message"></div>
     </form>`);
 
@@ -2157,6 +2158,76 @@ $("#advisorModal").addEventListener("submit",async e=>{
   if(e.target.id==="advisorRentalControlForm") await saveRentalControl(e.target);
 });
 
+function confirmFirstPropertyPublication(){
+  return new Promise(resolve=>{
+    showAdvisorModal(`
+      <div class="publication-confirm-modal">
+        <div class="modal-head">
+          <div>
+            <p class="eyebrow">ANTES DE PUBLICAR</p>
+            <h2>Confirmar publicação?</h2>
+            <p class="muted">Depois que o imóvel entrar no catálogo, este crédito ficará vinculado a este imóvel por 30 dias. O anúncio não poderá ser transformado em outro imóvel.</p>
+          </div>
+          <button id="publicationReviewClose" class="icon-btn" type="button" aria-label="Voltar e revisar">✕</button>
+        </div>
+
+        <div class="publication-confirm-grid">
+          <section class="publication-rule-card allowed">
+            <h3>✓ Você ainda poderá editar</h3>
+            <ul>
+              <li>Preço e moeda</li>
+              <li>Caução e condições de parcelamento</li>
+              <li>Status: disponível ou alugado</li>
+              <li>WhatsApp de contato</li>
+              <li>Taxa de assessoria e valor</li>
+              <li>Se anuncia como corretor/assessor ou proprietário</li>
+              <li>Marcação de mobiliado</li>
+              <li>Marcações e checklists do imóvel</li>
+              <li>Qual foto existente é a capa e a ordem das fotos</li>
+            </ul>
+          </section>
+
+          <section class="publication-rule-card locked">
+            <h3>🔒 Não poderá mais alterar</h3>
+            <ul>
+              <li>Título e descrição</li>
+              <li>Tipo do imóvel</li>
+              <li>Quantidade de quartos e banheiros</li>
+              <li>Distribuição, cômodos e estrutura</li>
+              <li>Condomínio, garagem, lavanderia e acesso</li>
+              <li>Bairro, cidade, endereço e localização do Google Maps</li>
+              <li>Adicionar, excluir ou substituir fotos</li>
+              <li>Adicionar, excluir ou substituir vídeo</li>
+            </ul>
+          </section>
+        </div>
+
+        <div class="publication-confirm-warning">
+          <strong>1 crédito = 1 imóvel.</strong>
+          <span>Confira os dados, fotos e localização antes de confirmar.</span>
+        </div>
+
+        <div class="publication-confirm-actions">
+          <button id="publicationReviewBtn" class="btn ghost" type="button">Não, revisar</button>
+          <button id="publicationConfirmBtn" class="btn primary" type="button">Sim, publicar</button>
+        </div>
+      </div>
+    `);
+
+    let settled=false;
+    const finish=(value)=>{
+      if(settled) return;
+      settled=true;
+      closeAdvisorModal();
+      resolve(value);
+    };
+
+    $("#publicationConfirmBtn")?.addEventListener("click",()=>finish(true),{once:true});
+    $("#publicationReviewBtn")?.addEventListener("click",()=>finish(false),{once:true});
+    $("#publicationReviewClose")?.addEventListener("click",()=>finish(false),{once:true});
+  });
+}
+
 async function runPropertySave(form){
   if(!form) return;
 
@@ -2174,11 +2245,21 @@ async function runPropertySave(form){
     return;
   }
 
+  const existingId=form.querySelector('input[name="id"]')?.value||"";
+
+  if(!existingId){
+    const confirmed=await confirmFirstPropertyPublication();
+    if(!confirmed){
+      const msg=form.querySelector("#advisorPropertyMessage");
+      if(msg) msg.textContent="Revise os dados do imóvel e toque em Publicar imóvel quando estiver pronto.";
+      form.querySelector('[name="title"]')?.scrollIntoView({behavior:"smooth",block:"center"});
+      return;
+    }
+  }
+
   if(submit){
     submit.disabled=true;
-    submit.textContent=form.querySelector('input[name="id"]')?.value
-      ?"Salvando..."
-      :"Publicando...";
+    submit.textContent=existingId?"Salvando...":"Publicando...";
   }
 
   try{
