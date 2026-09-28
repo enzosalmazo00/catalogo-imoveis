@@ -241,7 +241,7 @@ function renderPlans(){
               <span>✓ ${money(unit,"BRL")} por crédito</span>
               <span>✓ Créditos liberados após confirmação do PIX</span>
               <span>✓ Cada imóvel publicado fica ativo por 30 dias</span>
-              <span>✓ Créditos não utilizados válidos por 90 dias</span>
+              <span>✓ Créditos não utilizados válidos por 120 dias</span>
             </div>
           </div>
 
