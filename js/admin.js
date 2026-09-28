@@ -1,4 +1,4 @@
-import { db, STORAGE_BUCKET, publicImageUrl } from "./config.js";
+import { adminDb as db, STORAGE_BUCKET, publicImageUrl } from "./config.js?v=202609282145";
 import {
   $,
   $$,
@@ -8,7 +8,7 @@ import {
   statusLabel,
   isAdmin,
   slugify
-} from "./common.js?v=202609281430";
+} from "./common.js?v=202609282145";
 
 const state = {
   tab: "dashboard",
@@ -1571,7 +1571,7 @@ $("#logoutBtn").addEventListener("click",async()=>{
 });
 
 async function boot(){
-  const auth=await isAdmin();
+  const auth=await isAdmin(db);
 
   if(!auth.user){
     $("#loginView").classList.remove("hidden");
