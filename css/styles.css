@@ -510,3 +510,14 @@ button,input,select,textarea{font-size:16px}
   .brand-copy small{display:none}
   .top-nav .advisor-top-cta{padding:7px 9px}
 }
+
+.advisor-confirm-card{margin:56px auto;width:min(480px,100%);text-align:center}
+.advisor-confirm-card h2{margin:4px 0 10px;color:var(--navy);font-size:28px}
+.confirm-email-icon{width:64px;height:64px;margin:0 auto 16px;border-radius:18px;display:grid;place-items:center;background:#e8f5ef;color:var(--green-dark);font-size:30px;font-weight:900}
+.pending-email{display:block;margin:8px 0 16px;color:var(--navy);font-size:17px;overflow-wrap:anywhere}
+.confirm-help{color:#536174;line-height:1.6;margin:0 0 20px}
+#advisorConfirmationMessage{margin-top:12px}
+@media(max-width:560px){
+  .advisor-confirm-card{margin:24px auto;padding:22px}
+  .advisor-confirm-card h2{font-size:24px}
+}
