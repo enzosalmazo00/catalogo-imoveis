@@ -15,11 +15,6 @@ const state = {
   properties: [],
   features: [],
   universities: [],
-  owners: [],
-  tenants: [],
-  rentals: [],
-  finances: [],
-  management: [],
   settings: null
 };
 
@@ -27,10 +22,6 @@ const titles = {
   dashboard: "Visão geral",
   properties: "Imóveis",
   universities: "Faculdades",
-  owners: "Proprietários",
-  tenants: "Locatários",
-  rentals: "Locações",
-  finance: "Financeiro",
   settings: "Configurações"
 };
 
@@ -92,62 +83,41 @@ async function refreshData() {
     properties,
     features,
     universities,
-    owners,
-    tenants,
-    rentals,
-    finances,
-    management,
     settings
   ] = await Promise.all([
     db.from("properties").select("*, property_media(*), property_features(feature_id)").order("created_at",{ascending:false}),
     db.from("features").select("*").order("category").order("sort_order"),
     db.from("universities").select("*").order("sort_order").order("name"),
-    db.from("owners").select("*").order("name"),
-    db.from("tenants").select("*").order("name"),
-    db.from("rentals").select("*").order("created_at",{ascending:false}),
-    db.from("financial_entries").select("*").order("created_at",{ascending:false}),
-    db.from("property_management").select("*"),
     db.from("site_settings").select("*").eq("id",true).maybeSingle()
   ]);
 
   state.properties = properties.data || [];
   state.features = features.data || [];
   state.universities = universities.data || [];
-  state.owners = owners.data || [];
-  state.tenants = tenants.data || [];
-  state.rentals = rentals.data || [];
-  state.finances = finances.data || [];
-  state.management = management.data || [];
   state.settings = settings.data || null;
 }
 
 function renderDashboard() {
-  const available = state.properties.filter(p => p.status === "available").length;
-  const rented = state.properties.filter(p => p.status === "rented").length;
-  const month = new Date().toISOString().slice(0,7);
-  const paidMonth = state.finances
-    .filter(f => f.status === "paid" && String(f.paid_date || "").startsWith(month))
-    .reduce((sum,f) => sum + Number(f.amount || 0), 0);
-  const pending = state.finances
-    .filter(f => f.status === "pending")
-    .reduce((sum,f) => sum + Number(f.amount || 0), 0);
+  const available=state.properties.filter(p=>p.status==="available").length;
+  const rented=state.properties.filter(p=>p.status==="rented").length;
+  const published=state.properties.filter(p=>p.is_published).length;
+  const total=state.properties.length;
 
   $("#adminContent").innerHTML = `
     <div class="dashboard-grid">
-      <div class="metric-card"><span>Imóveis disponíveis</span><strong>${available}</strong></div>
-      <div class="metric-card"><span>Imóveis alugados</span><strong>${rented}</strong></div>
-      <div class="metric-card"><span>Recebido no mês</span><strong>${money(paidMonth)}</strong></div>
-      <div class="metric-card"><span>Financeiro pendente</span><strong>${money(pending)}</strong></div>
+      <div class="metric-card"><span>Total de imóveis</span><strong>${total}</strong></div>
+      <div class="metric-card"><span>Publicados</span><strong>${published}</strong></div>
+      <div class="metric-card"><span>Disponíveis</span><strong>${available}</strong></div>
+      <div class="metric-card"><span>Alugados</span><strong>${rented}</strong></div>
     </div>
 
     <section class="admin-panel">
       <div class="admin-panel-head">
-        <div><p class="eyebrow">ACESSO RÁPIDO</p><h2>Gestão</h2></div>
+        <div><p class="eyebrow">ACESSO RÁPIDO</p><h2>Gestão do catálogo</h2></div>
         <button class="btn primary" data-action="new-property">+ Novo imóvel</button>
       </div>
       <div class="property-facts">
         <button class="btn ghost" data-goto="properties">Gerenciar imóveis</button>
-        <button class="btn ghost" data-goto="finance">Abrir financeiro</button>
         <button class="btn ghost" data-goto="universities">Faculdades</button>
         <button class="btn ghost" data-goto="settings">Configurações do catálogo</button>
       </div>
@@ -999,10 +969,6 @@ function renderCurrent() {
     dashboard: renderDashboard,
     properties: renderProperties,
     universities: renderUniversities,
-    owners: renderOwners,
-    tenants: renderTenants,
-    rentals: renderRentals,
-    finance: renderFinance,
     settings: renderSettings
   })[state.tab]();
 }
