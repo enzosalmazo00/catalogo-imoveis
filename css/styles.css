@@ -683,3 +683,13 @@ button,input,select,textarea{font-size:16px}
   .property-photo-slots{grid-template-columns:1fr}
   .property-photo-slot input[type="file"]{font-size:16px}
 }
+
+.property-draft-actions{display:flex;gap:10px;flex-wrap:wrap;padding-top:4px}
+.property-draft-status{display:flex;flex-direction:column;gap:3px;padding:11px 13px;border:1px solid var(--border);border-radius:12px;background:#f7faf9}
+.property-draft-status strong{font-size:13px}
+.property-draft-status span{font-size:12px;color:var(--muted)}
+.draft-delete-btn{color:#9b2c2c}
+@media(max-width:620px){
+  .property-draft-actions{display:grid;grid-template-columns:1fr 1fr}
+  .property-draft-actions .btn{width:100%}
+}
