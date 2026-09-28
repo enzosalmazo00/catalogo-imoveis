@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Área do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/dist/umd/supabase.js"></script>
+</head>
+<body class="advisor-page">
+<header class="site-header">
+  <a class="brand" href="index.html">
+    <span class="brand-mark">⌂</span>
+    <span class="brand-copy">
+      <strong>Assessoria de Imóveis PJC/Ponta Porã</strong>
+      <small>Área do assessor</small>
+    </span>
+  </a>
+  <nav class="top-nav">
+    <a href="index.html">Catálogo</a>
+  </nav>
+</header>
+
+<main class="container advisor-main">
+  <section id="advisorAuth" class="advisor-auth-grid">
+    <div class="advisor-intro">
+      <p class="eyebrow">ÁREA DO ASSESSOR</p>
+      <h1>Publique seus imóveis no catálogo</h1>
+      <p>Crie sua conta, escolha um pacote de anúncios e acompanhe validade, renovações e imóveis publicados em um único painel.</p>
+      <div class="advisor-benefits">
+        <div>✓ anúncios por 30 dias</div>
+        <div>✓ expiração automática</div>
+        <div>✓ renovação com 10% de desconto</div>
+        <div>✓ pagamento via PIX</div>
+      </div>
+    </div>
+
+    <div class="auth-card">
+      <div class="auth-tabs">
+        <button class="auth-tab active" data-auth-tab="login">Entrar</button>
+        <button class="auth-tab" data-auth-tab="signup">Criar conta</button>
+      </div>
+
+      <form id="advisorLoginForm" class="form-stack">
+        <label>E-mail<input id="advisorLoginEmail" type="email" required></label>
+        <label>Senha<input id="advisorLoginPassword" type="password" required minlength="6"></label>
+        <button class="btn primary" type="submit">Entrar</button>
+      </form>
+
+      <form id="advisorSignupForm" class="form-stack hidden">
+        <label>Nome completo<input id="advisorSignupName" required></label>
+        <label>Nome da assessoria / empresa<input id="advisorSignupCompany"></label>
+        <label>WhatsApp<input id="advisorSignupWhatsapp" inputmode="tel" required placeholder="5517999999999"></label>
+        <label>Cidade<input id="advisorSignupCity"></label>
+        <label>E-mail<input id="advisorSignupEmail" type="email" required></label>
+        <label>Senha<input id="advisorSignupPassword" type="password" required minlength="6"></label>
+        <button class="btn primary" type="submit">Criar conta</button>
+      </form>
+      <div id="advisorAuthMessage" class="form-message"></div>
+    </div>
+  </section>
+
+  <section id="advisorPanel" class="hidden">
+    <div class="advisor-panel-head">
+      <div>
+        <p class="eyebrow">PAINEL DO ASSESSOR</p>
+        <h1 id="advisorWelcome">Meus anúncios</h1>
+      </div>
+      <button id="advisorLogout" class="btn ghost">Sair</button>
+    </div>
+
+    <div id="advisorExpiredNotice"></div>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head">
+        <div><p class="eyebrow">PLANOS</p><h2>Pacotes de anúncios</h2></div>
+      </div>
+      <div id="advisorPlans" class="advisor-plan-grid"></div>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head">
+        <div><p class="eyebrow">MEUS ANÚNCIOS</p><h2>Imóveis cadastrados</h2></div>
+        <button id="newAdvisorProperty" class="btn primary">+ Novo anúncio</button>
+      </div>
+      <div id="advisorAds"></div>
+    </section>
+  </section>
+</main>
+
+<div id="advisorModal" class="modal-layer hidden"></div>
+
+<script type="module" src="js/assessor.js"></script>
+</body>
+</html>
