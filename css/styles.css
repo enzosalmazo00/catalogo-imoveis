@@ -573,3 +573,9 @@ button,input,select,textarea{font-size:16px}
 
 .property-city-pill{position:absolute;left:12px;bottom:12px;background:rgba(255,255,255,.94);color:var(--navy);border:1px solid rgba(255,255,255,.7);border-radius:999px;padding:7px 10px;font-size:12px;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,.12);backdrop-filter:blur(6px)}
 .city-chip{font-weight:800}
+
+.advisor-boot-loader{min-height:calc(100vh - 140px);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:8px;color:var(--navy)}
+.advisor-boot-loader strong{font-size:18px}
+.advisor-boot-loader span{font-size:13px;color:var(--muted)}
+.advisor-boot-spinner{width:34px;height:34px;border-radius:50%;border:3px solid #e3e8ee;border-top-color:var(--green);animation:advisorSpin .7s linear infinite;margin-bottom:6px}
+@keyframes advisorSpin{to{transform:rotate(360deg)}}
