@@ -443,3 +443,8 @@ button,input,select,textarea{font-size:16px}
   .advisor-panel-head .btn,.advisor-ad-actions{width:100%}
   .advisor-ad-actions .btn{flex:1}
 }
+
+.password-link-btn{border:0;background:transparent;color:var(--navy);font-weight:800;padding:8px 4px;text-align:left;min-height:40px;text-decoration:underline;text-underline-offset:3px}
+.password-link-btn:hover{color:var(--green-dark)}
+.reset-password-card{margin:56px auto;width:min(460px,100%)}
+.reset-password-card h2{margin:4px 0 8px;color:var(--navy)}
