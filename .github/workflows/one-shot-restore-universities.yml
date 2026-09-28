@@ -1,0 +1,72 @@
+name: Restaurar faculdades na ficha do imóvel
+
+on:
+  push:
+    paths:
+      - '.github/workflows/one-shot-restore-universities.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Restaurar lista de faculdades e limpar mensagens
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path('js/imovel.js')
+          s = p.read_text(encoding='utf-8')
+
+          # Remove nota de privacidade da seção de faculdades.
+          s = s.replace('      <p class="tiny-note">As distâncias são calculadas internamente usando a localização precisa do imóvel. O endereço e as coordenadas do imóvel não são exibidos ao público.</p>\n', '', 1)
+
+          # Neutraliza de vez o bloco de mensagem sobre localização protegida.
+          old_protected = '''function renderProtectedLocation(){
+  return `
+    <section class="detail-section protected-location-public">
+      <h2>Visita acompanhada pelo assessor</h2>
+      <p>Por segurança e para preservar a intermediação do imóvel, o endereço exato não é exibido no catálogo. A localização precisa é utilizada somente para cálculos de proximidade e organização da visita.</p>
+    </section>
+  `;
+}
+'''
+          if old_protected in s:
+              s = s.replace(old_protected, 'function renderProtectedLocation(){ return ""; }\n', 1)
+
+          # Move Faculdades próximas para imediatamente depois de Configuração e acesso.
+          anchor = '''        </section>\n\n        ${property.property_type!=="monoambiente" ? `'''
+          replacement = '''        </section>\n\n        ${renderUniversities(universityDistances)}\n\n        ${property.property_type!=="monoambiente" ? `'''
+          if '${renderUniversities(universityDistances)}\n\n        ${property.property_type!=="monoambiente"' not in s:
+              if anchor not in s:
+                  raise SystemExit('Ponto de inserção das faculdades não encontrado')
+              s = s.replace(anchor, replacement, 1)
+
+          # Remove a chamada antiga no final da ficha e qualquer chamada da mensagem protegida.
+          s = s.replace('        ${renderUniversities(universityDistances)}\n        ${renderProtectedLocation()}\n', '', 1)
+          s = s.replace('        ${renderProtectedLocation()}\n', '', 1)
+
+          p.write_text(s, encoding='utf-8')
+
+          h = Path('imovel.html')
+          hs = h.read_text(encoding='utf-8')
+          hs = hs.replace('js/imovel.js?v=202609281600', 'js/imovel.js?v=202609281730')
+          hs = hs.replace('js/imovel-public-fixes.js?v=202609281625', 'js/imovel-public-fixes.js?v=202609281730')
+          h.write_text(hs, encoding='utf-8')
+          PY
+
+          rm .github/workflows/one-shot-restore-universities.yml
+
+      - name: Publicar correção
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add js/imovel.js imovel.html .github/workflows/one-shot-restore-universities.yml
+          git commit -m "Restaura faculdades na ficha pública do imóvel"
+          git push origin main
