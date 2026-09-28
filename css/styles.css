@@ -1090,3 +1090,59 @@ button,input,select,textarea{font-size:16px}
   color:var(--navy);
   font-weight:800;
 }
+
+
+/* Catálogo público individual do assessor */
+.advisor-catalog-notice{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  margin-bottom:22px;
+  padding:20px 22px;
+  border:1px solid var(--border);
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 10px 30px rgba(15,35,60,.07);
+}
+.advisor-catalog-notice h2{margin:3px 0 5px;color:var(--navy)}
+.advisor-catalog-notice .muted{margin:0}
+.advisor-catalog-notice .btn{white-space:nowrap}
+
+.advisor-catalog-detail-strip{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:16px;
+  padding:12px 14px;
+  border:1px solid var(--border);
+  border-radius:14px;
+  background:#f8fafc;
+}
+.advisor-catalog-detail-strip>span{
+  font-size:13px;
+  font-weight:700;
+  color:var(--navy);
+}
+.advisor-catalog-detail-strip>div{
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+@media(max-width:760px){
+  .advisor-catalog-notice,
+  .advisor-catalog-detail-strip{
+    align-items:stretch;
+    flex-direction:column;
+  }
+  .advisor-catalog-notice .btn,
+  .advisor-catalog-detail-strip .btn{
+    width:100%;
+    white-space:normal;
+  }
+  .advisor-catalog-detail-strip>div{
+    flex-direction:column;
+  }
+}
