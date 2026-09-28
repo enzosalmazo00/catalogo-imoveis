@@ -45,6 +45,7 @@
         <label>E-mail<input id="advisorLoginEmail" type="email" required></label>
         <label>Senha<input id="advisorLoginPassword" type="password" required minlength="6"></label>
         <button class="btn primary" type="submit">Entrar</button>
+        <button id="forgotPasswordBtn" class="password-link-btn" type="button">Esqueceu a senha?</button>
       </form>
 
       <form id="advisorSignupForm" class="form-stack hidden">
@@ -57,6 +58,20 @@
         <button class="btn primary" type="submit">Criar conta</button>
       </form>
       <div id="advisorAuthMessage" class="form-message"></div>
+    </div>
+  </section>
+
+  <section id="advisorResetPassword" class="hidden">
+    <div class="auth-card reset-password-card">
+      <p class="eyebrow">RECUPERAÇÃO DE ACESSO</p>
+      <h2>Defina uma nova senha</h2>
+      <p class="muted">Digite sua nova senha para recuperar o acesso à Área do Assessor.</p>
+      <form id="advisorResetPasswordForm" class="form-stack">
+        <label>Nova senha<input id="advisorNewPassword" type="password" required minlength="6" autocomplete="new-password"></label>
+        <label>Confirmar nova senha<input id="advisorConfirmPassword" type="password" required minlength="6" autocomplete="new-password"></label>
+        <button class="btn primary" type="submit">Salvar nova senha</button>
+      </form>
+      <div id="advisorResetMessage" class="form-message"></div>
     </div>
   </section>
 
