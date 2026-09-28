@@ -760,6 +760,53 @@ async function deleteProperty(id) {
   renderCurrent();
 }
 
+function wireAdminReceiptPaymentFields(form){
+  if(!form) return;
+
+  const linkPaidDate=(paidName,dateName)=>{
+    const paid=form.querySelector(`[name="${paidName}"]`);
+    const date=form.querySelector(`[name="${dateName}"]`);
+    const wrap=date?.closest(".receipt-payment-date");
+
+    const update=()=>{
+      const isPaid=paid?.value==="true";
+      wrap?.classList.toggle("hidden",!isPaid);
+      if(date){
+        date.required=!!isPaid;
+        if(!isPaid) date.value="";
+      }
+    };
+
+    paid?.addEventListener("change",update);
+    update();
+  };
+
+  linkPaidDate("rent_paid","rent_payment_date");
+  linkPaidDate("security_deposit_paid","security_deposit_payment_date");
+  linkPaidDate("commission_paid","advisor_commission_payment_date");
+  linkPaidDate("advisory_fee_paid","advisory_fee_payment_date");
+
+  const charged=form.querySelector('[name="advisor_commission_charged"]');
+  const fields=form.querySelector("#adminAdvisorCommissionFields");
+  const amount=form.querySelector('[name="commission_amount"]');
+  const paid=form.querySelector('[name="commission_paid"]');
+
+  const updateCommission=()=>{
+    const isCharged=charged?.value==="true";
+    fields?.classList.toggle("hidden",!isCharged);
+    if(amount) amount.required=!!isCharged;
+    if(!isCharged){
+      if(amount) amount.value="";
+      if(paid) paid.value="false";
+      const date=form.querySelector('[name="advisor_commission_payment_date"]');
+      if(date) date.value="";
+    }
+  };
+
+  charged?.addEventListener("change",updateCommission);
+  updateCommission();
+}
+
 function rentalReceiptModal(property) {
   if (!property) return;
 
@@ -777,7 +824,7 @@ function rentalReceiptModal(property) {
       <button class="icon-btn" type="button" data-action="close-modal">✕</button>
     </div>
 
-    <form id="rentalReceiptForm" class="form-grid">
+    <form id="rentalReceiptForm" class="form-grid rental-receipt-form">
       <input type="hidden" name="property_id" value="${property.id}">
 
       <div class="span-2 published-property-lock-banner">
@@ -812,6 +859,16 @@ function rentalReceiptModal(property) {
         <input name="monthly_rent" type="number" min="0" step="1" required value="${property.price??0}">
       </label>
 
+      <label>Aluguel pago?
+        <select name="rent_paid">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+      <label class="receipt-payment-date hidden">Data do pagamento do aluguel
+        <input name="rent_payment_date" type="date">
+      </label>
+
       <label>Valor da caução
         <input name="security_deposit" type="number" min="0" step="1" required value="${property.security_deposit??0}">
       </label>
@@ -822,6 +879,34 @@ function rentalReceiptModal(property) {
           <option value="true">Sim</option>
         </select>
       </label>
+      <label class="receipt-payment-date hidden">Data do pagamento da caução
+        <input name="security_deposit_payment_date" type="date">
+      </label>
+      <div></div>
+
+      <div class="form-section-title property-section-title">Comissão do assessor</div>
+      <label>Foi cobrada comissão pelo assessor?
+        <select name="advisor_commission_charged">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+      <div></div>
+
+      <div id="adminAdvisorCommissionFields" class="span-2 conditional-subgrid hidden">
+        <label>Valor da comissão do assessor
+          <input name="commission_amount" type="number" min="0" step="1">
+        </label>
+        <label>Comissão paga?
+          <select name="commission_paid">
+            <option value="false">Não</option>
+            <option value="true">Sim</option>
+          </select>
+        </label>
+        <label class="receipt-payment-date hidden">Data do pagamento da comissão
+          <input name="advisor_commission_payment_date" type="date">
+        </label>
+      </div>
 
 ${showAdvisory?`
       <div class="form-section-title property-section-title">Assessoria</div>
@@ -835,9 +920,13 @@ ${showAdvisory?`
           <option value="true">Sim</option>
         </select>
       </label>
+      <label class="receipt-payment-date hidden">Data do pagamento da assessoria
+        <input name="advisory_fee_payment_date" type="date">
+      </label>
+      <div></div>
       `:""}
 
-      <label>Data de início da locação
+      <label>Data do aluguel
         <input name="start_date" type="date" required>
       </label>
 
@@ -857,6 +946,8 @@ ${showAdvisory?`
       </div>
     </form>
   `);
+
+  wireAdminReceiptPaymentFields($("#rentalReceiptForm"));
 }
 
 async function markPropertyRented(form) {
@@ -874,6 +965,11 @@ async function markPropertyRented(form) {
   }
 
   const showAdvisory=property.closing_mode!=="direct_owner" && property.has_advisory_fee;
+  const commissionCharged=fd.get("advisor_commission_charged")==="true";
+  const rentPaid=fd.get("rent_paid")==="true";
+  const depositPaid=fd.get("security_deposit_paid")==="true";
+  const commissionPaid=commissionCharged && fd.get("commission_paid")==="true";
+  const advisoryPaid=showAdvisory && fd.get("advisory_fee_paid")==="true";
   const receipt={
     owner_name:String(fd.get("owner_name")||"").trim(),
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
@@ -881,14 +977,27 @@ async function markPropertyRented(form) {
     tenant_phone:String(fd.get("tenant_phone")||"").trim()||null,
     currency:fd.get("currency")||property.currency||"BRL",
     monthly_rent:Number(fd.get("monthly_rent")||0),
+    rent_paid:rentPaid,
+    rent_payment_date:rentPaid?(fd.get("rent_payment_date")||null):null,
     security_deposit:Number(fd.get("security_deposit")||0),
-    security_deposit_paid:fd.get("security_deposit_paid")==="true",
+    security_deposit_paid:depositPaid,
+    security_deposit_payment_date:depositPaid?(fd.get("security_deposit_payment_date")||null):null,
+    advisor_commission_charged:commissionCharged,
+    commission_amount:commissionCharged?Number(fd.get("commission_amount")||0):null,
+    commission_paid:commissionPaid,
+    advisor_commission_payment_date:commissionPaid?(fd.get("advisor_commission_payment_date")||null):null,
     advisory_fee_amount:showAdvisory?Number(fd.get("advisory_fee_amount")||0):null,
-    advisory_fee_paid:showAdvisory && fd.get("advisory_fee_paid")==="true",
+    advisory_fee_paid:advisoryPaid,
+    advisory_fee_payment_date:advisoryPaid?(fd.get("advisory_fee_payment_date")||null):null,
     start_date:fd.get("start_date"),
     rent_due_day:fd.get("rent_due_day")?Number(fd.get("rent_due_day")):null,
     notes:String(fd.get("notes")||"").trim()||null
   };
+
+  if(commissionCharged && !(Number(receipt.commission_amount)>0)){
+    if(msg) msg.textContent="Informe o valor da comissão cobrada pelo assessor.";
+    return;
+  }
 
   if(submit){
     submit.disabled=true;
