@@ -121,7 +121,7 @@ function openModal(row=null){
         <div id="referencePointMessage" class="form-message span-2" aria-live="polite"></div>
         <div class="form-actions">
           <button class="btn ghost" type="button" data-ref-action="close">Cancelar</button>
-          <button class="btn primary" type="submit">Salvar</button>
+          <button class="btn primary" type="button" data-ref-action="save">Salvar</button>
         </div>
       </form>
     </div>
@@ -231,6 +231,11 @@ document.addEventListener("click",async event=>{
   const action=button.dataset.refAction;
   if(action==="close"){ closeModal(); return; }
   if(action==="new"){ openModal(); return; }
+  if(action==="save"){
+    const form=$("#referencePointForm");
+    if(form) await savePoint(form);
+    return;
+  }
 
   if(action==="edit"){
     try{
