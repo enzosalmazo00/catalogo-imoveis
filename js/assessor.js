@@ -1326,13 +1326,7 @@ async function shareAdvisorCatalog(){
     }
   }
 
-  try{
-    await navigator.clipboard.writeText(url);
-    const button=$("#shareAdvisorCatalogMain")||$("#shareAdvisorCatalog");
-    await copyAdvisorCatalogLink(button);
-  }catch{
-    await copyAdvisorCatalogLink($("#shareAdvisorCatalogMain")||$("#shareAdvisorCatalog"));
-  }
+  await copyAdvisorCatalogLink($("#shareAdvisorCatalogMain")||$("#shareAdvisorCatalog"));
 }
 
 function renderPanel(){
