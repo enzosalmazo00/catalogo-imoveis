@@ -254,7 +254,7 @@ function renderAds(){
             <div>
               <strong>${escapeHTML(p.title)}</strong>
               <span>${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</span>
-              <small>${expired?"Expirado":statusLabel(p.status)} • validade: ${fmtDate(p.listing_expires_at)}</small>
+              <small>${expired?"Expirado":statusLabel(p.status)} • publicado em: ${fmtDate(p.listing_started_at||p.created_at)} • válido até: ${fmtDate(p.listing_expires_at)}</small>
               <small class="listing-code">Código do anúncio: ${escapeHTML(String(p.listing_code||"").slice(0,8).toUpperCase())}</small>
             </div>
             <div class="advisor-ad-actions">
