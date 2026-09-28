@@ -908,17 +908,9 @@ function propertyModal(property=null){
   pendingPropertyFiles=[];
   pendingPropertyCoverExplicit=false;
 
-  const active=property?activeSubscription():availableSubscription();
-  if(!property){
-    if(!active){
-      alert("Você precisa de um pacote ativo para publicar um imóvel.");
-      return;
-    }
-    const plan=active.advertising_plans;
-    if(adCountFor(active.id)>=Number(plan.ad_limit)){
-      alert("Você já utilizou todos os anúncios disponíveis neste pacote.");
-      return;
-    }
+  if(!property && creditBalance()<=0){
+    alert("Seu saldo de créditos está zerado. Compre créditos para publicar um novo imóvel.");
+    return;
   }
 
   const selectedIds=(property?.property_features||[]).map(x=>x.feature_id);
@@ -1227,11 +1219,10 @@ async function saveProperty(form){
   const fd=new FormData(form);
   const id=fd.get("id")||null;
   const existing=id?properties.find(p=>p.id===id):null;
-  const active=existing?null:availableSubscription();
   const msg=$("#advisorPropertyMessage");
 
-  if(!existing && !active){
-    msg.textContent="Seu pacote não possui uma vaga disponível para um novo anúncio.";
+  if(!existing && creditBalance()<=0){
+    msg.textContent="Seu saldo de créditos está zerado. Compre créditos para publicar um novo imóvel.";
     return false;
   }
 
@@ -1458,7 +1449,7 @@ async function saveProperty(form){
     const published=await withTimeout(
       db.rpc("publish_advisor_property",{
         p_property_id:propertyId,
-        p_subscription_id:active.id,
+        p_subscription_id:null,
         p_property:row,
         p_feature_ids:selectedFeatureIds,
         p_media:media
@@ -1629,7 +1620,7 @@ async function watchPaymentStatus(subscriptionId){
         clearInterval(paymentWatcher);
         paymentWatcher=null;
         if(statusEl){
-          statusEl.innerHTML='<strong>Ainda aguardando confirmação.</strong><span>Se você já pagou, pode fechar esta janela. O pacote será liberado automaticamente assim que o Mercado Pago confirmar.</span>';
+          statusEl.innerHTML='<strong>Ainda aguardando confirmação.</strong><span>Se você já pagou, pode fechar esta janela. Os créditos serão liberados automaticamente assim que o Mercado Pago confirmar.</span>';
         }
       }
     }catch(err){
@@ -1643,8 +1634,8 @@ async function watchPaymentStatus(subscriptionId){
   }
 }
 
-async function startPayment(planId,renewalOf=null,offerId=null){
-  const {data,error}=await db.functions.invoke("create-advisor-pix",{body:{plan_id:planId,renewal_of:renewalOf,renewal_offer_id:offerId}});
+async function startPayment(planId){
+  const {data,error}=await db.functions.invoke("create-advisor-pix",{body:{plan_id:planId}});
   if(error || !data || data.error){
     alert(data?.error || error?.message || "A integração PIX ainda está sendo finalizada.");
     return;
@@ -1653,7 +1644,7 @@ async function startPayment(planId,renewalOf=null,offerId=null){
     <div class="modal-head"><div><p class="eyebrow">PAGAMENTO PIX</p><h2>Concluir pagamento</h2></div><button class="icon-btn" data-close>✕</button></div>
     <div class="pix-box">
       <strong>Total: ${money(data.amount,"BRL")}</strong>
-      ${data.discount_percent?'<span class="promo-label">Oferta promocional aplicada</span>':""}
+      <span class="promo-label">Após a confirmação, os créditos entram automaticamente no seu saldo.</span>
       ${data.qr_code_base64?`<img class="pix-qr" src="data:image/png;base64,${data.qr_code_base64}" alt="QR Code PIX">`:""}
       ${data.qr_code?`<textarea id="pixCopy" readonly>${escapeHTML(data.qr_code)}</textarea><button class="btn primary" id="copyPix">Copiar PIX</button>`:""}
       <div id="pixStatus" class="pix-payment-status"><strong>Aguardando confirmação do pagamento...</strong><span>Assim que o Mercado Pago confirmar, esta tela será atualizada automaticamente.</span></div>
@@ -1878,13 +1869,20 @@ document.addEventListener("click",async e=>{
     propertyModal(properties.find(p=>p.id===propertyId));
   }
   const buy=e.target.closest("[data-buy]");
-  if(buy) await startPayment(buy.dataset.buy,buy.dataset.renew||null,buy.dataset.offer||null);
-  if(e.target.closest("#advisorProfileBtn")) advisorProfileModal();
+  if(buy) await startPayment(buy.dataset.buy);
+  const viewBtn=e.target.closest("[data-advisor-view]");
+  if(viewBtn){
+    const view=viewBtn.dataset.advisorView;
+    document.querySelectorAll("[data-advisor-view]").forEach(btn=>btn.classList.toggle("active",btn===viewBtn));
+    $("#advisorDashboardView")?.classList.toggle("hidden",view!=="dashboard");
+    $("#advisorHowItWorks")?.classList.toggle("hidden",view!=="how");
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+
+    if(e.target.closest("#advisorProfileBtn")) advisorProfileModal();
   if(e.target.closest("#newAdvisorProperty")){
     if(!canCreateAdvisorProperty()){
-      alert(activeSubscription()
-        ?"Você já utilizou todas as vagas de anúncio do seu pacote atual."
-        :"Você precisa de um pacote ativo para publicar um imóvel.");
+      alert("Seu saldo de créditos está zerado. Compre créditos para publicar um imóvel.");
     }else{
       propertyModal();
     }
@@ -1898,11 +1896,30 @@ document.addEventListener("click",async e=>{
 
   const deleteMediaBtn=e.target.closest("[data-advisor-delete-media]");
   if(deleteMediaBtn) await deleteAdvisorMedia(deleteMediaBtn.dataset.advisorDeleteMedia,deleteMediaBtn.dataset.property);
-  const edit=e.target.closest("[data-edit-ad]");
+  const reactivate=e.target.closest("[data-reactivate-ad]");
+  if(reactivate){
+    if(creditBalance()<=0){
+      alert("Seu saldo de créditos está zerado.");
+    }else if(confirm("Usar 1 crédito para reativar este imóvel por 30 dias?")){
+      reactivate.disabled=true;
+      reactivate.textContent="Reativando...";
+      const {error}=await db.rpc("reactivate_advisor_property",{p_property_id:reactivate.dataset.reactivateAd});
+      if(error){
+        alert(error.message);
+        reactivate.disabled=false;
+        reactivate.textContent="Reativar • 1 crédito";
+      }else{
+        await loadData();
+        renderPanel();
+      }
+    }
+  }
+
+    const edit=e.target.closest("[data-edit-ad]");
   if(edit){
     const item=properties.find(p=>p.id===edit.dataset.editAd);
     if(item?.listing_expires_at && new Date(item.listing_expires_at)<=new Date()){
-      alert("Este anúncio expirou. Renove o pacote para voltar a editar e publicar o imóvel.");
+      alert("Este anúncio expirou. Reative usando 1 crédito para iniciar um novo período de 30 dias.");
     }else{
       propertyModal(item);
     }
