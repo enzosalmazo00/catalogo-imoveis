@@ -811,3 +811,8 @@ button,input,select,textarea{font-size:16px}
   .advisor-panel-tabs{overflow-x:auto;width:100%}
   .advisor-panel-tab{min-width:max-content}
 }
+
+.advisor-credit-breakdown{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.advisor-credit-breakdown>span{display:inline-flex;align-items:center;gap:5px;padding:6px 9px;border-radius:999px;background:rgba(255,255,255,.1);font-size:11px;font-weight:800}
+.advisor-bonus-credit-box{background:rgba(255,220,120,.16)!important}
+.advisor-credit-coin.bonus{background:#fff8dc;border-color:#f0c85b;font-size:15px}
