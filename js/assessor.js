@@ -666,26 +666,47 @@ function existingAdvisorMediaHTML(property){
 }
 
 function setupNewMediaPreview(form){
-  const input=form.querySelector('input[name="images"]');
+  const input=form.querySelector("#advisorImagesInput") || form.querySelector('input[name="images"]');
   const root=form.querySelector("#newMediaPreview");
+  const count=form.querySelector("#advisorImagesCount");
+  const note=form.querySelector("#newMediaOrderNote");
   if(!input||!root) return;
 
+  let previewUrls=[];
+
   input.addEventListener("change",()=>{
+    previewUrls.forEach(url=>URL.revokeObjectURL(url));
+    previewUrls=[];
+
     const files=[...input.files];
-    root.innerHTML=files.map((file,index)=>{
+
+    if(count){
+      count.textContent=files.length
+        ? `${files.length} foto${files.length===1?"":"s"} selecionada${files.length===1?"":"s"}.`
+        : "Nenhuma foto selecionada.";
+    }
+
+    root.innerHTML="";
+    if(!files.length){
+      if(note) note.textContent="";
+      return;
+    }
+
+    const previewFiles=files.slice(0,8);
+    root.innerHTML=previewFiles.map((file,index)=>{
       const url=URL.createObjectURL(file);
+      previewUrls.push(url);
       return `
         <div class="new-media-preview-card">
-          <img src="${url}" alt="">
+          <img src="${url}" alt="" loading="lazy" decoding="async">
           <span>${index===0?"Nova Foto 1":`Nova Foto ${index+1}`}</span>
         </div>`;
     }).join("");
 
-    const note=form.querySelector("#newMediaOrderNote");
     if(note){
-      note.textContent=files.length
-        ? "As novas fotos serão adicionadas nesta ordem. Se o imóvel ainda não tiver fotos, a Foto 1 será a capa automaticamente."
-        : "";
+      note.textContent=files.length>8
+        ? `${files.length} fotos selecionadas. Mostrando só as 8 primeiras na prévia para manter o Safari rápido.`
+        : "As fotos serão enviadas nessa ordem. Se ainda não existir uma capa, a Foto 1 será usada como foto principal.";
     }
   });
 }
