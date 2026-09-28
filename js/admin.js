@@ -15,12 +15,17 @@ const state = {
   properties: [],
   features: [],
   universities: [],
+  advisors: [],
+  subscriptions: [],
+  creditBatches: [],
   settings: null
 };
 
 const titles = {
   dashboard: "Visão geral",
   properties: "Imóveis",
+  advisors: "Assessores",
+  finance: "Financeiro",
   universities: "Faculdades",
   settings: "Configurações"
 };
@@ -83,17 +88,26 @@ async function refreshData() {
     properties,
     features,
     universities,
+    advisors,
+    subscriptions,
+    creditBatches,
     settings
   ] = await Promise.all([
     db.from("properties").select("*, property_media(*), property_features(feature_id)").order("created_at",{ascending:false}),
     db.from("features").select("*").order("category").order("sort_order"),
     db.from("universities").select("*").order("sort_order").order("name"),
+    db.from("advisor_profiles").select("*").order("full_name"),
+    db.from("advisor_subscriptions").select("*, advertising_plans(*)").order("created_at",{ascending:false}),
+    db.from("advisor_credit_batches").select("*").order("created_at",{ascending:false}),
     db.from("site_settings").select("*").eq("id",true).maybeSingle()
   ]);
 
   state.properties = properties.data || [];
   state.features = features.data || [];
   state.universities = universities.data || [];
+  state.advisors = advisors.data || [];
+  state.subscriptions = subscriptions.data || [];
+  state.creditBatches = creditBatches.data || [];
   state.settings = settings.data || null;
 }
 
@@ -118,6 +132,8 @@ function renderDashboard() {
       </div>
       <div class="property-facts">
         <button class="btn ghost" data-goto="properties">Gerenciar imóveis</button>
+        <button class="btn ghost" data-goto="advisors">Assessores</button>
+        <button class="btn ghost" data-goto="finance">Financeiro de créditos</button>
         <button class="btn ghost" data-goto="universities">Faculdades</button>
         <button class="btn ghost" data-goto="settings">Configurações do catálogo</button>
       </div>
@@ -945,6 +961,219 @@ function financeModal(row=null) {
   `);
 }
 
+function adminDateTime(value){
+  if(!value) return "—";
+  return new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"}).format(new Date(value));
+}
+
+function advisorById(userId){
+  return state.advisors.find(a=>a.user_id===userId);
+}
+
+function usableAdminCreditsFor(advisorId,source=null){
+  const now=Date.now();
+  return state.creditBatches.filter(batch=>
+    batch.advisor_id===advisorId &&
+    Number(batch.remaining_credits||0)>0 &&
+    !batch.revoked_at &&
+    new Date(batch.expires_at).getTime()>now &&
+    (!source || (batch.source||"purchase")===source)
+  );
+}
+
+function adminCreditBalance(advisorId,source=null){
+  return usableAdminCreditsFor(advisorId,source)
+    .reduce((sum,batch)=>sum+Number(batch.remaining_credits||0),0);
+}
+
+function renderAdvisors(){
+  const cards=state.advisors.map(advisor=>{
+    const purchased=adminCreditBalance(advisor.user_id,"purchase");
+    const bonus=adminCreditBalance(advisor.user_id,"bonus");
+    const total=purchased+bonus;
+    const ads=state.properties.filter(p=>p.advisor_id===advisor.user_id);
+    const activeAds=ads.filter(p=>p.is_published && (!p.listing_expires_at || new Date(p.listing_expires_at)>new Date())).length;
+    const bonusBatches=usableAdminCreditsFor(advisor.user_id,"bonus");
+
+    return `
+      <article class="admin-advisor-card">
+        <div class="admin-advisor-head">
+          <div>
+            <p class="eyebrow">ASSESSOR</p>
+            <h3>${escapeHTML(advisor.full_name||"Assessor sem nome")}</h3>
+            <span>${escapeHTML(advisor.company_name||"Sem assessoria informada")}</span>
+            ${advisor.whatsapp?`<small>WhatsApp: ${escapeHTML(advisor.whatsapp)}</small>`:""}
+          </div>
+          <button class="btn primary" data-action="grant-bonus" data-id="${advisor.user_id}">🎁 Dar créditos bônus</button>
+        </div>
+
+        <div class="admin-advisor-credit-grid">
+          <div><span>Saldo total</span><strong>${total}</strong></div>
+          <div><span>Comprados</span><strong>${purchased}</strong></div>
+          <div class="bonus"><span>🎁 Bônus</span><strong>${bonus}</strong></div>
+          <div><span>Anúncios ativos</span><strong>${activeAds}</strong></div>
+        </div>
+
+        ${bonusBatches.length?`
+          <div class="admin-bonus-batches">
+            <strong>Bônus ativos</strong>
+            ${bonusBatches.map(batch=>`
+              <div class="admin-bonus-row">
+                <span>🎁 ${batch.remaining_credits} de ${batch.total_credits} crédito${Number(batch.total_credits)===1?"":"s"} · vence ${adminDateTime(batch.expires_at)}</span>
+                ${batch.note?`<small>${escapeHTML(batch.note)}</small>`:""}
+                <button class="btn danger compact" data-action="revoke-bonus" data-id="${batch.id}">Revogar saldo bônus</button>
+              </div>
+            `).join("")}
+          </div>
+        `:""}
+      </article>
+    `;
+  }).join("");
+
+  $("#adminContent").innerHTML=`
+    <section class="admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">CORRETORES / ASSESSORES</p>
+          <h2>Créditos e anúncios por assessor</h2>
+          <p class="muted">Conceda créditos bônus gratuitos e acompanhe o saldo disponível de cada profissional.</p>
+        </div>
+      </div>
+      <div class="admin-advisor-list">
+        ${cards || '<div class="empty-state"><strong>Nenhum assessor cadastrado.</strong></div>'}
+      </div>
+    </section>
+  `;
+}
+
+function grantBonusModal(advisor){
+  if(!advisor) return;
+  showModal(`
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">🎁 CRÉDITOS BÔNUS</p>
+        <h2>${escapeHTML(advisor.full_name||"Assessor")}</h2>
+        <p class="muted">Os créditos entram imediatamente na carteira do assessor sem gerar venda ou receita.</p>
+      </div>
+      <button class="icon-btn" type="button" data-action="close-modal">✕</button>
+    </div>
+
+    <form id="bonusCreditsForm" class="form-grid">
+      <input type="hidden" name="advisor_id" value="${advisor.user_id}">
+      <label>Quantidade de créditos
+        <input name="credits" type="number" min="1" max="100" step="1" required value="1">
+      </label>
+      <label>Validade do bônus
+        <div class="input-with-suffix"><input name="validity_days" type="number" min="1" max="365" step="1" required value="15"><span>dias</span></div>
+      </label>
+      <label class="span-2">Mensagem / motivo do bônus
+        <input name="note" maxlength="200" placeholder="Ex.: Cortesia de lançamento">
+      </label>
+      <div id="bonusCreditsMessage" class="form-message span-2"></div>
+      <div class="form-actions span-2">
+        <button class="btn ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn primary" type="submit">🎁 Conceder bônus</button>
+      </div>
+    </form>
+  `);
+}
+
+async function saveBonusCredits(form){
+  const fd=new FormData(form);
+  const msg=$("#bonusCreditsMessage");
+  const advisorId=String(fd.get("advisor_id")||"");
+  const credits=Number(fd.get("credits"));
+  const days=Number(fd.get("validity_days"));
+  const note=String(fd.get("note")||"").trim()||null;
+
+  if(!advisorId || !Number.isInteger(credits) || credits<1 || !Number.isInteger(days) || days<1){
+    if(msg) msg.textContent="Confira quantidade e validade.";
+    return;
+  }
+
+  if(msg) msg.textContent="Concedendo créditos bônus...";
+
+  const {error}=await db.rpc("admin_grant_bonus_credits",{
+    p_advisor_id:advisorId,
+    p_credits:credits,
+    p_validity_days:days,
+    p_note:note
+  });
+
+  if(error){
+    if(msg) msg.textContent=error.message;
+    return;
+  }
+
+  await refreshData();
+  closeModal();
+  renderAdvisors();
+}
+
+function renderCreditFinance(){
+  const confirmed=state.subscriptions.filter(s=>s.paid_at && ["active","paid"].includes(s.status));
+  const pending=state.subscriptions.filter(s=>s.status==="pending" && !s.paid_at);
+  const now=new Date();
+
+  const confirmedRevenue=confirmed.reduce((sum,s)=>sum+Number(s.amount_paid||0),0);
+  const monthRevenue=confirmed.filter(s=>{
+    const d=new Date(s.paid_at);
+    return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth();
+  }).reduce((sum,s)=>sum+Number(s.amount_paid||0),0);
+
+  const creditsSold=confirmed.reduce((sum,s)=>{
+    const plan=Array.isArray(s.advertising_plans)?s.advertising_plans[0]:s.advertising_plans;
+    return sum+Number(plan?.ad_limit||0);
+  },0);
+
+  const bonusGranted=state.creditBatches
+    .filter(b=>b.source==="bonus")
+    .reduce((sum,b)=>sum+Number(b.total_credits||0),0);
+
+  const rows=state.subscriptions.map(s=>{
+    const advisor=advisorById(s.advisor_id);
+    const plan=Array.isArray(s.advertising_plans)?s.advertising_plans[0]:s.advertising_plans;
+    const status=s.paid_at?"Pago":s.status==="pending"?"Pendente":s.status;
+    return `
+      <tr>
+        <td>${adminDateTime(s.paid_at||s.created_at)}</td>
+        <td><strong>${escapeHTML(advisor?.full_name||"Assessor")}</strong><br><span class="muted">${escapeHTML(advisor?.company_name||"")}</span></td>
+        <td>${escapeHTML(plan?.name||"Plano")}</td>
+        <td>${Number(plan?.ad_limit||0)}</td>
+        <td><strong>${money(s.amount_paid||0,"BRL")}</strong></td>
+        <td><span class="pill ${s.paid_at?"paid":"pending"}">${escapeHTML(String(status).toUpperCase())}</span></td>
+        <td><small>${escapeHTML(String(s.mercado_pago_payment_id||"—"))}</small></td>
+      </tr>
+    `;
+  }).join("");
+
+  $("#adminContent").innerHTML=`
+    <div class="dashboard-grid finance-credit-summary">
+      <div class="metric-card"><span>Receita confirmada</span><strong>${money(confirmedRevenue,"BRL")}</strong></div>
+      <div class="metric-card"><span>Receita neste mês</span><strong>${money(monthRevenue,"BRL")}</strong></div>
+      <div class="metric-card"><span>Créditos vendidos</span><strong>${creditsSold}</strong></div>
+      <div class="metric-card"><span>🎁 Bônus concedidos</span><strong>${bonusGranted}</strong></div>
+    </div>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">FINANCEIRO DA PLATAFORMA</p>
+          <h2>Vendas de créditos de anúncio</h2>
+          <p class="muted">${pending.length} pagamento${pending.length===1?"":"s"} pendente${pending.length===1?"":"s"} de confirmação.</p>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table credit-sales-table">
+          <thead><tr><th>Data</th><th>Assessor</th><th>Pacote</th><th>Créditos</th><th>Valor</th><th>Status</th><th>Mercado Pago</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="7">Nenhuma venda registrada.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+  `;
+}
+
 function renderSettings() {
   const s = state.settings || {};
   $("#adminContent").innerHTML = `
@@ -968,6 +1197,8 @@ function renderCurrent() {
   ({
     dashboard: renderDashboard,
     properties: renderProperties,
+    advisors: renderAdvisors,
+    finance: renderCreditFinance,
     universities: renderUniversities,
     settings: renderSettings
   })[state.tab]();
@@ -1158,6 +1389,15 @@ $("#adminContent").addEventListener("click",async event=>{
   if(action==="edit-property") propertyModal(propertyById(id));
   if(action==="toggle-status") await togglePropertyStatus(id);
   if(action==="delete-property") await deleteProperty(id);
+
+  if(action==="grant-bonus") grantBonusModal(advisorById(id));
+  if(action==="revoke-bonus"){
+    if(confirm("Revogar todos os créditos bônus ainda não utilizados deste lote?")){
+      const {error}=await db.rpc("admin_revoke_bonus_credits",{p_batch_id:id});
+      if(error) alert(error.message);
+      else{await refreshData();renderAdvisors();}
+    }
+  }
 
   if(action==="new-university") universityModal();
   if(action==="revalidate-universities") await revalidateUniversityLocations(event.target.closest('[data-action="revalidate-universities"]'));
