@@ -215,7 +215,6 @@ async function loadData(){
 
 function renderPlans(){
   const premium=plans.find(plan=>plan.code==="premium_monthly_30");
-  const standardPlans=plans.filter(plan=>plan.code!=="premium_monthly_30");
 
   const premiumHtml=premium?(()=>{
     const avulso=Number(premium.ad_limit)*15;
@@ -226,14 +225,14 @@ function renderPlans(){
       <article class="advisor-premium-plan-card">
         <div class="premium-plan-shine"></div>
         <div class="premium-plan-topline">
-          <span class="premium-plan-badge">⭐ PLANO PREMIUM</span>
+          <span class="premium-plan-badge">⭐ PREMIUM</span>
           <span class="premium-plan-value-badge">MELHOR CUSTO POR CRÉDITO</span>
         </div>
 
         <div class="premium-plan-content">
           <div class="premium-plan-copy">
             <p class="eyebrow">PARA QUEM ANUNCIA COM FREQUÊNCIA</p>
-            <h3>${escapeHTML(premium.name)}</h3>
+            <h3>Premium</h3>
             <p class="premium-plan-lead">30 créditos liberados de uma vez para você manter um catálogo sempre ativo.</p>
 
             <div class="premium-plan-features">
@@ -246,9 +245,8 @@ function renderPlans(){
           </div>
 
           <div class="premium-plan-price-box">
-            <small>30 créditos por mês</small>
+            <small>30 créditos</small>
             <strong>${money(premium.price,"BRL")}</strong>
-            <span>/ mês</span>
 
             <div class="premium-plan-comparison">
               <span>Valor avulso: <s>${money(avulso,"BRL")}</s></span>
@@ -259,32 +257,43 @@ function renderPlans(){
               Só <strong>${money(unit,"BRL")}</strong> por crédito
             </div>
 
-            <button class="btn premium-plan-button full" data-buy="${premium.id}">Quero este plano</button>
-            <small class="premium-plan-payment-note">Pagamento via PIX · renovação mensal manual</small>
+            <button class="btn premium-plan-button full" data-buy="${premium.id}">Comprar Premium</button>
+            <small class="premium-plan-payment-note">Pagamento via PIX</small>
           </div>
         </div>
       </article>
     `;
   })():"";
 
+  $("#advisorPlans").innerHTML=`
+    ${premiumHtml}
+    <div class="credit-store-entry">
+      <span>Prefere comprar uma quantidade menor de créditos?</span>
+      <button class="btn ghost" type="button" data-open-credit-store>Outras opções de compra de créditos</button>
+    </div>
+  `;
+}
+
+function renderCreditStore(){
+  const standardPlans=plans.filter(plan=>plan.code!=="premium_monthly_30");
+  const root=$("#advisorCreditStorePlans");
+  if(!root) return;
+
   const standardHtml=standardPlans.map(plan=>{
     const unit=Number(plan.price)/Math.max(1,Number(plan.ad_limit||1));
     return `
-      <article class="advisor-plan-card">
+      <article class="advisor-plan-card credit-store-plan-card">
         <span class="advisor-plan-badge">${plan.ad_limit} crédito${plan.ad_limit>1?"s":""}</span>
         <h3>${escapeHTML(plan.name)}</h3>
         <div class="advisor-plan-price">${money(plan.price,"BRL")}</div>
         <div class="advisor-plan-unit">${money(unit,"BRL")} por crédito</div>
         <p>Créditos não usados válidos por <strong>90 dias</strong> após a compra.</p>
         <small>Cada crédito publicado ativa 1 imóvel por 30 dias.</small>
-        <button class="btn primary full" data-buy="${plan.id}">Comprar créditos via PIX</button>
+        <button class="btn primary full" data-buy="${plan.id}">Comprar via PIX</button>
       </article>`;
   }).join("");
 
-  $("#advisorPlans").innerHTML=`
-    ${premiumHtml}
-    <div class="advisor-standard-plan-grid">${standardHtml}</div>
-  `;
+  root.innerHTML=standardHtml || '<div class="empty-state"><strong>Nenhuma outra opção disponível no momento.</strong></div>';
 }
 
 function renderCreditWallet(){
@@ -759,6 +768,7 @@ function renderPanel(){
   renderCreditWallet();
   renderExpiredNotice();
   renderPlans();
+  renderCreditStore();
   renderAds();
   renderRentalControl();
 
@@ -2316,6 +2326,29 @@ document.addEventListener("click",async e=>{
     await loadData();
     propertyModal(properties.find(p=>p.id===propertyId));
   }
+  const openCreditStore=e.target.closest("[data-open-credit-store]");
+  if(openCreditStore){
+    $("#advisorDashboardView")?.classList.add("hidden");
+    $("#advisorRentalControl")?.classList.add("hidden");
+    $("#advisorHowItWorks")?.classList.add("hidden");
+    $(".advisor-panel-tabs")?.classList.add("hidden");
+    $("#advisorCreditStore")?.classList.remove("hidden");
+    window.scrollTo({top:0,behavior:"smooth"});
+    return;
+  }
+
+  const closeCreditStore=e.target.closest("[data-close-credit-store]");
+  if(closeCreditStore){
+    $("#advisorCreditStore")?.classList.add("hidden");
+    $(".advisor-panel-tabs")?.classList.remove("hidden");
+    document.querySelectorAll("[data-advisor-view]").forEach(btn=>btn.classList.toggle("active",btn.dataset.advisorView==="dashboard"));
+    $("#advisorDashboardView")?.classList.remove("hidden");
+    $("#advisorRentalControl")?.classList.add("hidden");
+    $("#advisorHowItWorks")?.classList.add("hidden");
+    window.scrollTo({top:0,behavior:"smooth"});
+    return;
+  }
+
   const buy=e.target.closest("[data-buy]");
   if(buy) await startPayment(buy.dataset.buy);
   const viewBtn=e.target.closest("[data-advisor-view]");
