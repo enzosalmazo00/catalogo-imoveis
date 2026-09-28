@@ -162,6 +162,9 @@ async function savePoint(form){
     if(resolved.data?.latitude==null || resolved.data?.longitude==null){
       throw new Error("O link não retornou coordenadas. Abra a ficha exata do local no Google Maps e copie o link novamente.");
     }
+    if(resolved.data?.precision!=="exact"){
+      throw new Error("Esse link retornou apenas uma área aproximada. Abra a ficha/pino exato do ponto de referência no Google Maps e use Compartilhar → Copiar link.");
+    }
 
     const row={
       name:String(fd.get("name")||"").trim(),
