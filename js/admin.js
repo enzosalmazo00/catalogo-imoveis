@@ -18,6 +18,12 @@ const state = {
   advisors: [],
   subscriptions: [],
   creditBatches: [],
+  owners: [],
+  tenants: [],
+  management: [],
+  rentals: [],
+  finances: [],
+  receipts: [],
   settings: null
 };
 
@@ -91,6 +97,12 @@ async function refreshData() {
     advisors,
     subscriptions,
     creditBatches,
+    owners,
+    tenants,
+    management,
+    rentals,
+    finances,
+    receipts,
     settings
   ] = await Promise.all([
     db.from("properties").select("*, property_media(*), property_features(feature_id)").order("created_at",{ascending:false}),
@@ -99,6 +111,12 @@ async function refreshData() {
     db.from("advisor_profiles").select("*").order("full_name"),
     db.from("advisor_subscriptions").select("*, advertising_plans(*)").order("created_at",{ascending:false}),
     db.from("advisor_credit_batches").select("*").order("created_at",{ascending:false}),
+    db.from("owners").select("*").order("name"),
+    db.from("tenants").select("*").order("name"),
+    db.from("property_management").select("*"),
+    db.from("rentals").select("*").order("created_at",{ascending:false}),
+    db.from("financial_entries").select("*").order("created_at",{ascending:false}),
+    db.from("advisor_rental_control").select("*").order("created_at",{ascending:false}),
     db.from("site_settings").select("*").eq("id",true).maybeSingle()
   ]);
 
@@ -108,12 +126,18 @@ async function refreshData() {
   state.advisors = advisors.data || [];
   state.subscriptions = subscriptions.data || [];
   state.creditBatches = creditBatches.data || [];
+  state.owners = owners.data || [];
+  state.tenants = tenants.data || [];
+  state.management = management.data || [];
+  state.rentals = rentals.data || [];
+  state.finances = finances.data || [];
+  state.receipts = receipts.data || [];
   state.settings = settings.data || null;
 }
 
 function renderDashboard() {
   const available=state.properties.filter(p=>p.status==="available").length;
-  const rented=state.properties.filter(p=>p.status==="rented").length;
+  const receipts=state.receipts.length;
   const published=state.properties.filter(p=>p.is_published).length;
   const total=state.properties.length;
 
@@ -122,7 +146,7 @@ function renderDashboard() {
       <div class="metric-card"><span>Total de imóveis</span><strong>${total}</strong></div>
       <div class="metric-card"><span>Publicados</span><strong>${published}</strong></div>
       <div class="metric-card"><span>Disponíveis</span><strong>${available}</strong></div>
-      <div class="metric-card"><span>Alugados</span><strong>${rented}</strong></div>
+      <div class="metric-card"><span>Recibos de locação</span><strong>${receipts}</strong></div>
     </div>
 
     <section class="admin-panel">
@@ -203,7 +227,7 @@ function advisorPropertyGroups(){
 function advisorPropertyGroupCard(group){
   const total=group.properties.length;
   const available=group.properties.filter(p=>p.status==="available").length;
-  const rented=group.properties.filter(p=>p.status==="rented").length;
+  const hidden=group.properties.filter(p=>p.status==="hidden").length;
   const published=group.properties.filter(p=>p.is_published).length;
 
   return `
@@ -216,7 +240,7 @@ function advisorPropertyGroupCard(group){
         </div>
         <div class="advisor-property-admin-stats">
           <strong>${total} ${total===1?"imóvel":"imóveis"}</strong>
-          <span>${available} disponíveis · ${rented} alugados · ${published} publicados</span>
+          <span>${available} disponíveis · ${hidden} ocultos · ${published} publicados</span>
         </div>
       </div>
       ${propertyTable(group.properties)}
@@ -1349,6 +1373,24 @@ function renderCreditFinance(){
     `;
   }).join("");
 
+  const receiptRows=state.receipts.map(r=>{
+    const advisor=advisorById(r.advisor_id);
+    const handledBy=advisor?.full_name||advisor?.company_name||"Administração";
+    return `
+      <tr>
+        <td>${dateBR(r.start_date)}</td>
+        <td><strong>${escapeHTML(r.property_code||"—")}</strong><br><span class="muted">${escapeHTML(r.property_title||"Imóvel excluído")}</span></td>
+        <td><strong>${escapeHTML(r.owner_name||"—")}</strong></td>
+        <td><strong>${escapeHTML(r.tenant_name||"—")}</strong></td>
+        <td>${money(r.monthly_rent||0,r.currency||"BRL")}</td>
+        <td>${money(r.security_deposit||0,r.currency||"BRL")}</td>
+        <td>${money(r.commission_amount||0,r.currency||"BRL")}</td>
+        <td>${money(r.advisory_fee_amount||0,r.currency||"BRL")}</td>
+        <td>${escapeHTML(handledBy)}</td>
+      </tr>
+    `;
+  }).join("");
+
   $("#adminContent").innerHTML=`
     <div class="dashboard-grid finance-credit-summary">
       <div class="metric-card"><span>Receita confirmada</span><strong>${money(confirmedRevenue,"BRL")}</strong></div>
@@ -1370,6 +1412,23 @@ function renderCreditFinance(){
         <table class="admin-table credit-sales-table">
           <thead><tr><th>Data</th><th>Assessor</th><th>Pacote</th><th>Créditos</th><th>Valor</th><th>Status</th><th>Mercado Pago</th></tr></thead>
           <tbody>${rows || '<tr><td colspan="7">Nenhuma venda registrada.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">RECIBOS DE LOCAÇÃO</p>
+          <h2>Imóveis finalizados como alugados</h2>
+          <p class="muted">O anúncio original e as mídias são excluídos. Esta tabela mantém somente os dados essenciais do recibo.</p>
+        </div>
+      </div>
+
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Início</th><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Caução</th><th>Comissão</th><th>Assessoria</th><th>Responsável</th></tr></thead>
+          <tbody>${receiptRows || '<tr><td colspan="9" class="muted">Nenhum recibo de locação registrado.</td></tr>'}</tbody>
         </table>
       </div>
     </section>
