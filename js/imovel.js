@@ -14,6 +14,16 @@ import {
 
 const params = new URLSearchParams(location.search);
 const id = params.get("id");
+const advisorCatalogCode=String(params.get("catalogo")||"").trim();
+
+function catalogIndexUrl(){
+  return advisorCatalogCode ? `index.html?catalogo=${encodeURIComponent(advisorCatalogCode)}` : "index.html";
+}
+
+function propertyDetailUrl(propertyId){
+  const base=`imovel.html?id=${encodeURIComponent(propertyId)}`;
+  return advisorCatalogCode ? `${base}&catalogo=${encodeURIComponent(advisorCatalogCode)}` : base;
+}
 
 function featureList(property, category) {
   return (property.property_features || [])
@@ -132,18 +142,26 @@ async function load() {
   $("#brandName").textContent = settings.site_name;
   $("#footerName").textContent = settings.site_name;
 
+  let propertyQuery=db
+    .from("catalog_properties_public")
+    .select("*")
+    .eq("id",id)
+    .eq("status","available");
+
+  let sequenceQuery=db
+    .from("catalog_properties_public")
+    .select("id,title,public_code,catalog_priority,featured,sort_order,created_at,advisor_catalog_code")
+    .eq("status","available");
+
+  if(advisorCatalogCode){
+    propertyQuery=propertyQuery.eq("advisor_catalog_code",advisorCatalogCode);
+    sequenceQuery=sequenceQuery.eq("advisor_catalog_code",advisorCatalogCode);
+  }
+
   const [propertyResult, distanceResult, sequenceResult] = await Promise.all([
-    db
-      .from("catalog_properties_public")
-      .select("*")
-      .eq("id",id)
-      .eq("status","available")
-      .maybeSingle(),
+    propertyQuery.maybeSingle(),
     db.rpc("get_public_property_university_distances",{p_property_id:id}),
-    db
-      .from("catalog_properties_public")
-      .select("id,title,public_code,catalog_priority,featured,sort_order,created_at")
-      .eq("status","available")
+    sequenceQuery
       .order("catalog_priority",{ascending:false})
       .order("featured",{ascending:false})
       .order("sort_order",{ascending:true})
@@ -187,7 +205,16 @@ async function load() {
   const nextProperty=currentIndex>=0 && currentIndex<catalogSequence.length-1 ? catalogSequence[currentIndex+1] : null;
 
   $("#detailRoot").innerHTML = `
-    <div class="detail-breadcrumb"><a href="index.html">Início</a><span>›</span><span>${escapeHTML(propertyTypeLabel(property.property_type))}</span></div>
+    ${advisorCatalogCode?`
+      <div class="advisor-catalog-detail-strip">
+        <span>Você está navegando no catálogo deste assessor.</span>
+        <div>
+          <a class="btn ghost compact" href="${escapeHTML(catalogIndexUrl())}">← Voltar aos imóveis deste assessor</a>
+          <a class="btn primary compact" href="index.html">Ver todo catálogo do site</a>
+        </div>
+      </div>
+    `:""}
+    <div class="detail-breadcrumb"><a href="${escapeHTML(catalogIndexUrl())}">${advisorCatalogCode?"Catálogo do assessor":"Início"}</a><span>›</span><span>${escapeHTML(propertyTypeLabel(property.property_type))}</span></div>
 
     <section class="detail-hero">
       <div>
@@ -332,18 +359,18 @@ async function load() {
 
     <nav class="property-sequence-nav" aria-label="Navegação entre anúncios">
       <a class="property-sequence-btn previous ${previousProperty?"":"disabled"}"
-         ${previousProperty?`href="imovel.html?id=${encodeURIComponent(previousProperty.id)}"`:'aria-disabled="true" tabindex="-1"'}>
+         ${previousProperty?`href="${escapeHTML(propertyDetailUrl(previousProperty.id))}"`:'aria-disabled="true" tabindex="-1"'}>
         <span>← Anterior</span>
         <small>${previousProperty?escapeHTML(previousProperty.title):"Você está no primeiro anúncio"}</small>
       </a>
 
-      <a class="property-sequence-home" href="index.html">
-        <strong>⌂ Voltar ao catálogo completo</strong>
-        <small>Página principal do catálogo</small>
+      <a class="property-sequence-home" href="${escapeHTML(catalogIndexUrl())}">
+        <strong>⌂ ${advisorCatalogCode?"Voltar ao catálogo deste assessor":"Voltar ao catálogo completo"}</strong>
+        <small>${advisorCatalogCode?"Somente imóveis deste assessor":"Página principal do catálogo"}</small>
       </a>
 
       <a class="property-sequence-btn next ${nextProperty?"":"disabled"}"
-         ${nextProperty?`href="imovel.html?id=${encodeURIComponent(nextProperty.id)}"`:'aria-disabled="true" tabindex="-1"'}>
+         ${nextProperty?`href="${escapeHTML(propertyDetailUrl(nextProperty.id))}"`:'aria-disabled="true" tabindex="-1"'}>
         <span>Próximo anúncio →</span>
         <small>${nextProperty?escapeHTML(nextProperty.title):"Você chegou ao último anúncio"}</small>
       </a>
