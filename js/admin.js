@@ -736,14 +736,175 @@ async function deleteProperty(id) {
   renderCurrent();
 }
 
-async function togglePropertyStatus(id) {
-  const property = propertyById(id);
+function rentalReceiptModal(property) {
   if (!property) return;
-  const next = property.status === "rented" ? "available" : "rented";
-  const { error } = await db.from("properties").update({ status: next }).eq("id", id);
-  if (error) return alert(error.message);
+
+  const management=state.management.find(m=>m.property_id===property.id);
+  const owner=state.owners.find(o=>o.id===management?.owner_id);
+
+  showModal(`
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">FINALIZAR LOCAÇÃO</p>
+        <h2>Preencher recibo obrigatório</h2>
+        <p class="muted">Ao confirmar, o imóvel será excluído da base de anúncios, sairá do catálogo e suas fotos/mídias serão removidas. Somente o recibo abaixo será preservado.</p>
+      </div>
+      <button class="icon-btn" type="button" data-action="close-modal">✕</button>
+    </div>
+
+    <form id="rentalReceiptForm" class="form-grid">
+      <input type="hidden" name="property_id" value="${property.id}">
+
+      <div class="span-2 published-property-lock-banner">
+        <strong>${escapeHTML(property.public_code||"IMÓVEL")} • ${escapeHTML(property.title)}</strong>
+        <span>Esta ação é definitiva para este anúncio. Se o imóvel voltar ao mercado, deverá ser cadastrado/publicado novamente.</span>
+      </div>
+
+      <label>Nome do proprietário
+        <input name="owner_name" required value="${escapeHTML(owner?.name||"")}">
+      </label>
+
+      <label>Telefone do proprietário
+        <input name="owner_phone" inputmode="tel" value="${escapeHTML(owner?.phone||"")}">
+      </label>
+
+      <label>Nome do inquilino
+        <input name="tenant_name" required>
+      </label>
+
+      <label>Telefone do inquilino
+        <input name="tenant_phone" inputmode="tel">
+      </label>
+
+      <label>Moeda
+        <select name="currency" required>
+          <option value="BRL" ${property.currency!=="PYG"?"selected":""}>Real brasileiro (R$)</option>
+          <option value="PYG" ${property.currency==="PYG"?"selected":""}>Guarani paraguaio (₲)</option>
+        </select>
+      </label>
+
+      <label>Valor do aluguel
+        <input name="monthly_rent" type="number" min="0" step="1" required value="${property.price??0}">
+      </label>
+
+      <label>Valor da caução
+        <input name="security_deposit" type="number" min="0" step="1" required value="${property.security_deposit??0}">
+      </label>
+
+      <label>Caução paga?
+        <select name="security_deposit_paid">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+
+      <label>Comissão recebida do proprietário
+        <input name="commission_amount" type="number" min="0" step="1" required value="0">
+      </label>
+
+      <label>Comissão paga?
+        <select name="commission_paid">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+
+      <label>Taxa de assessoria
+        <input name="advisory_fee_amount" type="number" min="0" step="1" required value="${property.has_advisory_fee?(property.advisory_fee??0):0}">
+      </label>
+
+      <label>Taxa de assessoria paga?
+        <select name="advisory_fee_paid">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+
+      <label>Data de início da locação
+        <input name="start_date" type="date" required>
+      </label>
+
+      <label>Dia de vencimento do aluguel
+        <input name="rent_due_day" type="number" min="1" max="31" step="1">
+      </label>
+
+      <label class="span-2">Observações do recibo
+        <textarea name="notes" rows="3" placeholder="Opcional"></textarea>
+      </label>
+
+      <div id="rentalReceiptMessage" class="span-2 form-message"></div>
+
+      <div class="form-actions span-2">
+        <button class="btn ghost" type="button" data-action="close-modal">Cancelar</button>
+        <button class="btn danger" type="submit">Confirmar aluguel e excluir anúncio</button>
+      </div>
+    </form>
+  `);
+}
+
+async function markPropertyRented(form) {
+  if (!form?.reportValidity()) return;
+
+  const fd=new FormData(form);
+  const propertyId=String(fd.get("property_id")||"");
+  const property=propertyById(propertyId);
+  const msg=form.querySelector("#rentalReceiptMessage");
+  const submit=form.querySelector('button[type="submit"]');
+
+  if(!property){
+    if(msg) msg.textContent="Este imóvel não está mais disponível.";
+    return;
+  }
+
+  const receipt={
+    owner_name:String(fd.get("owner_name")||"").trim(),
+    owner_phone:String(fd.get("owner_phone")||"").trim()||null,
+    tenant_name:String(fd.get("tenant_name")||"").trim(),
+    tenant_phone:String(fd.get("tenant_phone")||"").trim()||null,
+    currency:fd.get("currency")||property.currency||"BRL",
+    monthly_rent:Number(fd.get("monthly_rent")||0),
+    security_deposit:Number(fd.get("security_deposit")||0),
+    security_deposit_paid:fd.get("security_deposit_paid")==="true",
+    commission_amount:Number(fd.get("commission_amount")||0),
+    commission_paid:fd.get("commission_paid")==="true",
+    advisory_fee_amount:Number(fd.get("advisory_fee_amount")||0),
+    advisory_fee_paid:fd.get("advisory_fee_paid")==="true",
+    start_date:fd.get("start_date"),
+    rent_due_day:fd.get("rent_due_day")?Number(fd.get("rent_due_day")):null,
+    notes:String(fd.get("notes")||"").trim()||null
+  };
+
+  if(submit){
+    submit.disabled=true;
+    submit.textContent="Finalizando...";
+  }
+  if(msg) msg.textContent="Salvando recibo e removendo o anúncio...";
+
+  const result=await db.rpc("finalize_property_rental",{
+    p_property_id:property.id,
+    p_receipt:receipt
+  });
+
+  if(result.error){
+    if(msg) msg.textContent=result.error.message;
+    if(submit){submit.disabled=false;submit.textContent="Confirmar aluguel e excluir anúncio";}
+    return;
+  }
+
+  const paths=Array.isArray(result.data?.storage_paths)?result.data.storage_paths:[];
+  let cleanupWarning="";
+  if(paths.length){
+    const cleanup=await db.storage.from(STORAGE_BUCKET).remove(paths);
+    if(cleanup.error){
+      console.warn("Anúncio removido, mas houve falha ao limpar algumas imagens:",cleanup.error);
+      cleanupWarning=" O anúncio foi removido, mas algumas imagens podem precisar de limpeza posterior no armazenamento.";
+    }
+  }
+
   await refreshData();
+  closeModal();
   renderCurrent();
+  alert("Imóvel marcado como alugado. O anúncio foi excluído e somente o recibo foi preservado."+cleanupWarning);
 }
 
 async function deleteMedia(id) {
@@ -1428,7 +1589,7 @@ $("#adminContent").addEventListener("click",async event=>{
 
   if(action==="new-property") propertyModal();
   if(action==="edit-property") propertyModal(propertyById(id));
-  if(action==="toggle-status") await togglePropertyStatus(id);
+  if(action==="mark-rented") rentalReceiptModal(propertyById(id));
   if(action==="delete-property") await deleteProperty(id);
 
   if(action==="grant-bonus") grantBonusModal(advisorById(id));
@@ -1483,6 +1644,11 @@ $("#adminModal").addEventListener("click",async event=>{
 $("#adminModal").addEventListener("submit",async event=>{
   event.preventDefault();
   const form=event.target;
+
+  if(form.id==="rentalReceiptForm"){
+    await markPropertyRented(form);
+    return;
+  }
 
   if(form.id==="propertyForm"){
     await saveProperty(form);
