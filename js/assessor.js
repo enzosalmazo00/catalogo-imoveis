@@ -947,20 +947,44 @@ async function boot(){
     return;
   }
 
-  // Usa primeiro a sessão persistida no aparelho. Isso evita o "flash" do login
-  // enquanto uma conta já autenticada está sendo reconhecida.
-  const {data:{session}}=await db.auth.getSession();
-  const user=session?.user||null;
-  currentUser=user;
+  const loader=$("#advisorBootLoader");
+  const bootTitle=$("#advisorBootTitle");
+  const bootText=$("#advisorBootText");
+  const bootActions=$("#advisorBootActions");
+  const bootSpinner=$("#advisorBootSpinner");
 
-  if(!user){
-    $("#advisorBootLoader")?.classList.add("hidden");
-    $("#advisorAuth").classList.remove("hidden");
-    $("#advisorPanel").classList.add("hidden");
-    return;
+  if(loader) loader.classList.remove("hidden");
+  if(bootActions) bootActions.classList.add("hidden");
+  if(bootSpinner) bootSpinner.classList.remove("hidden");
+  if(bootTitle) bootTitle.textContent="Abrindo sua área...";
+  if(bootText) bootText.textContent="Carregando sua sessão.";
+
+  try{
+    const sessionResult=await withTimeout(
+      db.auth.getSession(),
+      5000,
+      "Verificação da sessão"
+    );
+
+    const user=sessionResult?.data?.session?.user||null;
+    currentUser=user;
+
+    if(!user){
+      loader?.classList.add("hidden");
+      $("#advisorAuth").classList.remove("hidden");
+      $("#advisorPanel").classList.add("hidden");
+      return;
+    }
+
+    await enterAdvisorPanel(user);
+  }catch(err){
+    console.warn("Sessão demorou para responder neste dispositivo:",err);
+
+    if(bootSpinner) bootSpinner.classList.add("hidden");
+    if(bootTitle) bootTitle.textContent="Não conseguimos abrir sua sessão neste aparelho.";
+    if(bootText) bootText.textContent="Isso pode acontecer por cache ou sessão presa no navegador. Você pode tentar novamente ou entrar de novo.";
+    if(bootActions) bootActions.classList.remove("hidden");
   }
-
-  await enterAdvisorPanel(user);
 }
 
 document.addEventListener("click",async e=>{
@@ -1110,6 +1134,22 @@ $("#advisorSignupForm").addEventListener("submit",async e=>{
     $("#advisorSignupForm").classList.add("hidden");
     $("#advisorLoginEmail").value=$("#advisorSignupEmail").value.trim();
   }
+});
+
+$("#advisorBootRetry")?.addEventListener("click",()=>boot());
+
+$("#advisorBootLogin")?.addEventListener("click",async()=>{
+  try{
+    await withTimeout(db.auth.signOut({scope:"local"}),3000,"Limpeza da sessão");
+  }catch(err){
+    console.warn("Não foi possível limpar a sessão antiga:",err);
+  }
+
+  $("#advisorBootLoader")?.classList.add("hidden");
+  $("#advisorPanel").classList.add("hidden");
+  $("#advisorResetPassword").classList.add("hidden");
+  $("#advisorAuth").classList.remove("hidden");
+  $("#advisorAuthMessage").textContent="Entre novamente neste aparelho.";
 });
 
 $("#advisorLogout").addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
