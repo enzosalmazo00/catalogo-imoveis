@@ -388,7 +388,7 @@ function propertyModal(property=null) {
           <option value="available" ${(!property || property.status === "available" || property.status === "rented") ? "selected" : ""}>Disponível</option>
           <option value="hidden" ${property?.status === "hidden" ? "selected" : ""}>Oculto</option>
         </select>
-        <small>Para registrar um aluguel, use o botão “Marcar alugado” na lista. O recibo é obrigatório.</small>
+        <small>O encerramento da locação e o preenchimento do recibo são feitos pelo assessor responsável.</small>
       </label>
 
       <label>Mobília
