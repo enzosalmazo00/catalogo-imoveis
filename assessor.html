@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Área do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609281600">
+  <link rel="stylesheet" href="css/styles.css?v=202609281700">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 </head>
 <body class="advisor-page">
@@ -130,6 +130,25 @@
     <div id="advisorDashboardView">
       <div id="advisorExpiredNotice"></div>
 
+      <section class="admin-panel advisor-client-catalog-panel">
+        <div class="admin-panel-head">
+          <div>
+            <p class="eyebrow">MEU CATÁLOGO PARA CLIENTES</p>
+            <h2>Compartilhe somente os seus imóveis</h2>
+            <p class="muted">O cliente abrirá um catálogo com apenas os seus anúncios. Se quiser, ele poderá tocar em “Ver todo catálogo do site” para conhecer os demais imóveis disponíveis.</p>
+          </div>
+        </div>
+        <div class="advisor-client-catalog-actions">
+          <button id="shareAdvisorCatalogMain" class="btn primary" type="button">🔗 Compartilhar meu catálogo</button>
+          <button id="copyAdvisorCatalog" class="btn ghost" type="button">Copiar link</button>
+          <a id="openAdvisorCatalog" class="btn ghost" href="index.html" target="_blank" rel="noopener">Abrir meu catálogo</a>
+        </div>
+        <div class="advisor-client-catalog-link">
+          <span>Link exclusivo do seu catálogo</span>
+          <code id="advisorCatalogLinkPreview">Carregando...</code>
+        </div>
+      </section>
+
       <section class="admin-panel">
         <div class="admin-panel-head">
           <div>
@@ -227,7 +246,7 @@
 
 <div id="advisorModal" class="modal-layer hidden"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>\n<script type="module" src="js/assessor.js?v=202609281600"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>\n<script type="module" src="js/assessor.js?v=202609281700"></script>
 
 <script>
 (function(){
