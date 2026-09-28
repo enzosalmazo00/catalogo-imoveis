@@ -9,9 +9,7 @@ import {
   youtubeEmbed,
   getSettings,
   whatsappLink,
-  locationText,
-  routeText,
-  mapsQuery
+  locationText
 } from "./common.js?v=202609281430";
 
 const params = new URLSearchParams(location.search);
@@ -63,81 +61,34 @@ function renderGallery(property) {
   `;
 }
 
-function straightLineKm(lat1,lon1,lat2,lon2){
-  const nums=[lat1,lon1,lat2,lon2].map(Number);
-  if(nums.some(v=>!Number.isFinite(v))) return null;
-  const [a,b,c,d]=nums;
-  const toRad=x=>x*Math.PI/180;
-  const earth=6371;
-  const dLat=toRad(c-a);
-  const dLon=toRad(d-b);
-  const h=Math.sin(dLat/2)**2 + Math.cos(toRad(a))*Math.cos(toRad(c))*Math.sin(dLon/2)**2;
-  return 2*earth*Math.asin(Math.sqrt(h));
+function formatDistanceMeters(meters){
+  const m=Number(meters);
+  if(!Number.isFinite(m)||m<0) return "";
+  if(m<1000) return `${Math.max(10,Math.round(m/10)*10)} m`;
+  return `${(m/1000).toLocaleString("pt-BR",{maximumFractionDigits:1})} km`;
 }
 
-function formatDistanceKm(km){
-  if(km==null) return "";
-  if(km<1) return `${Math.max(1,Math.round(km*1000))} m`;
-  return `${km.toLocaleString("pt-BR",{maximumFractionDigits:1})} km`;
-}
+function renderUniversities(distances=[]){
+  if(!distances.length) return "";
 
-function exactPropertyMapQuery(property){
-  const lat=Number(property?.latitude);
-  const lng=Number(property?.longitude);
-  if(Number.isFinite(lat) && Number.isFinite(lng)) return `${lat},${lng}`;
-  return mapsQuery(property);
-}
-
-function renderUniversities(property, universities = []) {
-  if (!universities.length) return "";
-
-  const origin = exactPropertyMapQuery(property);
-  if (!origin) return "";
-
-  const cached = new Map(
-    (property.property_university_routes || [])
-      .filter(route => route.university_id)
-      .map(route => [route.university_id, route])
-  );
-
-  const rows = universities
-    .filter(uni => uni.active !== false)
-    .sort((a,b) => (a.sort_order || 0) - (b.sort_order || 0) || String(a.name).localeCompare(String(b.name)))
-    .map(uni => {
-      const route = cached.get(uni.id);
-      const drive = route ? routeText(route.driving_distance_m, route.driving_duration_s) : "";
-      const walk = route ? routeText(route.walking_distance_m, route.walking_duration_s) : "";
-      const approxKm = straightLineKm(property.latitude,property.longitude,uni.latitude,uni.longitude);
-      const destination = (uni.latitude != null && uni.longitude != null)
-        ? `${uni.latitude},${uni.longitude}`
-        : uni.address;
-      if (!destination) return "";
-
-      const drivingUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
-      const walkingUrl = `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=walking`;
-
-      return `
-        <div class="university-row">
-          <div>
-            <strong>${escapeHTML(uni.name)}</strong>
-            <span>${escapeHTML(uni.address || "")}</span>
-            ${approxKm!=null?`<div class="university-distance">📍 Aproximadamente ${escapeHTML(formatDistanceKm(approxKm))} do imóvel</div>`:""}
-            ${drive || walk ? `
-              <div class="cached-route-info">
-                ${drive ? `<span>🚗 ${escapeHTML(drive)}</span>` : ""}
-                ${walk ? `<span>🚶 ${escapeHTML(walk)}</span>` : ""}
-              </div>
-            ` : ""}
-          </div>
-          <div class="route-modes">
-            <a class="btn ghost compact" href="${drivingUrl}" target="_blank" rel="noopener">🚗 Rota de carro</a>
-            <a class="btn ghost compact" href="${walkingUrl}" target="_blank" rel="noopener">🚶 Rota a pé</a>
-          </div>
+  const rows=distances.map(item=>{
+    const distance=formatDistanceMeters(item.distance_m);
+    const mapsUrl=String(item.university_maps_url||"").trim();
+    return `
+      <div class="university-row">
+        <div>
+          <strong>${escapeHTML(item.university_name||"Faculdade")}</strong>
+          ${item.university_address?`<span>${escapeHTML(item.university_address)}</span>`:""}
+          ${distance?`<div class="university-distance">📍 Aproximadamente ${escapeHTML(distance)} do imóvel</div>`:""}
         </div>
-      `;
-    }).filter(Boolean).join("");
-
-  if (!rows) return "";
+        ${mapsUrl?`
+          <div class="route-modes">
+            <a class="btn ghost compact" href="${escapeHTML(mapsUrl)}" target="_blank" rel="noopener">Ver faculdade no mapa</a>
+          </div>
+        `:""}
+      </div>
+    `;
+  }).join("");
 
   return `
     <section class="detail-section">
@@ -145,33 +96,17 @@ function renderUniversities(property, universities = []) {
         <div><p class="eyebrow">LOCALIZAÇÃO</p><h2>Faculdades próximas</h2></div>
       </div>
       <div class="university-list">${rows}</div>
-      <p class="tiny-note">A distância exibida é aproximada pelas coordenadas do imóvel e da faculdade. O botão de rota abre o Google Maps para calcular o percurso real pelas ruas e o tempo atualizado.</p>
+      <p class="tiny-note">As distâncias são calculadas internamente usando a localização precisa do imóvel. O endereço e as coordenadas do imóvel não são exibidos ao público.</p>
     </section>
   `;
 }
 
-function renderMap(property) {
-  const query = exactPropertyMapQuery(property);
-  if (!query) return "";
-
-  const encoded = encodeURIComponent(query);
+function renderProtectedLocation(){
   return `
-    <section class="detail-section">
-      <div class="section-title-row">
-        <div><p class="eyebrow">MAPA</p><h2>Localização</h2></div>
-        <a class="btn ghost compact" href="https://www.google.com/maps/search/?api=1&query=${encoded}" target="_blank" rel="noopener">Abrir no Google Maps</a>
-      </div>
-      <div class="map-shell">
-        <iframe
-          src="https://www.google.com/maps?q=${encoded}&output=embed"
-          title="Mapa do imóvel"
-          loading="lazy"
-          referrerpolicy="no-referrer-when-downgrade">
-        </iframe>
-      </div>
-      ${property.latitude!=null && property.longitude!=null
-        ? '<p class="tiny-note">Mapa posicionado pelas coordenadas exatas cadastradas para este imóvel.</p>'
-        : '<p class="tiny-note">Este anúncio ainda não possui coordenadas exatas cadastradas.</p>'}
+    <section class="detail-section protected-location-public">
+      <p class="eyebrow">LOCALIZAÇÃO PROTEGIDA</p>
+      <h2>Visita acompanhada pelo assessor</h2>
+      <p>Por segurança e para preservar a intermediação do imóvel, o endereço exato não é exibido no catálogo. A localização precisa é utilizada somente para cálculos de proximidade e organização da visita.</p>
     </section>
   `;
 }
@@ -198,23 +133,18 @@ async function load() {
   $("#brandName").textContent = settings.site_name;
   $("#footerName").textContent = settings.site_name;
 
-  const [propertyResult, universitiesResult] = await Promise.all([
+  const [propertyResult, distanceResult] = await Promise.all([
     db
-    .from("properties")
-    .select(`
-      *,
-      property_media(*),
-      property_features(feature_id, features(*)),
-      property_university_routes(*, universities(*))
-    `)
-    .eq("id", id)
-    .maybeSingle(),
-    db.from("universities").select("*").eq("active", true).order("sort_order").order("name")
+      .from("catalog_properties_public")
+      .select("*")
+      .eq("id",id)
+      .maybeSingle(),
+    db.rpc("get_public_property_university_distances",{p_property_id:id})
   ]);
 
-  const property = propertyResult.data;
-  const error = propertyResult.error;
-  const universities = universitiesResult.data || [];
+  const property=propertyResult.data;
+  const error=propertyResult.error;
+  const universityDistances=distanceResult.data||[];
 
   if (error || !property) {
     $("#detailRoot").innerHTML = '<div class="error-card">Este imóvel não está disponível no catálogo.</div>';
@@ -329,8 +259,8 @@ async function load() {
           </div>
         </section>
 
-        ${renderUniversities(property, universities)}
-        ${renderMap(property)}
+        ${renderUniversities(universityDistances)}
+        ${renderProtectedLocation()}
       </div>
 
       <aside class="detail-sidebar">
