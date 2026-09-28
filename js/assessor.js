@@ -1,5 +1,5 @@
 import { db, STORAGE_BUCKET } from "./config.js";
-import { $, escapeHTML, money, propertyTypeLabel, statusLabel } from "./common.js";
+import { $, escapeHTML, money, propertyTypeLabel, statusLabel } from "./common.js?v=202609281300";
 
 let currentUser=null;
 let profile=null;
