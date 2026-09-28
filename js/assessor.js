@@ -950,16 +950,19 @@ function propertyModal(property=null){
 
       <div class="span-2 property-photo-slots-wrap">
         <strong>Adicionar fotos</strong>
-        <span class="property-options-help">No iPhone/iPad, escolha uma foto por vez. A Foto 1 será a principal quando o imóvel ainda não tiver imagens.</span>
+        <span class="property-options-help">Escolha uma foto por vez. A Foto 1 será a principal quando o imóvel ainda não tiver imagens.</span>
         <div class="property-photo-slots">
           ${Array.from({length:10},(_,index)=>{
             const n=index+1;
             return `
-              <label class="property-photo-slot">
-                <span>${n===1?"Foto 1 • Principal":`Foto ${n}`}</span>
-                <input class="property-photo-slot-input" data-photo-slot="${n}" type="file" accept="image/*" ${n===1&&!property?"required":""}>
-                <small data-photo-slot-name="${n}">Nenhuma foto selecionada</small>
-              </label>`;
+              <div class="property-photo-slot upload-like-picker">
+                <input class="property-photo-slot-input" data-photo-slot="${n}" type="file" accept="image/jpeg,image/png,image/webp" ${n===1&&!property?"required":""}>
+                <div class="upload-like-copy">
+                  <strong>${n===1?"📷 Foto 1 • Principal":`🖼️ Foto ${n}`}</strong>
+                  <small data-photo-slot-name="${n}">Toque para escolher uma foto</small>
+                  <em>JPG, PNG ou WEBP</em>
+                </div>
+              </div>`;
           }).join("")}
         </div>
         <small>Depois de escolher as fotos, você pode reorganizar a sequência ou trocar qual será a capa.</small>
