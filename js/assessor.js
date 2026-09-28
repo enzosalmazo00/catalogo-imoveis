@@ -2380,25 +2380,31 @@ async function saveProperty(form){
     return false;
   }
 
-  const googleMapsUrl=existing?.google_maps_url || String(fd.get("google_maps_url")||"").trim()||null;
+  const enteredMapsUrl=String(fd.get("google_maps_url")||"").trim();
+  const googleMapsUrl=enteredMapsUrl || existing?.google_maps_url || null;
   let latitude=existing?.latitude??null;
   let longitude=existing?.longitude??null;
 
-  if(googleMapsUrl && !existing){
+  const mapsUrlChanged=!!existing && String(existing.google_maps_url||"").trim()!==String(googleMapsUrl||"").trim();
+  const needsLocationResolve=!!googleMapsUrl && (!existing || mapsUrlChanged || latitude==null || longitude==null);
+
+  if(needsLocationResolve){
     msg.textContent="1/4 • Validando localização...";
     const resolved=await withTimeout(
       db.functions.invoke("resolve-maps-link",{body:{url:googleMapsUrl}}),
-      12000,
+      15000,
       "Leitura do Google Maps"
     );
     if(resolved.error || resolved.data?.error){
       msg.textContent=resolved.data?.error || resolved.error?.message || "Não foi possível ler o link do Google Maps.";
       return false;
     }
-    if(resolved.data?.latitude!=null && resolved.data?.longitude!=null){
-      latitude=Number(resolved.data.latitude);
-      longitude=Number(resolved.data.longitude);
+    if(resolved.data?.latitude==null || resolved.data?.longitude==null){
+      msg.textContent="Não foi possível identificar as coordenadas desse link do Google Maps. Gere um novo link em Compartilhar → Copiar link e tente novamente.";
+      return false;
     }
+    latitude=Number(resolved.data.latitude);
+    longitude=Number(resolved.data.longitude);
   }
 
   const row={
