@@ -665,51 +665,7 @@ function existingAdvisorMediaHTML(property){
     </div>`;
 }
 
-function setupNewMediaPreview(form){
-  const input=form.querySelector("#advisorImagesInput") || form.querySelector('input[name="images"]');
-  const root=form.querySelector("#newMediaPreview");
-  const count=form.querySelector("#advisorImagesCount");
-  const note=form.querySelector("#newMediaOrderNote");
-  if(!input||!root) return;
-
-  let previewUrls=[];
-
-  input.addEventListener("change",()=>{
-    previewUrls.forEach(url=>URL.revokeObjectURL(url));
-    previewUrls=[];
-
-    const files=[...input.files];
-
-    if(count){
-      count.textContent=files.length
-        ? `${files.length} foto${files.length===1?"":"s"} selecionada${files.length===1?"":"s"}.`
-        : "Nenhuma foto selecionada.";
-    }
-
-    root.innerHTML="";
-    if(!files.length){
-      if(note) note.textContent="";
-      return;
-    }
-
-    const previewFiles=files.slice(0,8);
-    root.innerHTML=previewFiles.map((file,index)=>{
-      const url=URL.createObjectURL(file);
-      previewUrls.push(url);
-      return `
-        <div class="new-media-preview-card">
-          <img src="${url}" alt="" loading="lazy" decoding="async">
-          <span>${index===0?"Nova Foto 1":`Nova Foto ${index+1}`}</span>
-        </div>`;
-    }).join("");
-
-    if(note){
-      note.textContent=files.length>8
-        ? `${files.length} fotos selecionadas. Mostrando só as 8 primeiras na prévia para manter o Safari rápido.`
-        : "As fotos serão enviadas nessa ordem. Se ainda não existir uma capa, a Foto 1 será usada como foto principal.";
-    }
-  });
-}
+function setupNewMediaPreview(){ /* seletor múltiplo removido para compatibilidade com Safari iOS */ }
 
 function propertyModal(property=null){
   pendingPropertyFiles=[];
@@ -860,7 +816,7 @@ function propertyModal(property=null){
 
       <div></div>
 
-      <div class="form-section-title property-section-title">6. Fotos e descrição</div>
+      <div class="form-section-title property-section-title">6. Fotos, vídeo e descrição</div>
 
       <label class="span-2">Descrição do imóvel
         <textarea name="description" placeholder="Descreva o imóvel, condições e diferenciais.">${escapeHTML(property?.description||"")}</textarea>
@@ -868,10 +824,22 @@ function propertyModal(property=null){
 
       ${property?existingPropertyMediaHtml(property):""}
 
-      <label class="span-2">Adicionar fotos
-        <input name="images" type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple ${property?"":"required"}>
-        <small>Selecione várias fotos. Depois organize Foto 1, Foto 2, Foto 3... e escolha a principal.</small>
-      </label>
+      <div class="span-2 property-photo-slots-wrap">
+        <strong>Adicionar fotos</strong>
+        <span class="property-options-help">No iPhone/iPad, escolha uma foto por vez. A Foto 1 será a principal quando o imóvel ainda não tiver imagens.</span>
+        <div class="property-photo-slots">
+          ${Array.from({length:10},(_,index)=>{
+            const n=index+1;
+            return `
+              <label class="property-photo-slot">
+                <span>${n===1?"Foto 1 • Principal":`Foto ${n}`}</span>
+                <input class="property-photo-slot-input" data-photo-slot="${n}" type="file" accept="image/*" ${n===1&&!property?"required":""}>
+                <small data-photo-slot-name="${n}">Nenhuma foto selecionada</small>
+              </label>`;
+          }).join("")}
+        </div>
+        <small>Depois de escolher as fotos, você pode reorganizar a sequência ou trocar qual será a capa.</small>
+      </div>
 
       <div id="pendingPropertyPhotos" class="span-2 property-media-editor-grid"></div>
 
@@ -888,11 +856,23 @@ function propertyModal(property=null){
       <div id="advisorPropertyMessage" class="span-2 form-message"></div>
     </form>`);
 
-  const imageInput=document.querySelector('#advisorPropertyForm input[name="images"]');
-  imageInput?.addEventListener("change",()=>{
-    pendingPropertyFiles=[...(imageInput.files||[])];
+  const photoInputs=[...document.querySelectorAll("#advisorPropertyForm .property-photo-slot-input")];
+  const syncPendingPhotos=()=>{
+    pendingPropertyFiles=photoInputs
+      .map(input=>input.files?.[0]||null)
+      .filter(Boolean);
     pendingPropertyCoverExplicit=false;
     renderPendingPropertyPhotos();
+  };
+
+  photoInputs.forEach(input=>{
+    input.addEventListener("change",()=>{
+      const slot=input.dataset.photoSlot;
+      const label=document.querySelector(`[data-photo-slot-name="${slot}"]`);
+      const file=input.files?.[0]||null;
+      if(label) label.textContent=file?file.name:"Nenhuma foto selecionada";
+      syncPendingPhotos();
+    });
   });
   renderPendingPropertyPhotos();
 }
