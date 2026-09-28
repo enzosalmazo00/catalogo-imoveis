@@ -343,14 +343,21 @@ function renderExpiredNotice(){
 }
 
 function renderAds(){
+  const reminder=`
+    <div class="advisor-expired-alert">
+      <strong>⚠️ Imóvel alugado? Marque imediatamente.</strong>
+      <span>Use o botão “Marcar como alugado”. O recibo é obrigatório. Depois da confirmação, o anúncio, as fotos e as demais mídias serão excluídos; somente os dados do recibo ficarão salvos.</span>
+    </div>`;
+
   if(!properties.length){
-    $("#advisorAds").innerHTML='<div class="empty-state"><strong>Nenhum anúncio publicado ainda.</strong><span>Compre créditos e use 1 crédito para ativar seu primeiro imóvel por 30 dias.</span></div>';
+    $("#advisorAds").innerHTML=reminder+'<div class="empty-state"><strong>Nenhum anúncio publicado ainda.</strong><span>Compre créditos e use 1 crédito para ativar seu primeiro imóvel por 30 dias.</span></div>';
     return;
   }
 
   const balance=creditBalance();
 
   $("#advisorAds").innerHTML=`
+    ${reminder}
     <div class="advisor-ad-list">
       ${properties.map(p=>{
         const expired=!p.listing_expires_at || new Date(p.listing_expires_at)<=new Date() || !p.is_published;
@@ -370,6 +377,7 @@ function renderAds(){
                     : '<button class="btn ghost compact" type="button" disabled>Sem crédito para reativar</button>')
                 : `<button class="btn ghost compact" data-edit-ad="${p.id}">Editar</button>`
               }
+              <button class="btn primary compact" data-mark-rented-ad="${p.id}">✓ Marcar como alugado</button>
               <button class="btn danger compact" data-delete-ad="${p.id}">Excluir</button>
             </div>
           </div>`;
@@ -575,6 +583,197 @@ async function saveRentalControl(form){
   rentalControls=reload.data||[];
   closeAdvisorModal();
   renderRentalControl();
+}
+
+function rentalReceiptModal(property){
+  if(!property) return;
+
+  showAdvisorModal(`
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">FINALIZAR LOCAÇÃO</p>
+        <h2>Preencher recibo obrigatório</h2>
+        <p class="muted">Ao confirmar, este imóvel será excluído do catálogo e da base de anúncios. Fotos e demais mídias também serão removidas. Somente os dados abaixo ficarão salvos no seu controle de locações.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close>✕</button>
+    </div>
+
+    <form id="advisorRentalReceiptForm" class="form-grid">
+      <input type="hidden" name="property_id" value="${property.id}">
+
+      <div class="span-2 published-property-lock-banner">
+        <strong>${escapeHTML(property.public_code||"IMÓVEL")} • ${escapeHTML(property.title)}</strong>
+        <span>Esta ação é definitiva para o anúncio. Se o imóvel precisar voltar ao catálogo futuramente, será necessário criar uma nova publicação.</span>
+      </div>
+
+      <label>Nome do proprietário
+        <input name="owner_name" required autocomplete="name">
+      </label>
+
+      <label>Telefone do proprietário
+        <input name="owner_phone" inputmode="tel">
+      </label>
+
+      <label>Nome do inquilino
+        <input name="tenant_name" required autocomplete="name">
+      </label>
+
+      <label>Telefone do inquilino
+        <input name="tenant_phone" inputmode="tel">
+      </label>
+
+      <label>Moeda
+        <select name="currency" required>
+          <option value="BRL" ${property.currency!=="PYG"?"selected":""}>Real brasileiro (R$)</option>
+          <option value="PYG" ${property.currency==="PYG"?"selected":""}>Guarani paraguaio (₲)</option>
+        </select>
+      </label>
+
+      <label>Valor do aluguel
+        <input name="monthly_rent" type="number" min="0" step="1" required value="${property.price??0}">
+      </label>
+
+      <label>Valor da caução
+        <input name="security_deposit" type="number" min="0" step="1" required value="${property.security_deposit??0}">
+      </label>
+
+      <label>Caução paga?
+        <select name="security_deposit_paid">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+
+      <label>Comissão recebida do proprietário
+        <input name="commission_amount" type="number" min="0" step="1" required value="0">
+      </label>
+
+      <label>Comissão paga?
+        <select name="commission_paid">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+
+      <label>Taxa de assessoria
+        <input name="advisory_fee_amount" type="number" min="0" step="1" required value="${property.has_advisory_fee?(property.advisory_fee??0):0}">
+      </label>
+
+      <label>Taxa de assessoria paga?
+        <select name="advisory_fee_paid">
+          <option value="false">Não</option>
+          <option value="true">Sim</option>
+        </select>
+      </label>
+
+      <label>Data de início da locação
+        <input name="start_date" type="date" required>
+      </label>
+
+      <label>Dia de vencimento do aluguel
+        <input name="rent_due_day" type="number" min="1" max="31" step="1">
+      </label>
+
+      <label class="span-2">Observações do recibo
+        <textarea name="notes" rows="3" placeholder="Opcional"></textarea>
+      </label>
+
+      <div id="advisorRentalReceiptMessage" class="form-message span-2"></div>
+
+      <div class="form-actions span-2">
+        <button class="btn ghost" type="button" data-close>Cancelar</button>
+        <button class="btn danger" type="submit">Confirmar aluguel e excluir anúncio</button>
+      </div>
+    </form>
+  `);
+}
+
+async function markPropertyRented(form){
+  if(!form?.reportValidity()) return;
+
+  const fd=new FormData(form);
+  const propertyId=String(fd.get("property_id")||"");
+  const property=properties.find(p=>p.id===propertyId);
+  const msg=form.querySelector("#advisorRentalReceiptMessage");
+  const submit=form.querySelector('button[type="submit"]');
+
+  if(!property){
+    if(msg) msg.textContent="Este imóvel não está mais disponível na sua lista.";
+    return;
+  }
+
+  const num=name=>Number(fd.get(name)||0);
+  const row={
+    advisor_id:currentUser.id,
+    property_id:property.id,
+    property_code:property.public_code||null,
+    property_title:property.title||null,
+    owner_name:String(fd.get("owner_name")||"").trim(),
+    owner_phone:String(fd.get("owner_phone")||"").trim()||null,
+    tenant_name:String(fd.get("tenant_name")||"").trim(),
+    tenant_phone:String(fd.get("tenant_phone")||"").trim()||null,
+    currency:fd.get("currency")||property.currency||"BRL",
+    monthly_rent:num("monthly_rent"),
+    security_deposit:num("security_deposit"),
+    security_deposit_paid:fd.get("security_deposit_paid")==="true",
+    commission_amount:num("commission_amount"),
+    commission_paid:fd.get("commission_paid")==="true",
+    advisory_fee_amount:num("advisory_fee_amount"),
+    advisory_fee_paid:fd.get("advisory_fee_paid")==="true",
+    start_date:fd.get("start_date"),
+    end_date:null,
+    rent_due_day:fd.get("rent_due_day")?Number(fd.get("rent_due_day")):null,
+    status:"active",
+    notes:String(fd.get("notes")||"").trim()||null
+  };
+
+  if(!row.owner_name || !row.tenant_name || !row.start_date){
+    if(msg) msg.textContent="Preencha os campos obrigatórios do recibo.";
+    return;
+  }
+
+  if(submit){
+    submit.disabled=true;
+    submit.textContent="Finalizando...";
+  }
+  if(msg) msg.textContent="Salvando recibo antes de remover o anúncio...";
+
+  const receipt=await db.from("advisor_rental_control").insert(row).select("id").single();
+  if(receipt.error){
+    if(msg) msg.textContent=receipt.error.message;
+    if(submit){submit.disabled=false;submit.textContent="Confirmar aluguel e excluir anúncio";}
+    return;
+  }
+
+  const paths=(property.property_media||[])
+    .filter(m=>m.media_type==="image" && m.storage_path)
+    .map(m=>m.storage_path);
+
+  const deletion=await db.from("properties")
+    .delete()
+    .eq("id",property.id)
+    .eq("advisor_id",currentUser.id);
+
+  if(deletion.error){
+    await db.from("advisor_rental_control").delete().eq("id",receipt.data.id).eq("advisor_id",currentUser.id);
+    if(msg) msg.textContent="Não foi possível excluir o anúncio: "+deletion.error.message;
+    if(submit){submit.disabled=false;submit.textContent="Confirmar aluguel e excluir anúncio";}
+    return;
+  }
+
+  let cleanupWarning="";
+  if(paths.length){
+    const cleanup=await db.storage.from(STORAGE_BUCKET).remove(paths);
+    if(cleanup.error){
+      console.warn("Anúncio removido, mas houve falha ao limpar algumas imagens:",cleanup.error);
+      cleanupWarning=" O anúncio foi removido, mas algumas imagens podem precisar de limpeza administrativa no armazenamento.";
+    }
+  }
+
+  await loadData();
+  closeAdvisorModal();
+  renderPanel();
+  alert("Imóvel marcado como alugado. O anúncio foi excluído e o recibo foi preservado."+cleanupWarning);
 }
 
 function renderPanel(){
@@ -1216,12 +1415,10 @@ function propertyModal(property=null){
         </select>
       </label>
 
-      <label>Status
-        <select name="status">
-          <option value="available" ${property?.status!=="rented"?"selected":""}>Disponível</option>
-          <option value="rented" ${property?.status==="rented"?"selected":""}>Alugado</option>
-        </select>
-      </label>
+      <input type="hidden" name="status" value="available">
+      <div class="property-options-help">
+        Para finalizar uma locação, use “Marcar como alugado” na lista de imóveis. O recibo será obrigatório e o anúncio será excluído após a confirmação.
+      </div>
 
       <label>Quartos
         <select name="bedrooms">${countOptions(property?.bedrooms,10)}</select>
@@ -1600,7 +1797,7 @@ async function saveProperty(form){
     latitude,
     longitude,
     show_exact_location:false,
-    status:fd.get("status")
+    status:"available"
   };
 
   const selectedFeatureIds=[...form.querySelectorAll('input[name="features"]:checked')].map(el=>el.value);
@@ -1620,8 +1817,7 @@ async function saveProperty(form){
       has_advisory_fee:row.has_advisory_fee,
       advisory_fee:row.advisory_fee,
       contact_whatsapp:row.contact_whatsapp,
-      furnished:row.furnished,
-      status:row.status
+      furnished:row.furnished
     };
 
     const upd=await db.from("properties")
@@ -2222,6 +2418,12 @@ document.addEventListener("click",async e=>{
       propertyModal(item);
     }
   }
+  const markRented=e.target.closest("[data-mark-rented-ad]");
+  if(markRented){
+    const item=properties.find(p=>p.id===markRented.dataset.markRentedAd);
+    if(item) rentalReceiptModal(item);
+  }
+
   if(e.target.closest("[data-close]")) closeAdvisorModal();
   const del=e.target.closest("[data-delete-ad]");
   if(del && confirm("Excluir este anúncio definitivamente?")){
@@ -2237,6 +2439,7 @@ $("#advisorModal").addEventListener("submit",async e=>{
   e.preventDefault();
   if(e.target.id==="advisorProfileForm") await saveAdvisorProfile(e.target);
   if(e.target.id==="advisorRentalControlForm") await saveRentalControl(e.target);
+  if(e.target.id==="advisorRentalReceiptForm") await markPropertyRented(e.target);
 });
 
 function confirmFirstPropertyPublication(){
@@ -2258,7 +2461,6 @@ function confirmFirstPropertyPublication(){
             <ul>
               <li>Preço e moeda</li>
               <li>Caução e condições de parcelamento</li>
-              <li>Status: disponível ou alugado</li>
               <li>WhatsApp de contato</li>
               <li>Taxa de assessoria e valor</li>
               <li>Se anuncia como corretor/assessor ou proprietário</li>
