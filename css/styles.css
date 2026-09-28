@@ -799,3 +799,15 @@ button,input,select,textarea{font-size:16px}
 .property-location-privacy span{font-size:12px;line-height:1.5}
 .protected-location-public{border-left:4px solid #17395c}
 .protected-location-public p:last-child{color:var(--muted);line-height:1.6}
+
+.advisor-rental-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:14px 0}
+.advisor-rental-summary>div{padding:14px;border:1px solid var(--border);border-radius:14px;background:#fafcfc;display:flex;flex-direction:column;gap:5px}
+.advisor-rental-summary span{font-size:12px;color:var(--muted)}
+.advisor-rental-summary strong{font-size:20px;color:var(--navy)}
+.advisor-rental-table-wrap{margin-top:14px}
+.advisor-rental-table{min-width:1120px}
+@media(max-width:760px){
+  .advisor-rental-summary{grid-template-columns:1fr}
+  .advisor-panel-tabs{overflow-x:auto;width:100%}
+  .advisor-panel-tab{min-width:max-content}
+}
