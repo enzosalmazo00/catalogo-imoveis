@@ -34,6 +34,14 @@ const titles = {
   settings: "Configurações"
 };
 
+function withTimeout(promise,ms=12000,label="Operação"){
+  let timer;
+  const timeout=new Promise((_,reject)=>{
+    timer=setTimeout(()=>reject(new Error(label+" demorou mais que o esperado.")),ms);
+  });
+  return Promise.race([Promise.resolve(promise),timeout]).finally(()=>clearTimeout(timer));
+}
+
 function n(value) {
   if (value === "" || value == null) return null;
   const number = Number(value);
@@ -807,7 +815,8 @@ function universityModal(row=null) {
         <small>O sistema obtém latitude e longitude automaticamente deste link e todos os anúncios usam esta localização.</small>
       </label>
       ${row?.latitude!=null&&row?.longitude!=null?`<div class="span-2 tiny-note">Localização registrada: ${row.latitude}, ${row.longitude}</div>`:""}
-      <div class="form-actions"><button class="btn ghost" type="button" data-action="close-modal">Cancelar</button><button class="btn primary" type="submit">Salvar</button></div>
+      <div id="universitySaveMessage" class="form-message span-2" aria-live="polite"></div>
+      <div class="form-actions"><button class="btn ghost" type="button" data-action="close-modal">Cancelar</button><button class="btn primary" type="button" data-action="save-university">Salvar</button></div>
     </form>
   `);
 }
@@ -993,36 +1002,81 @@ function renderCurrent() {
 }
 
 async function saveUniversity(form){
+  const msg=form.querySelector("#universitySaveMessage");
+  const saveBtn=form.querySelector('[data-action="save-university"]');
+  const originalText=saveBtn?.textContent||"Salvar";
+
+  if(!form.checkValidity()){
+    const invalid=form.querySelector(":invalid");
+    if(msg) msg.textContent="Revise os campos obrigatórios antes de salvar.";
+    invalid?.reportValidity();
+    return false;
+  }
+
   const fd=new FormData(form);
   const id=fd.get("id")||null;
   const mapsUrl=String(fd.get("google_maps_url")||"").trim();
-  if(!mapsUrl) return alert("Informe o link exato da faculdade no Google Maps.");
 
-  const resolved=await db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl}});
-  if(resolved.error || resolved.data?.error){
-    return alert(resolved.data?.error || resolved.error?.message || "Não foi possível ler o link do Google Maps.");
-  }
-  if(resolved.data?.latitude==null || resolved.data?.longitude==null){
-    return alert("O link não retornou coordenadas. Abra o ponto exato no Google Maps e copie novamente.");
+  if(!mapsUrl){
+    if(msg) msg.textContent="Informe o link exato da faculdade no Google Maps.";
+    return false;
   }
 
-  const row={
-    name:String(fd.get("name")||"").trim(),
-    address:String(fd.get("address")||"").trim(),
-    google_maps_url:mapsUrl,
-    latitude:Number(resolved.data.latitude),
-    longitude:Number(resolved.data.longitude),
-    active:fd.get("active")==="true"
-  };
+  if(saveBtn){
+    saveBtn.disabled=true;
+    saveBtn.textContent="Lendo localização...";
+  }
+  if(msg) msg.textContent="Obtendo a localização exata pelo Google Maps...";
 
-  const result=id
-    ? await db.from("universities").update(row).eq("id",id)
-    : await db.from("universities").insert(row);
-  if(result.error) return alert(result.error.message);
+  try{
+    const resolved=await withTimeout(
+      db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl}}),
+      12000,
+      "Leitura do Google Maps"
+    );
 
-  await refreshData();
-  closeModal();
-  renderCurrent();
+    if(resolved.error || resolved.data?.error){
+      throw new Error(resolved.data?.error || resolved.error?.message || "Não foi possível ler o link do Google Maps.");
+    }
+
+    if(resolved.data?.latitude==null || resolved.data?.longitude==null){
+      throw new Error("O link não retornou a localização exata. Abra o ponto da faculdade no Google Maps, toque em Compartilhar e copie o link novamente.");
+    }
+
+    if(saveBtn) saveBtn.textContent="Salvando...";
+    if(msg) msg.textContent="Localização encontrada. Salvando faculdade...";
+
+    const row={
+      name:String(fd.get("name")||"").trim(),
+      address:String(fd.get("address")||"").trim(),
+      google_maps_url:mapsUrl,
+      latitude:Number(resolved.data.latitude),
+      longitude:Number(resolved.data.longitude),
+      active:fd.get("active")==="true"
+    };
+
+    const result=id
+      ? await withTimeout(db.from("universities").update(row).eq("id",id),10000,"Salvamento da faculdade")
+      : await withTimeout(db.from("universities").insert(row),10000,"Salvamento da faculdade");
+
+    if(result.error) throw result.error;
+
+    if(msg) msg.textContent="Faculdade salva com sucesso ✓";
+    if(saveBtn) saveBtn.textContent="Salvo ✓";
+
+    await refreshData();
+    renderCurrent();
+    setTimeout(()=>closeModal(),350);
+    return true;
+  }catch(err){
+    console.error("Erro ao salvar faculdade:",err);
+    if(msg) msg.textContent=err?.message || "Não foi possível salvar a faculdade.";
+    if(saveBtn){
+      saveBtn.disabled=false;
+      saveBtn.textContent=originalText;
+    }
+    return false;
+  }
 }
 
 async function saveSimple(form, table, transform) {
@@ -1093,6 +1147,10 @@ $("#adminModal").addEventListener("click",async event=>{
   if(!button)return;
   const action=button.dataset.action;
   if(action==="close-modal") closeModal();
+  if(action==="save-university"){
+    const form=$("#universityForm");
+    if(form) await saveUniversity(form);
+  }
   if(action==="delete-media") await deleteMedia(button.dataset.id);
   if(action==="cover-media") await setCover(button.dataset.id,button.dataset.property);
 });
