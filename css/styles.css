@@ -876,3 +876,19 @@ button,input,select,textarea{font-size:16px}
   .publication-confirm-actions{flex-direction:column-reverse}
   .publication-confirm-actions .btn{width:100%}
 }
+
+.owner-priority-pill{position:absolute;top:12px;right:12px;z-index:3;display:inline-flex;align-items:center;padding:7px 10px;border-radius:999px;background:#fff7d6;color:#765600;border:1px solid #ead17a;font-size:11px;font-weight:900;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.priority-detail-chip{background:#fff7d6!important;color:#765600!important;border-color:#ead17a!important}
+.cost-card-title{margin:0 0 12px;font-size:18px;color:var(--navy)}
+.property-sequence-nav{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:stretch;margin:28px 0 8px;padding-top:20px;border-top:1px solid var(--border)}
+.property-sequence-btn,.property-sequence-home{display:flex;flex-direction:column;justify-content:center;gap:4px;min-height:72px;padding:12px 14px;border:1px solid var(--border);border-radius:14px;background:#fff;text-decoration:none;color:var(--navy);box-shadow:0 4px 14px rgba(0,0,0,.04)}
+.property-sequence-btn.next{text-align:right;align-items:flex-end}
+.property-sequence-btn span,.property-sequence-home strong{font-size:13px;font-weight:900}
+.property-sequence-btn small,.property-sequence-home small{font-size:11px;color:var(--muted);line-height:1.3}
+.property-sequence-home{text-align:center;align-items:center;min-width:210px;background:#f7fafb}
+.property-sequence-btn.disabled{opacity:.42;pointer-events:none;background:#f5f6f7}
+@media(max-width:700px){
+  .property-sequence-nav{grid-template-columns:1fr 1fr}
+  .property-sequence-home{grid-column:1/-1;grid-row:1;min-width:0}
+  .property-sequence-btn{min-height:68px}
+}
