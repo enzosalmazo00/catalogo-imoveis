@@ -214,7 +214,60 @@ async function loadData(){
 }
 
 function renderPlans(){
-  $("#advisorPlans").innerHTML=plans.map(plan=>{
+  const premium=plans.find(plan=>plan.code==="premium_monthly_30");
+  const standardPlans=plans.filter(plan=>plan.code!=="premium_monthly_30");
+
+  const premiumHtml=premium?(()=>{
+    const avulso=Number(premium.ad_limit)*15;
+    const unit=Number(premium.price)/Number(premium.ad_limit);
+    const saving=avulso-Number(premium.price);
+
+    return `
+      <article class="advisor-premium-plan-card">
+        <div class="premium-plan-shine"></div>
+        <div class="premium-plan-topline">
+          <span class="premium-plan-badge">⭐ PLANO PREMIUM</span>
+          <span class="premium-plan-value-badge">MELHOR CUSTO POR CRÉDITO</span>
+        </div>
+
+        <div class="premium-plan-content">
+          <div class="premium-plan-copy">
+            <p class="eyebrow">PARA QUEM ANUNCIA COM FREQUÊNCIA</p>
+            <h3>${escapeHTML(premium.name)}</h3>
+            <p class="premium-plan-lead">30 créditos liberados de uma vez para você manter um catálogo sempre ativo.</p>
+
+            <div class="premium-plan-features">
+              <span>✓ 30 créditos de anúncio</span>
+              <span>✓ ${money(unit,"BRL")} por crédito</span>
+              <span>✓ Créditos liberados após confirmação do PIX</span>
+              <span>✓ Cada imóvel publicado fica ativo por 30 dias</span>
+              <span>✓ Créditos não utilizados válidos por 90 dias</span>
+            </div>
+          </div>
+
+          <div class="premium-plan-price-box">
+            <small>30 créditos por mês</small>
+            <strong>${money(premium.price,"BRL")}</strong>
+            <span>/ mês</span>
+
+            <div class="premium-plan-comparison">
+              <span>Valor avulso: <s>${money(avulso,"BRL")}</s></span>
+              <strong>Economize ${money(saving,"BRL")}</strong>
+            </div>
+
+            <div class="premium-plan-unit-price">
+              Só <strong>${money(unit,"BRL")}</strong> por crédito
+            </div>
+
+            <button class="btn premium-plan-button full" data-buy="${premium.id}">Quero este plano</button>
+            <small class="premium-plan-payment-note">Pagamento via PIX · renovação mensal manual</small>
+          </div>
+        </div>
+      </article>
+    `;
+  })():"";
+
+  const standardHtml=standardPlans.map(plan=>{
     const unit=Number(plan.price)/Math.max(1,Number(plan.ad_limit||1));
     return `
       <article class="advisor-plan-card">
@@ -227,6 +280,11 @@ function renderPlans(){
         <button class="btn primary full" data-buy="${plan.id}">Comprar créditos via PIX</button>
       </article>`;
   }).join("");
+
+  $("#advisorPlans").innerHTML=`
+    ${premiumHtml}
+    <div class="advisor-standard-plan-grid">${standardHtml}</div>
+  `;
 }
 
 function renderCreditWallet(){
