@@ -400,9 +400,7 @@ async function watchPaymentStatus(subscriptionId){
 }
 
 async function startPayment(planId,renewalOf=null,offerId=null){
-  const cpf=prompt("Informe o CPF do pagador para gerar o PIX (somente números):");
-  if(!cpf) return;
-  const {data,error}=await db.functions.invoke("create-advisor-pix",{body:{plan_id:planId,renewal_of:renewalOf,renewal_offer_id:offerId,cpf}});
+  const {data,error}=await db.functions.invoke("create-advisor-pix",{body:{plan_id:planId,renewal_of:renewalOf,renewal_offer_id:offerId}});
   if(error || !data || data.error){
     alert(data?.error || error?.message || "A integração PIX ainda está sendo finalizada.");
     return;
