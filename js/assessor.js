@@ -8,6 +8,28 @@ let subscriptions=[];
 let properties=[];
 let renewalOffers={};
 let countdownTimer=null;
+let pendingConfirmationEmail="";
+
+function showEmailConfirmation(email){
+  pendingConfirmationEmail=String(email||"").trim();
+  $("#advisorAuth").classList.add("hidden");
+  $("#advisorPanel").classList.add("hidden");
+  $("#advisorResetPassword").classList.add("hidden");
+  $("#advisorEmailConfirmation").classList.remove("hidden");
+  $("#advisorPendingEmail").textContent=pendingConfirmationEmail;
+  $("#advisorConfirmationMessage").textContent="";
+}
+
+function showLoginWithEmail(email=""){
+  $("#advisorEmailConfirmation").classList.add("hidden");
+  $("#advisorResetPassword").classList.add("hidden");
+  $("#advisorPanel").classList.add("hidden");
+  $("#advisorAuth").classList.remove("hidden");
+  document.querySelectorAll(".auth-tab").forEach(b=>b.classList.toggle("active",b.dataset.authTab==="login"));
+  $("#advisorLoginForm").classList.remove("hidden");
+  $("#advisorSignupForm").classList.add("hidden");
+  if(email) $("#advisorLoginEmail").value=email;
+}
 
 function fmtDate(v){
   if(!v) return "—";
@@ -377,6 +399,26 @@ $("#resendConfirmationBtn").addEventListener("click",async()=>{
   msg.textContent="Novo e-mail de confirmação enviado. Verifique sua caixa de entrada e o spam.";
 });
 
+$("#resendPendingConfirmation").addEventListener("click",async()=>{
+  const email=pendingConfirmationEmail;
+  const msg=$("#advisorConfirmationMessage");
+  if(!email){
+    msg.textContent="Não foi possível identificar o e-mail. Volte ao login e tente novamente.";
+    return;
+  }
+  msg.textContent="Reenviando e-mail...";
+  const {error}=await db.auth.resend({
+    type:"signup",
+    email,
+    options:{emailRedirectTo:location.origin + "/assessor.html"}
+  });
+  msg.textContent=error ? error.message : "Novo e-mail enviado. Confira também a pasta de spam.";
+});
+
+$("#confirmationGoLogin").addEventListener("click",()=>{
+  showLoginWithEmail(pendingConfirmationEmail);
+});
+
 $("#forgotPasswordBtn").addEventListener("click",async()=>{
   const email=$("#advisorLoginEmail").value.trim();
   const msg=$("#advisorAuthMessage");
@@ -458,8 +500,13 @@ $("#advisorSignupForm").addEventListener("submit",async e=>{
     }
   });
   if(error){msg.textContent=error.message;return;}
-  if(data.session){msg.textContent="";await boot();}
-  else msg.textContent="Conta criada. Confirme seu e-mail e depois faça login.";
+  if(data.session){
+    msg.textContent="";
+    await boot();
+  }else{
+    msg.textContent="";
+    showEmailConfirmation($("#advisorSignupEmail").value.trim());
+  }
 });
 
 $("#advisorLogout").addEventListener("click",async()=>{await db.auth.signOut();location.reload();});
