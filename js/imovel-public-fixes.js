@@ -41,10 +41,7 @@ function removeLocationPrivacyMessages(root = document) {
 function addNearestUniversityToMainPhoto(root = document) {
   const shell = root.querySelector(".main-photo-shell");
   const list = root.querySelector(".university-list");
-  if (!shell || !list) return;
-
-  const existing = shell.querySelector(".detail-nearest-university-pill");
-  if (existing) existing.remove();
+  if (!shell || !list) return false;
 
   const candidates = [...list.querySelectorAll(".university-row")]
     .map(row => {
@@ -53,7 +50,6 @@ function addNearestUniversityToMainPhoto(root = document) {
       const rawDistance = (distanceNode?.textContent || "").trim();
       return {
         name,
-        rawDistance,
         distance: cleanDistanceText(rawDistance),
         meters: distanceToMeters(rawDistance)
       };
@@ -62,25 +58,44 @@ function addNearestUniversityToMainPhoto(root = document) {
     .sort((a, b) => a.meters - b.meters);
 
   const nearest = candidates[0];
-  if (!nearest) return;
+  if (!nearest) return false;
 
-  const badge = document.createElement("div");
-  badge.className = "detail-nearest-university-pill";
-  badge.title = `${nearest.distance} da ${nearest.name}`;
-  badge.textContent = `🎓 ${nearest.distance} da ${nearest.name}`;
-  shell.appendChild(badge);
+  const desiredText = `🎓 ${nearest.distance} da ${nearest.name}`;
+  const desiredTitle = `${nearest.distance} da ${nearest.name}`;
+  let badge = shell.querySelector(".detail-nearest-university-pill");
+
+  if (!badge) {
+    badge = document.createElement("div");
+    badge.className = "detail-nearest-university-pill";
+    shell.appendChild(badge);
+  }
+
+  if (badge.textContent !== desiredText) badge.textContent = desiredText;
+  if (badge.title !== desiredTitle) badge.title = desiredTitle;
+  return true;
 }
 
 function applyPublicFixes() {
   const root = document.querySelector("#detailRoot") || document;
   removeLocationPrivacyMessages(root);
-  addNearestUniversityToMainPhoto(root);
+  return addNearestUniversityToMainPhoto(root);
 }
 
 const detailRoot = document.querySelector("#detailRoot");
+let scheduled = false;
+
 if (detailRoot) {
-  const observer = new MutationObserver(() => applyPublicFixes());
+  const observer = new MutationObserver(() => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      applyPublicFixes();
+    });
+  });
   observer.observe(detailRoot, { childList: true, subtree: true });
 }
 
 applyPublicFixes();
+setTimeout(applyPublicFixes, 250);
+setTimeout(applyPublicFixes, 800);
