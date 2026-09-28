@@ -167,7 +167,7 @@ async function savePoint(form){
     // MESMO FLUXO DAS FACULDADES:
     // envia somente o link; nunca tenta adivinhar coordenadas por nome/endereço.
     const resolved=await withTimeout(
-      db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl}}),
+      db.functions.invoke("resolve-maps-link",{body:{url:mapsUrl, fallback_query:[String(fd.get("name")||"").trim(), String(fd.get("address")||"").trim()].filter(Boolean).join(", ")}}),
       12000,
       "Leitura do Google Maps"
     );
