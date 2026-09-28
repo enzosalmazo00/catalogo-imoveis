@@ -457,8 +457,9 @@ function renderRentalControl(){
         <small>${paymentStatusText(r.rent_paid,r.rent_payment_date)}</small>
       </td>
       <td>
-        ${r.security_deposit!=null?money(r.security_deposit,r.currency):"—"}<br>
-        <small>${paymentStatusText(r.security_deposit_paid,r.security_deposit_payment_date)}</small>
+        ${(r.guarantee_type||"deposit")==="guarantor"
+          ? '<strong>Fiador</strong><br><small>Sem caução</small>'
+          : `<strong>Caução</strong><br><small>${Number(r.security_deposit_count||1)}x de ${money(r.security_deposit||0,r.currency)} • Total ${money(Number(r.security_deposit||0)*Number(r.security_deposit_count||1),r.currency)}</small><br><small>${paymentStatusText(r.security_deposit_paid,r.security_deposit_payment_date)}</small>`}
       </td>
       <td>
         ${r.advisor_commission_charged && r.commission_amount!=null
@@ -491,7 +492,7 @@ function renderRentalControl(){
     ${rows?`
       <div class="admin-table-wrap advisor-rental-table-wrap">
         <table class="admin-table advisor-rental-table">
-          <thead><tr><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Caução</th><th>Comissão assessor</th><th>Assessoria</th><th>Data do aluguel</th><th>Ações</th></tr></thead>
+          <thead><tr><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Garantia</th><th>Comissão assessor</th><th>Assessoria</th><th>Data do aluguel</th><th>Ações</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>
       </div>
@@ -807,6 +808,11 @@ function rentalReceiptModal(property){
       <div class="span-2 published-property-lock-banner">
         <strong>${escapeHTML(property.public_code||"IMÓVEL")} • ${escapeHTML(property.title)}</strong>
         <span>${escapeHTML([property.address,property.neighborhood,property.city].filter(Boolean).join(" • ")||"Localização não informada")}</span>
+      </div>
+
+      <div class="span-2 receipt-property-condition">
+        <strong>Condições cadastradas do imóvel</strong>
+        <span>Tempo mínimo: ${property.minimum_contract_term==="6_months"?"6 meses":property.minimum_contract_term==="12_months"?"1 ano":"sem tempo mínimo"} • ${property.has_contract?`Contrato: ${money(property.contract_amount||0,property.currency||"BRL")} pago pelo ${property.contract_payer==="owner"?"proprietário":"inquilino"}`:"Sem cobrança de contrato"}</span>
       </div>
 
       <label>Nome do proprietário
