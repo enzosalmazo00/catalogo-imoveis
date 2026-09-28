@@ -11,6 +11,16 @@ import {
 
 let properties = [];
 let settings = null;
+const pageParams=new URLSearchParams(location.search);
+const advisorCatalogCode=String(pageParams.get("catalogo")||"").trim();
+
+function propertyDetailUrl(propertyId){
+  const url=new URL("imovel.html",location.href);
+  url.searchParams.set("id",propertyId);
+  if(advisorCatalogCode) url.searchParams.set("catalogo",advisorCatalogCode);
+  else url.searchParams.delete("catalogo");
+  return url.pathname.split("/").pop()+url.search;
+}
 
 function normalize(text="") {
   return String(text)
@@ -36,9 +46,11 @@ function renderCard(property) {
   const cover = coverUrl(property.property_media || []);
   const rented = property.status === "rented";
 
+  const detailUrl=propertyDetailUrl(property.id);
+
   return `
     <article class="property-card">
-      <a class="property-photo-wrap" href="imovel.html?id=${encodeURIComponent(property.id)}" aria-label="Ver detalhes de ${escapeHTML(property.title)}">
+      <a class="property-photo-wrap" href="${escapeHTML(detailUrl)}" aria-label="Ver detalhes de ${escapeHTML(property.title)}">
         ${cover
           ? `<img class="property-photo" src="${escapeHTML(cover)}" alt="${escapeHTML(property.title)}" loading="lazy">`
           : `<div class="property-photo placeholder-photo"><span>Sem foto</span></div>`
@@ -72,7 +84,7 @@ function renderCard(property) {
             <small>Aluguel</small>
             <strong>${money(property.price, property.currency)}<em>/mês</em></strong>
           </div>
-          <a class="btn primary compact" href="imovel.html?id=${encodeURIComponent(property.id)}">Ver detalhes</a>
+          <a class="btn primary compact" href="${escapeHTML(detailUrl)}">Ver detalhes</a>
         </div>
       </div>
     </article>
@@ -126,17 +138,16 @@ async function load() {
   $("#heroTitle").textContent = settings.hero_title;
   $("#heroSubtitle").textContent = settings.hero_subtitle || "";
 
-  const number = String(settings.whatsapp_number || "").replace(/\D/g, "");
-  const generalWhatsapp = $("#generalWhatsapp");
-  if (number) {
-    generalWhatsapp.href = `https://wa.me/${number}?text=${encodeURIComponent("Olá! Sou assessor e gostaria de anunciar meus imóveis no Catálogo de Imóveis. Quero consultar os valores dos anúncios.")}`;
-    generalWhatsapp.classList.remove("disabled");
-  }
-
-  const { data, error } = await db
+  let query=db
     .from("catalog_properties_public")
     .select("*")
-    .eq("status","available")
+    .eq("status","available");
+
+  if(advisorCatalogCode){
+    query=query.eq("advisor_catalog_code",advisorCatalogCode);
+  }
+
+  const { data, error } = await query
     .order("catalog_priority", { ascending: false })
     .order("featured", { ascending: false })
     .order("sort_order", { ascending: true })
@@ -149,6 +160,21 @@ async function load() {
   }
 
   properties = data || [];
+
+  const notice=$("#advisorCatalogNotice");
+  if(advisorCatalogCode && notice){
+    const first=properties[0]||null;
+    const displayName=first?.advisor_company || first?.advisor_name || "este assessor";
+    $("#advisorCatalogName").textContent=displayName;
+    $("#advisorCatalogDescription").textContent=`Você está vendo somente os imóveis publicados por ${displayName}.`;
+    notice.classList.remove("hidden");
+    $("#generalCatalogTitle").textContent="Imóveis deste assessor";
+    document.title=`Catálogo de ${displayName} | ${settings.site_name}`;
+  }else if(notice){
+    notice.classList.add("hidden");
+    $("#generalCatalogTitle").textContent="Imóveis para locação";
+  }
+
   applyFilters();
 }
 
