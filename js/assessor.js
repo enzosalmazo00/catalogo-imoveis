@@ -608,7 +608,7 @@ async function saveRentalControl(form){
   const row={
     advisor_id:currentUser.id,
     property_id:propertyId,
-    property_code:property?.public_code||row?.property_code||null,
+    property_code:property?.public_code||null,
     property_title:property?.title||String(fd.get("property_title")||"").trim()||null,
     property_address:property?.address||String(fd.get("property_address")||"").trim()||null,
     property_neighborhood:property?.neighborhood||null,
@@ -2583,6 +2583,13 @@ document.addEventListener("click",async e=>{
 
   const newRental=e.target.closest("[data-new-rental-control]");
   if(newRental) rentalControlModal();
+
+  const pdfRental=e.target.closest("[data-generate-rental-pdf]");
+  if(pdfRental){
+    const row=rentalControls.find(r=>r.id===pdfRental.dataset.generateRentalPdf);
+    if(row) generateRentalReceiptPdf(row);
+    return;
+  }
 
   const editRental=e.target.closest("[data-edit-rental-control]");
   if(editRental){
