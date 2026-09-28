@@ -12,7 +12,7 @@ import {
   locationText,
   routeText,
   mapsQuery
-} from "./common.js?v=202609281300";
+} from "./common.js?v=202609281430";
 
 const params = new URLSearchParams(location.search);
 const id = params.get("id");
@@ -229,11 +229,13 @@ async function load() {
         <div class="detail-badges">
           <span class="status-chip ${property.status}">${escapeHTML(statusLabel(property.status))}</span>
           <span class="type-chip">${escapeHTML(propertyTypeLabel(property.property_type))}</span>
+          ${property.public_code ? `<span class="type-chip">Código: ${escapeHTML(property.public_code)}</span>` : ""}
           ${property.city ? `<span class="type-chip city-chip">${escapeHTML(property.city)}</span>` : ""}
           ${property.furnished ? '<span class="type-chip">Mobiliado</span>' : '<span class="type-chip">Sem mobília</span>'}
         </div>
         <h1>${escapeHTML(property.title)}</h1>
         <p class="detail-location">⌖ ${escapeHTML(locationText(property))}</p>
+        ${property.advisor_name ? `<p class="detail-advisor">Assessor responsável: <strong>${escapeHTML(property.advisor_name)}</strong>${property.advisor_company?` · ${escapeHTML(property.advisor_company)}`:""}</p>` : ""}
       </div>
       <div class="detail-price">
         <span>Aluguel mensal</span>
