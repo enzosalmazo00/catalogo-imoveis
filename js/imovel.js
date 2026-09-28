@@ -135,7 +135,7 @@ function renderUniversities(property, universities = []) {
   return `
     <section class="detail-section">
       <div class="section-title-row">
-        <div><p class="eyebrow">LOCALIZAÇÃO</p><h2>Universidades próximas</h2></div>
+        <div><p class="eyebrow">LOCALIZAÇÃO</p><h2>Faculdades próximas</h2></div>
       </div>
       <div class="university-list">${rows}</div>
       <p class="tiny-note">A distância exibida é aproximada pelas coordenadas do imóvel e da faculdade. O botão de rota abre o Google Maps para calcular o percurso real pelas ruas e o tempo atualizado.</p>
