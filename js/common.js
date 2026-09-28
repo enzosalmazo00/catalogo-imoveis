@@ -123,10 +123,10 @@ export function routeText(meters, seconds) {
   return `${km} km • ${mins} min`;
 }
 
-export async function isAdmin() {
-  const { data: { user } } = await db.auth.getUser();
+export async function isAdmin(client = db) {
+  const { data: { user } } = await client.auth.getUser();
   if (!user) return { user: null, admin: false };
-  const { data } = await db
+  const { data } = await client
     .from("admin_users")
     .select("user_id")
     .eq("user_id", user.id)
