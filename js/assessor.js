@@ -1262,6 +1262,54 @@ function generateRentalReceiptPdf(row){
   doc.save(`recibo-${code}-${tenant}.pdf`);
 }
 
+function advisorCatalogShareUrl(){
+  const code=String(profile?.catalog_share_code||"").trim();
+  if(!code) return "";
+  const url=new URL("index.html",location.href);
+  url.search="";
+  url.hash="";
+  url.searchParams.set("catalogo",code);
+  return url.href;
+}
+
+async function shareAdvisorCatalog(){
+  const url=advisorCatalogShareUrl();
+  if(!url){
+    alert("Não foi possível gerar o link do seu catálogo. Atualize a página e tente novamente.");
+    return;
+  }
+
+  const name=profile?.company_name || profile?.full_name || "meu catálogo de imóveis";
+  const shareData={
+    title:`Catálogo de ${name}`,
+    text:`Veja os imóveis disponíveis no catálogo de ${name}.`,
+    url
+  };
+
+  if(navigator.share){
+    try{
+      await navigator.share(shareData);
+      return;
+    }catch(err){
+      if(err?.name==="AbortError") return;
+    }
+  }
+
+  try{
+    await navigator.clipboard.writeText(url);
+    const button=$("#shareAdvisorCatalog");
+    if(button){
+      const original=button.textContent;
+      button.textContent="Link copiado ✓";
+      setTimeout(()=>{ if(document.body.contains(button)) button.textContent=original; },1800);
+    }else{
+      alert("Link do catálogo copiado.");
+    }
+  }catch{
+    prompt("Copie o link do seu catálogo:",url);
+  }
+}
+
 function renderPanel(){
   $("#advisorWelcome").textContent=profile?.company_name || profile?.full_name || "Meus anúncios";
   renderAdvisorAvatar();
@@ -3044,6 +3092,7 @@ document.addEventListener("click",async e=>{
     }
   }
 
+    if(e.target.closest("#shareAdvisorCatalog")) await shareAdvisorCatalog();
     if(e.target.closest("#advisorProfileBtn")) advisorProfileModal();
   if(e.target.closest("#newAdvisorProperty")){
     if(!canCreateAdvisorProperty()){
