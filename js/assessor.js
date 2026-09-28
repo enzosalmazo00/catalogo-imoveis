@@ -28,6 +28,16 @@ function fmtDate(v){
 function activeSubscription(){
   return subscriptions.find(s=>s.status==="active" && s.ends_at && new Date(s.ends_at)>new Date()) || null;
 }
+function availableSubscription(){
+  return subscriptions.find(s=>{
+    if(s.status!=="active" || !s.ends_at || new Date(s.ends_at)<=new Date()) return false;
+    const limit=Number(s.advertising_plans?.ad_limit||0);
+    return limit>0 && adCountFor(s.id)<limit;
+  }) || null;
+}
+function canCreateAdvisorProperty(){
+  return !!availableSubscription();
+}
 function latestRenewable(){
   return [...subscriptions]
     .filter(s=>s.status==="expired" || (s.ends_at && new Date(s.ends_at)<=new Date()))
@@ -232,7 +242,7 @@ function renderExpiredNotice(){
 
 function renderAds(){
   if(!properties.length){
-    $("#advisorAds").innerHTML='<div class="empty-state"><strong>Nenhum anúncio cadastrado.</strong><span>Compre um pacote e publique seu primeiro imóvel.</span></div>';
+    $("#advisorAds").innerHTML='<div class="empty-state"><strong>Nenhum anúncio publicado ainda.</strong><span>Use uma vaga disponível do seu pacote para publicar seu primeiro imóvel.</span></div>';
     return;
   }
   $("#advisorAds").innerHTML=`
@@ -293,6 +303,23 @@ function renderPanel(){
   renderExpiredNotice();
   renderPlans();
   renderAds();
+
+  const newBtn=$("#newAdvisorProperty");
+  if(newBtn){
+    const available=availableSubscription();
+    if(available){
+      newBtn.disabled=false;
+      newBtn.textContent="+ Novo anúncio";
+      newBtn.title="";
+    }else{
+      const active=activeSubscription();
+      newBtn.disabled=true;
+      newBtn.textContent=active?"Limite de anúncios utilizado":"Nenhum pacote ativo";
+      newBtn.title=active
+        ?"Seu pacote já está com todas as vagas de anúncio utilizadas."
+        :"Compre um pacote para publicar um imóvel.";
+    }
+  }
 }
 
 function advisorProfileModal(){
@@ -816,7 +843,7 @@ function propertyModal(property=null){
   pendingPropertyFiles=[];
   pendingPropertyCoverExplicit=false;
 
-  const active=activeSubscription();
+  const active=property?activeSubscription():availableSubscription();
   if(!property){
     if(!active){
       alert("Você precisa de um pacote ativo para publicar um imóvel.");
@@ -1032,11 +1059,15 @@ function propertyModal(property=null){
 }
 
 async function saveProperty(form){
-  const active=activeSubscription();
   const fd=new FormData(form);
   const id=fd.get("id")||null;
   const existing=id?properties.find(p=>p.id===id):null;
-  if(!existing && !active) return;
+  const active=existing?activeSubscription():availableSubscription();
+  if(!existing && !active){
+    const msg=$("#advisorPropertyMessage");
+    if(msg) msg.textContent="Seu pacote não possui uma vaga disponível para um novo anúncio.";
+    return;
+  }
 
   const title=String(fd.get("title")||"").trim();
 
@@ -1105,8 +1136,15 @@ async function saveProperty(form){
     if(upd.error){msg.textContent=upd.error.message;return;}
   }else{
     const ins=await db.from("properties").insert(row).select("id").single();
-    if(ins.error){msg.textContent=ins.error.message;return;}
+    if(ins.error){
+      msg.textContent="Não foi possível publicar o imóvel: "+ins.error.message;
+      return;
+    }
     propertyId=ins.data.id;
+
+    // A vaga já foi consumida com sucesso. O rascunho de "novo imóvel" não deve reaparecer.
+    await deletePropertyDraft(form,{silent:true});
+    form.dataset.draftKey=`edit:${propertyId}`;
   }
 
   const selectedFeatureIds=[...form.querySelectorAll('input[name="features"]:checked')].map(el=>el.value);
@@ -1542,7 +1580,15 @@ document.addEventListener("click",async e=>{
   const buy=e.target.closest("[data-buy]");
   if(buy) await startPayment(buy.dataset.buy,buy.dataset.renew||null,buy.dataset.offer||null);
   if(e.target.closest("#advisorProfileBtn")) advisorProfileModal();
-  if(e.target.closest("#newAdvisorProperty")) propertyModal();
+  if(e.target.closest("#newAdvisorProperty")){
+    if(!canCreateAdvisorProperty()){
+      alert(activeSubscription()
+        ?"Você já utilizou todas as vagas de anúncio do seu pacote atual."
+        :"Você precisa de um pacote ativo para publicar um imóvel.");
+    }else{
+      propertyModal();
+    }
+  }
 
   const coverBtn=e.target.closest("[data-advisor-cover]");
   if(coverBtn) await setAdvisorCover(coverBtn.dataset.advisorCover,coverBtn.dataset.property);
