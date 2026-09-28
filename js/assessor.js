@@ -1070,13 +1070,18 @@ function wirePropertyTechnicalFields(form){
     const type=form.querySelector('[name="property_type"]')?.value;
     const housing=form.querySelector('[name="housing_context"]')?.value;
     const garage=form.querySelector('[name="garage_scope"]')?.value;
+    const hasAdvisoryFee=form.querySelector('[name="has_advisory_fee"]')?.value==="true";
 
     form.querySelector("#distributionFields")?.classList.toggle("hidden",type==="monoambiente");
     form.querySelector("#condominiumNameField")?.classList.toggle("hidden",housing!=="condominium");
     form.querySelector("#garageDetails")?.classList.toggle("hidden",garage==="none");
+    form.querySelector("#advisorAdvisoryFeeField")?.classList.toggle("hidden",!hasAdvisoryFee);
+
+    const advisoryInput=form.querySelector('[name="advisory_fee"]');
+    if(advisoryInput) advisoryInput.required=hasAdvisoryFee;
   };
 
-  ["property_type","housing_context","garage_scope"].forEach(name=>{
+  ["property_type","housing_context","garage_scope","has_advisory_fee"].forEach(name=>{
     form.querySelector(`[name="${name}"]`)?.addEventListener("change",update);
   });
   update();
@@ -1179,7 +1184,26 @@ function propertyModal(property=null){
         </select>
       </label>
 
-      <label>Forma de fechamento
+      <label>Você anuncia este imóvel como
+        <select name="advertiser_role" required>
+          <option value="broker" ${(property?.advertiser_role||"broker")==="broker"?"selected":""}>Corretor / assessor do imóvel</option>
+          <option value="owner" ${property?.advertiser_role==="owner"?"selected":""}>Proprietário do imóvel</option>
+        </select>
+      </label>
+
+      <label>Existe taxa de assessoria?
+        <select name="has_advisory_fee" id="advisorHasAdvisoryFee">
+          <option value="false" ${!property?.has_advisory_fee?"selected":""}>Não</option>
+          <option value="true" ${property?.has_advisory_fee?"selected":""}>Sim</option>
+        </select>
+      </label>
+
+      <label id="advisorAdvisoryFeeField" class="${property?.has_advisory_fee?"":"hidden"}">Valor da assessoria
+        <input name="advisory_fee" type="number" min="0" step="1" value="${property?.advisory_fee??""}" placeholder="Ex.: 300">
+        <small>Esse valor será informado publicamente no anúncio.</small>
+      </label>
+
+            <label>Forma de fechamento
         <select name="closing_mode">
           <option value="advisor" ${property?.closing_mode!=="direct_owner"?"selected":""}>Via assessoria</option>
           <option value="direct_owner" ${property?.closing_mode==="direct_owner"?"selected":""}>Direto com o proprietário</option>
@@ -1451,6 +1475,9 @@ async function saveProperty(form){
     security_deposit_installment_allowed:fd.get("security_deposit_installment_allowed")==="true",
     security_deposit_max_installments:fd.get("security_deposit_installment_allowed")==="true" && fd.get("security_deposit_max_installments")?Number(fd.get("security_deposit_max_installments")):null,
     closing_mode:fd.get("closing_mode"),
+    advertiser_role:fd.get("advertiser_role")||"broker",
+    has_advisory_fee:fd.get("has_advisory_fee")==="true",
+    advisory_fee:fd.get("has_advisory_fee")==="true" && fd.get("advisory_fee")!=="" ? Number(fd.get("advisory_fee")) : null,
     contact_whatsapp:String(fd.get("contact_whatsapp")||"").replace(/\D/g,""),
     bedrooms:Number(fd.get("bedrooms")||0),
     bathrooms:Number(fd.get("bathrooms")||0),
