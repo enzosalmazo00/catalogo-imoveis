@@ -164,7 +164,7 @@ function propertyTable(list) {
               <td>
                 <div class="table-actions">
                   <button class="btn ghost compact" data-action="edit-property" data-id="${p.id}">Editar</button>
-                  <button class="btn ghost compact" data-action="toggle-status" data-id="${p.id}">${p.status === "rented" ? "Disponível" : "Alugado"}</button>
+                  <button class="btn primary compact" data-action="mark-rented" data-id="${p.id}">✓ Marcar alugado</button>
                   <button class="btn danger compact" data-action="delete-property" data-id="${p.id}">Excluir</button>
                 </div>
               </td>
@@ -234,6 +234,10 @@ function renderProperties() {
           <p class="eyebrow">CATÁLOGO</p>
           <h2>Imóveis por corretor</h2>
           <p class="muted">Cada corretor / assessor aparece em um bloco separado para facilitar a gestão dos anúncios.</p>
+          <div class="advisor-expired-alert" style="margin-top:12px">
+            <strong>⚠️ Sempre que um imóvel for alugado, marque-o aqui.</strong>
+            <span>O recibo será obrigatório. Após confirmar, o anúncio e suas mídias serão excluídos; somente os dados do recibo serão preservados.</span>
+          </div>
         </div>
         <button class="btn primary" data-action="new-property">+ Cadastrar imóvel</button>
       </div>
@@ -356,12 +360,12 @@ function propertyModal(property=null) {
         <select name="bathrooms">${countOptions(property?.bathrooms,10)}</select>
       </label>
 
-      <label>Status
+      <label>Status de publicação
         <select name="status">
-          <option value="available" ${(!property || property.status === "available") ? "selected" : ""}>Disponível</option>
-          <option value="rented" ${property?.status === "rented" ? "selected" : ""}>Alugado</option>
+          <option value="available" ${(!property || property.status === "available" || property.status === "rented") ? "selected" : ""}>Disponível</option>
           <option value="hidden" ${property?.status === "hidden" ? "selected" : ""}>Oculto</option>
         </select>
+        <small>Para registrar um aluguel, use o botão “Marcar alugado” na lista. O recibo é obrigatório.</small>
       </label>
 
       <label>Mobília
