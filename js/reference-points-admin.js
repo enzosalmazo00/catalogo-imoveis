@@ -16,6 +16,25 @@ function withTimeout(promise,ms=12000,label="Operação"){
   return Promise.race([Promise.resolve(promise),timeout]).finally(()=>clearTimeout(timer));
 }
 
+function distanceMeters(lat1,lng1,lat2,lng2){
+  const toRad=value=>Number(value)*Math.PI/180;
+  const a1=toRad(lat1), a2=toRad(lat2);
+  const dLat=toRad(Number(lat2)-Number(lat1));
+  const dLng=toRad(Number(lng2)-Number(lng1));
+  const a=Math.sin(dLat/2)**2 + Math.cos(a1)*Math.cos(a2)*Math.sin(dLng/2)**2;
+  return 6371000*2*Math.asin(Math.sqrt(a));
+}
+
+function validateReferenceRegion(latitude,longitude){
+  // O catálogo atende Ponta Porã / Pedro Juan Caballero.
+  // Impede que um link curto do Google resolva silenciosamente para outra cidade/estado.
+  const center={lat:-22.55,lng:-55.73};
+  const distance=distanceMeters(center.lat,center.lng,latitude,longitude);
+  if(!Number.isFinite(distance) || distance>60000){
+    throw new Error("O Google retornou um ponto fora da região de Ponta Porã / Pedro Juan Caballero. Não salvamos para evitar uma distância incorreta. Abra o local exato no Google Maps e copie o link novamente.");
+  }
+}
+
 async function loadPoints(){
   const {data,error}=await db.from("reference_points")
     .select("*")
@@ -168,6 +187,8 @@ async function savePoint(form){
     if(resolved.data?.precision!=="exact"){
       throw new Error("Esse link retornou apenas uma área aproximada. Abra a ficha/pino exato do ponto de referência no Google Maps e use Compartilhar → Copiar link.");
     }
+
+    validateReferenceRegion(Number(resolved.data.latitude),Number(resolved.data.longitude));
 
     const row={
       name,
