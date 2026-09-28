@@ -247,16 +247,21 @@ function advisorInitials(){
 function renderAdvisorAvatar(){
   const el=$("#advisorAvatar");
   if(!el) return;
+
   const url=advisorAvatarUrl(profile?.avatar_path);
-  if(url){
+
+  if(!url){
     el.textContent="";
-    el.style.backgroundImage=`url("${url.replace(/"/g,"%22")}")`;
-    el.classList.add("has-photo");
-  }else{
     el.style.backgroundImage="";
-    el.textContent=advisorInitials();
     el.classList.remove("has-photo");
+    el.classList.add("hidden");
+    return;
   }
+
+  el.textContent="";
+  el.style.backgroundImage=`url("${url.replace(/"/g,"%22")}")`;
+  el.classList.add("has-photo");
+  el.classList.remove("hidden");
 }
 
 function renderPanel(){
@@ -285,7 +290,7 @@ function advisorProfileModal(){
     <form id="advisorProfileForm" class="form-grid advisor-profile-form">
       <div class="form-section-title property-section-title">Foto de perfil</div>
       <div class="span-2 advisor-avatar-editor">
-        <div id="advisorAvatarPreview" class="advisor-avatar advisor-avatar-large">${profile?.avatar_path ? "" : advisorInitials()}</div>
+        <div id="advisorAvatarPreview" class="advisor-avatar advisor-avatar-large">${profile?.avatar_path ? "" : "👤"}</div>
         <div class="advisor-avatar-upload">
           <label>Escolher foto
             <input name="avatar" type="file" accept="image/jpeg,image/png,image/webp,image/avif">
