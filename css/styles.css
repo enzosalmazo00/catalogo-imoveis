@@ -708,3 +708,11 @@ button,input,select,textarea{font-size:16px}
 .single-property-upload-copy{display:flex;flex-direction:column;gap:4px;pointer-events:none}
 .single-property-upload-copy strong{font-size:14px}
 .single-property-upload-copy small{font-size:11px;color:var(--muted)}
+
+.advisor-property-page{display:block;width:100%;padding:6px 0 40px}
+.advisor-property-page.hidden{display:none!important}
+.advisor-property-page-card{width:min(980px,100%);margin:0 auto;background:#fff;border:1px solid var(--border);border-radius:20px;box-shadow:var(--shadow);padding:24px}
+@media(max-width:700px){
+  .advisor-property-page{padding:0 0 24px}
+  .advisor-property-page-card{border-radius:14px;padding:14px;box-shadow:none}
+}
