@@ -722,3 +722,6 @@ button,input,select,textarea{font-size:16px}
 @media(max-width:620px){.conditional-subgrid{grid-template-columns:1fr}}
 
 .university-distance{margin-top:5px;font-size:12px;font-weight:800;color:var(--text)}
+
+.property-public-code{font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--muted);margin-bottom:4px;text-transform:uppercase}
+.detail-advisor{margin-top:8px;font-size:13px;color:var(--muted)}
