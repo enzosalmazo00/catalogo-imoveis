@@ -579,3 +579,14 @@ button,input,select,textarea{font-size:16px}
 .advisor-boot-loader span{font-size:13px;color:var(--muted)}
 .advisor-boot-spinner{width:34px;height:34px;border-radius:50%;border:3px solid #e3e8ee;border-top-color:var(--green);animation:advisorSpin .7s linear infinite;margin-bottom:6px}
 @keyframes advisorSpin{to{transform:rotate(360deg)}}
+
+.advisor-head-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.advisor-profile-form .property-section-title{margin-top:14px}
+.advisor-city-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.profile-password-note{font-size:12px;color:var(--muted);background:#f7f9fb;border:1px solid var(--border);border-radius:10px;padding:10px 12px}
+.readonly-input{background:#f4f6f8!important;color:#6b7280}
+@media(max-width:560px){
+  .advisor-head-actions{width:100%;display:grid;grid-template-columns:1fr 1fr}
+  .advisor-head-actions .btn{width:100%}
+  .advisor-city-options{grid-template-columns:1fr}
+}
