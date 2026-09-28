@@ -892,3 +892,53 @@ button,input,select,textarea{font-size:16px}
   .property-sequence-home{grid-column:1/-1;grid-row:1;min-width:0}
   .property-sequence-btn{min-height:68px}
 }
+
+.advisor-premium-plan-card{
+  position:relative;
+  overflow:hidden;
+  grid-column:1/-1;
+  margin-bottom:18px;
+  padding:22px;
+  border:1px solid #d6aa35;
+  border-radius:22px;
+  background:
+    linear-gradient(135deg,rgba(255,255,255,.92),rgba(255,246,204,.96) 38%,rgba(231,190,74,.34) 100%),
+    linear-gradient(135deg,#f4d777,#b98516);
+  box-shadow:0 18px 45px rgba(148,103,10,.20),inset 0 1px 0 rgba(255,255,255,.9);
+}
+.premium-plan-shine{
+  position:absolute;
+  width:220px;height:220px;
+  top:-120px;right:-60px;
+  border-radius:50%;
+  background:radial-gradient(circle,rgba(255,255,255,.82),rgba(255,255,255,0) 70%);
+  pointer-events:none
+}
+.premium-plan-topline{position:relative;z-index:1;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+.premium-plan-badge,.premium-plan-value-badge{display:inline-flex;align-items:center;border-radius:999px;padding:7px 11px;font-size:10px;font-weight:950;letter-spacing:.04em}
+.premium-plan-badge{background:#6c4b05;color:#fff6cf;box-shadow:0 5px 16px rgba(85,58,0,.22)}
+.premium-plan-value-badge{background:rgba(255,255,255,.75);color:#745000;border:1px solid rgba(180,132,17,.28)}
+.premium-plan-content{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(260px,.75fr);gap:26px;align-items:stretch}
+.premium-plan-copy h3{margin:5px 0 8px;font-size:28px;line-height:1.05;color:#5c4005}
+.premium-plan-copy .eyebrow{color:#8a650d}
+.premium-plan-lead{max-width:620px;margin:0;color:#6f5b2c;font-size:14px;line-height:1.55}
+.premium-plan-features{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 15px;margin-top:18px}
+.premium-plan-features span{font-size:12px;font-weight:800;color:#5f522f}
+.premium-plan-price-box{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:18px;border-radius:18px;background:rgba(255,255,255,.72);border:1px solid rgba(180,132,17,.25);box-shadow:inset 0 1px 0 rgba(255,255,255,.9)}
+.premium-plan-price-box>small:first-child{text-transform:uppercase;letter-spacing:.06em;font-size:10px;font-weight:900;color:#816111}
+.premium-plan-price-box>strong{margin-top:5px;font-size:36px;line-height:1;color:#5c4005}
+.premium-plan-price-box>span{font-size:12px;font-weight:800;color:#806718;margin-top:3px}
+.premium-plan-comparison{display:flex;flex-direction:column;gap:3px;margin:13px 0 8px;font-size:11px;color:#7d692f}
+.premium-plan-comparison strong{color:#725000;font-size:12px}
+.premium-plan-unit-price{margin-bottom:12px;padding:7px 10px;border-radius:10px;background:#fff7d2;color:#6c4b05;font-size:11px}
+.premium-plan-button{border:0!important;background:linear-gradient(135deg,#8d6509,#d3a127)!important;color:#fff!important;font-weight:950!important;box-shadow:0 8px 20px rgba(126,88,8,.24)}
+.premium-plan-button:hover{transform:translateY(-1px)}
+.premium-plan-payment-note{margin-top:8px;color:#7a692f;font-size:9px!important}
+.advisor-standard-plan-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:14px}
+@media(max-width:760px){
+  .advisor-premium-plan-card{padding:18px}
+  .premium-plan-content{grid-template-columns:1fr}
+  .premium-plan-features{grid-template-columns:1fr}
+  .premium-plan-copy h3{font-size:24px}
+  .premium-plan-price-box>strong{font-size:32px}
+}
