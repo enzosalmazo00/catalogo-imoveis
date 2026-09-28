@@ -62,6 +62,22 @@
     </div>
   </section>
 
+  <section id="advisorEmailConfirmation" class="hidden">
+    <div class="auth-card advisor-confirm-card">
+      <div class="confirm-email-icon" aria-hidden="true">✉</div>
+      <p class="eyebrow">CONTA CRIADA</p>
+      <h2>Confirme seu e-mail</h2>
+      <p class="muted">Enviamos um link de confirmação para:</p>
+      <strong id="advisorPendingEmail" class="pending-email"></strong>
+      <p class="confirm-help">Abra o e-mail e toque em <strong>Confirmar e-mail</strong>. Depois da confirmação, você será direcionado para a Área do Assessor.</p>
+      <div class="form-stack">
+        <button id="resendPendingConfirmation" class="btn primary" type="button">Reenviar e-mail de confirmação</button>
+        <button id="confirmationGoLogin" class="btn ghost" type="button">Já confirmei — entrar</button>
+      </div>
+      <div id="advisorConfirmationMessage" class="form-message"></div>
+    </div>
+  </section>
+
   <section id="advisorResetPassword" class="hidden">
     <div class="auth-card reset-password-card">
       <p class="eyebrow">RECUPERAÇÃO DE ACESSO</p>
