@@ -992,11 +992,12 @@ async function saveFinancialEntry(form){
   const id=String(fd.get("id")||"").trim()||null;
   const msg=form.querySelector("#advisorFinancialEntryMessage");
   const linkedProperty=properties.find(p=>p.id===String(fd.get("property_id")||""));
+  const existing=id?financialEntries.find(item=>item.id===id):null;
   const row={
     advisor_id:currentUser.id,
     property_id:linkedProperty?.id||null,
-    property_code:linkedProperty?.public_code||null,
-    property_title:linkedProperty?.title||null,
+    property_code:linkedProperty?.public_code||existing?.property_code||null,
+    property_title:linkedProperty?.title||existing?.property_title||null,
     entry_type:fd.get("entry_type"),
     category:fd.get("category")||"other",
     description:String(fd.get("description")||"").trim(),
