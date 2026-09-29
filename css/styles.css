@@ -1296,3 +1296,7 @@ button,input,select,textarea{font-size:16px}
 @media(max-width:430px){
   .advisor-kpi-grid,.advisor-finance-summary{grid-template-columns:1fr}
 }
+
+.advisor-expired-mini-title{margin:14px 0 8px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#9a1a27}
+.advisor-deadline-list.expired b{background:#fde7e9;color:#9a1a27}
+.advisor-deadline-more{display:block;margin-top:8px;color:var(--muted);font-size:10px}
