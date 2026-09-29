@@ -10,6 +10,7 @@ let receipts=[];
 let ownerCommissions=[];
 let collaborations=[];
 let notifications=[];
+let advisorDirectory=[];
 
 function dateBR(value){
   if(!value) return "—";
@@ -93,7 +94,8 @@ async function loadData(){
     receiptsRes,
     commissionsRes,
     collaborationsRes,
-    notificationsRes
+    notificationsRes,
+    directoryRes
   ]=await Promise.all([
     db.from("advisor_profiles").select("*").eq("user_id",currentUser.id).maybeSingle(),
     db.from("properties")
@@ -124,7 +126,10 @@ async function loadData(){
       .select("*")
       .eq("advisor_id",currentUser.id)
       .order("created_at",{ascending:false})
-      .limit(100)
+      .limit(100),
+    db.from("advisor_directory")
+      .select("user_id,full_name,company_name,city")
+      .order("full_name")
   ]);
 
   const firstError=[
@@ -135,7 +140,8 @@ async function loadData(){
     receiptsRes.error,
     commissionsRes.error,
     collaborationsRes.error,
-    notificationsRes.error
+    notificationsRes.error,
+    directoryRes.error
   ].find(Boolean);
   if(firstError) throw firstError;
 
@@ -147,6 +153,7 @@ async function loadData(){
   ownerCommissions=commissionsRes.data||[];
   collaborations=collaborationsRes.data||[];
   notifications=notificationsRes.data||[];
+  advisorDirectory=directoryRes.data||[];
 }
 
 
