@@ -23,6 +23,16 @@ let pendingPropertyFiles=[];
 let pendingPropertyCoverExplicit=false;
 const ADVISOR_TERMS_VERSION="2026-09-29-v1";
 
+function strongPasswordError(password){
+  const value=String(password||"");
+  if(value.length<8) return "A senha deve ter pelo menos 8 caracteres.";
+  if(!/[a-z]/.test(value)) return "Inclua pelo menos uma letra minúscula na senha.";
+  if(!/[A-Z]/.test(value)) return "Inclua pelo menos uma letra maiúscula na senha.";
+  if(!/[0-9]/.test(value)) return "Inclua pelo menos um número na senha.";
+  if(!/[^A-Za-z0-9]/.test(value)) return "Inclua pelo menos um símbolo na senha.";
+  return "";
+}
+
 function advisorHasCurrentTerms(){
   return Boolean(
     profile?.terms_accepted_at &&
@@ -2835,8 +2845,9 @@ async function saveAdvisorProfile(form){
       msg.textContent="Para alterar a senha, preencha senha atual, nova senha e confirmação.";
       return;
     }
-    if(newPassword.length<8){
-      msg.textContent="A nova senha deve ter pelo menos 8 caracteres.";
+    const newPasswordError=strongPasswordError(newPassword);
+    if(newPasswordError){
+      msg.textContent=newPasswordError;
       return;
     }
     if(newPassword!==confirmPassword){
@@ -5093,8 +5104,9 @@ $("#advisorResetPasswordForm").addEventListener("submit",async e=>{
   const confirm=$("#advisorConfirmPassword").value;
   const msg=$("#advisorResetMessage");
 
-  if(password.length<6){
-    msg.textContent="A nova senha deve ter pelo menos 6 caracteres.";
+  const passwordError=strongPasswordError(password);
+  if(passwordError){
+    msg.textContent=passwordError;
     return;
   }
   if(password!==confirm){
@@ -5190,6 +5202,14 @@ $("#advisorSignupForm").addEventListener("submit",async e=>{
     return;
   }
 
+  const signupPassword=$("#advisorSignupPassword").value;
+  const signupPasswordError=strongPasswordError(signupPassword);
+  if(signupPasswordError){
+    msg.textContent=signupPasswordError;
+    $("#advisorSignupPassword").focus();
+    return;
+  }
+
   const submitBtn=$("#advisorSignupSubmit");
   const originalText=submitBtn?.textContent||"Criar conta";
   if(submitBtn){
@@ -5210,7 +5230,7 @@ $("#advisorSignupForm").addEventListener("submit",async e=>{
   try{
     const {data,error}=await db.auth.signUp({
       email:$("#advisorSignupEmail").value.trim(),
-      password:$("#advisorSignupPassword").value,
+      password:signupPassword,
       options:{data:meta}
     });
 
