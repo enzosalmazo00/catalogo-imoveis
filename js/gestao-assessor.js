@@ -1238,29 +1238,22 @@ document.addEventListener("click",async e=>{
     return;
   }
 
-  if(e.target.closest("[data-new-financial-entry]")){
-    financialModal();
+  const editCommission=e.target.closest("[data-edit-commission]");
+  if(editCommission){
+    const rental=rentals.find(item=>item.id===editCommission.dataset.editCommission);
+    if(rental) commissionModal(rental);
     return;
   }
 
-  const editFinancial=e.target.closest("[data-edit-financial-entry]");
-  if(editFinancial){
-    const row=entries.find(item=>item.id===editFinancial.dataset.editFinancialEntry);
-    if(row) financialModal(row);
+  const markCommissionPaid=e.target.closest("[data-mark-commission-paid]");
+  if(markCommissionPaid){
+    await setCommissionPaid(markCommissionPaid.dataset.markCommissionPaid,true);
     return;
   }
 
-  const deleteFinancial=e.target.closest("[data-delete-financial-entry]");
-  if(deleteFinancial && confirm("Excluir este lançamento financeiro?")){
-    const {error}=await db.from("advisor_financial_entries")
-      .delete()
-      .eq("id",deleteFinancial.dataset.deleteFinancialEntry)
-      .eq("advisor_id",currentUser.id);
-    if(error) alert(error.message);
-    else{
-      await refreshAndRender();
-      switchView("finance");
-    }
+  const markCommissionPending=e.target.closest("[data-mark-commission-pending]");
+  if(markCommissionPending && confirm("Marcar esta comissão novamente como a receber?")){
+    await setCommissionPaid(markCommissionPending.dataset.markCommissionPending,false);
     return;
   }
 
@@ -1301,7 +1294,7 @@ $("#managementModal").addEventListener("submit",async e=>{
   e.preventDefault();
   if(e.target.id==="managementOwnerForm") await saveOwner(e.target);
   if(e.target.id==="managementOwnerPropertiesForm") await saveOwnerProperties(e.target);
-  if(e.target.id==="managementFinancialForm") await saveFinancial(e.target);
+  if(e.target.id==="managementCommissionForm") await saveCommission(e.target);
   if(e.target.id==="managementReceiptForm") await saveReceipt(e.target);
 });
 
