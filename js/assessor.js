@@ -181,6 +181,101 @@ function showAdvisorModal(html){
   $("#advisorModal").classList.remove("hidden");
 }
 
+
+function advisorHasAcceptedCurrentTerms(){
+  return Boolean(
+    profile?.terms_accepted_at &&
+    profile?.terms_version===ADVISOR_TERMS_VERSION
+  );
+}
+
+function showAdvisorTermsAcceptanceModal(){
+  if(advisorHasAcceptedCurrentTerms()) return;
+  if(document.querySelector("#legacyTermsAcceptance")) return;
+
+  showAdvisorModal(`
+    <div id="legacyTermsAcceptance" class="advisor-legacy-terms-modal">
+      <div class="modal-head">
+        <div>
+          <p class="eyebrow">AÇÃO OBRIGATÓRIA</p>
+          <h2>Confirme os Termos de Uso</h2>
+          <p class="muted">Sua conta foi criada antes da implantação do aceite obrigatório. Leia o documento e registre sua concordância para continuar usando a Área do Assessor.</p>
+        </div>
+      </div>
+
+      <div class="advisor-legacy-terms-warning">
+        <strong>🛡️ Seu aceite ficará registrado.</strong>
+        <span>O sistema salva a data, a hora e a versão dos Termos aceitos na sua conta.</span>
+      </div>
+
+      <iframe
+        class="advisor-terms-frame"
+        src="termos.html?embedded=1"
+        title="Termos de Uso do Catálogo Imóveis"
+        loading="eager">
+      </iframe>
+
+      <div class="advisor-legacy-terms-actions">
+        <a class="btn ghost" href="termos.html" target="_blank" rel="noopener">Abrir Termos em tela cheia</a>
+
+        <label class="advisor-terms-check advisor-legacy-terms-check">
+          <input id="legacyTermsAccepted" type="checkbox">
+          <span>Li integralmente e concordo com os <a href="termos.html" target="_blank" rel="noopener">Termos de Uso</a> do Catálogo Imóveis.</span>
+        </label>
+
+        <div id="legacyTermsMessage" class="form-message"></div>
+
+        <button id="confirmLegacyTerms" class="btn primary full" type="button" disabled>
+          Confirmar aceite dos Termos
+        </button>
+      </div>
+    </div>
+  `);
+
+  const check=$("#legacyTermsAccepted");
+  const button=$("#confirmLegacyTerms");
+  const message=$("#legacyTermsMessage");
+
+  const sync=()=>{
+    if(button) button.disabled=!Boolean(check?.checked);
+  };
+  check?.addEventListener("change",sync);
+  sync();
+
+  button?.addEventListener("click",async()=>{
+    if(!check?.checked){
+      if(message) message.textContent="Marque a opção de concordância para continuar.";
+      return;
+    }
+
+    button.disabled=true;
+    button.textContent="Registrando aceite...";
+    if(message) message.textContent="";
+
+    try{
+      const {data,error}=await db.rpc("accept_advisor_terms",{
+        p_terms_version:ADVISOR_TERMS_VERSION
+      });
+      if(error) throw error;
+
+      profile={
+        ...(profile||{}),
+        terms_accepted_at:data?.accepted_at||new Date().toISOString(),
+        terms_version:data?.terms_version||ADVISOR_TERMS_VERSION
+      };
+
+      unreadCollaborationNotifications=Math.max(0,Number(unreadCollaborationNotifications||0)-1);
+      closeAdvisorModal();
+      renderPanel();
+    }catch(err){
+      console.error("Erro ao registrar aceite dos Termos:",err);
+      if(message) message.textContent=err?.message||"Não foi possível registrar o aceite. Tente novamente.";
+      button.disabled=false;
+      button.textContent="Confirmar aceite dos Termos";
+    }
+  });
+}
+
 function showAdvisorPropertyPage(html){
   const page=$("#advisorPropertyPage");
   if(!page) return;
@@ -2522,6 +2617,10 @@ function renderPanel(){
   if(notificationBadge){
     notificationBadge.textContent=String(unreadCollaborationNotifications);
     notificationBadge.classList.toggle("hidden",unreadCollaborationNotifications<=0);
+  }
+
+  if(!advisorHasAcceptedCurrentTerms()){
+    setTimeout(()=>showAdvisorTermsAcceptanceModal(),0);
   }
 
   const newBtn=$("#newAdvisorProperty");
