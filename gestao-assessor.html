@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gestão do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
+  <link rel="stylesheet" href="css/styles.css?v=202609290020">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
+</head>
+<body class="advisor-page">
+<header class="site-header">
+  <a class="brand" href="assessor.html">
+    <span class="brand-mark">⌂</span>
+    <span class="brand-copy">
+      <strong>Assessoria de Imóveis PJC/Ponta Porã</strong>
+      <small>Gestão do assessor</small>
+    </span>
+  </a>
+  <nav class="top-nav">
+    <a href="assessor.html">Meus anúncios</a>
+    <a href="index.html">Catálogo</a>
+  </nav>
+</header>
+
+<main class="container advisor-main">
+  <section id="managementBoot" class="advisor-boot-loader" aria-live="polite">
+    <div class="advisor-boot-spinner" aria-hidden="true"></div>
+    <strong>Abrindo sua gestão...</strong>
+    <span>Carregando seus imóveis, proprietários e financeiro.</span>
+  </section>
+
+  <section id="managementAuth" class="hidden">
+    <div class="auth-card reset-password-card">
+      <p class="eyebrow">GESTÃO DO ASSESSOR</p>
+      <h2>Entre primeiro na sua conta</h2>
+      <p class="muted">A Gestão do Assessor usa a mesma conta da Área do Assessor.</p>
+      <a class="btn primary" href="assessor.html">Ir para Área do Assessor</a>
+    </div>
+  </section>
+
+  <section id="managementPanel" class="hidden">
+    <div class="advisor-panel-head management-page-head">
+      <div class="advisor-identity">
+        <div>
+          <p class="eyebrow">GESTÃO DO ASSESSOR</p>
+          <h1 id="managementWelcome">Minha gestão</h1>
+          <p class="muted">Proprietários, desempenho dos anúncios, locações, recibos e financeiro em uma área separada.</p>
+        </div>
+      </div>
+      <div class="advisor-head-actions">
+        <a class="btn primary" href="assessor.html">← Meus anúncios</a>
+        <a class="btn ghost" href="index.html">🏠 Ver catálogo</a>
+        <button id="managementLogout" class="btn ghost" type="button">Sair</button>
+      </div>
+    </div>
+
+    <div class="advisor-panel-tabs management-tabs">
+      <button class="advisor-panel-tab active" type="button" data-management-view="overview">Visão geral</button>
+      <button class="advisor-panel-tab" type="button" data-management-view="owners">Proprietários</button>
+      <button class="advisor-panel-tab" type="button" data-management-view="finance">Financeiro</button>
+      <button class="advisor-panel-tab" type="button" data-management-view="receipts">Recibos</button>
+      <button class="advisor-panel-tab" type="button" data-management-view="rentals">Imóveis alugados</button>
+    </div>
+
+    <section id="managementOverview"></section>
+
+    <section id="managementOwners" class="admin-panel hidden">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">PROPRIETÁRIOS</p>
+          <h2>Carteira de proprietários</h2>
+          <p class="muted">Cadastre o proprietário e vincule os imóveis dele aqui, sem ocupar espaço no cadastro do anúncio.</p>
+        </div>
+        <button class="btn primary" type="button" data-new-owner>+ Cadastrar proprietário</button>
+      </div>
+      <div id="managementOwnersList"></div>
+    </section>
+
+    <section id="managementFinance" class="admin-panel hidden">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">FINANCEIRO</p>
+          <h2>Receitas, despesas e resultado</h2>
+          <p class="muted">Comissões, assessorias, valores a receber, despesas e resultado líquido por imóvel e no geral.</p>
+        </div>
+        <button class="btn primary" type="button" data-new-financial-entry>+ Novo lançamento</button>
+      </div>
+      <div id="managementFinanceContent"></div>
+    </section>
+
+    <section id="managementReceipts" class="admin-panel hidden">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">RECIBOS VOLUNTÁRIOS</p>
+          <h2>Recibos de assessoria</h2>
+          <p class="muted">Gere um comprovante completo do serviço sem precisar encerrar o anúncio.</p>
+        </div>
+        <button class="btn primary" type="button" data-new-service-receipt>+ Gerar recibo</button>
+      </div>
+      <div id="managementReceiptsList"></div>
+    </section>
+
+    <section id="managementRentals" class="admin-panel hidden">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">IMÓVEIS ALUGADOS</p>
+          <h2>Histórico de locações</h2>
+          <p class="muted">Imóveis marcados como alugados, proprietário, inquilino, comissão e assessoria.</p>
+        </div>
+      </div>
+      <div id="managementRentalsList"></div>
+    </section>
+  </section>
+</main>
+
+<div id="managementModal" class="modal hidden"></div>
+
+<script type="module" src="js/gestao-assessor.js?v=202609290020"></script>
+</body>
+</html>
