@@ -2916,6 +2916,7 @@ async function loadPropertyDraft(form,property){
   if(data?.draft_data){
     applyPropertyDraft(form,data.draft_data);
     wirePropertyTechnicalFields(form);
+    wirePropertyCollaborationFields(form);
     if(status){
       status.innerHTML=`<strong>Rascunho recuperado ✓</strong><span>Salvo em ${fmtDate(data.updated_at)}. Fotos precisam ser selecionadas novamente.</span>`;
       status.classList.remove("hidden");
@@ -3453,6 +3454,8 @@ function propertyModal(property=null){
         </select>
       </label>
 
+      ${collaborationFormHTML(property)}
+
       <div class="form-section-title property-section-title">3. Tipo, acesso e distribuição</div>
 
       <label>O imóvel é
@@ -3668,6 +3671,7 @@ function propertyModal(property=null){
   });
   renderPendingPropertyPhotos();
   wirePropertyTechnicalFields($("#advisorPropertyForm"));
+  wirePropertyCollaborationFields($("#advisorPropertyForm"));
   applyPublishedPropertyEditLock($("#advisorPropertyForm"),property);
   if(!property) loadPropertyDraft($("#advisorPropertyForm"),property);
 }
