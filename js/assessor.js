@@ -13,6 +13,9 @@ let rentalControls=[];
 let advisorOwners=[];
 let serviceReceipts=[];
 let financialEntries=[];
+let advisorDirectory=[];
+let listingCollaborations=[];
+let unreadCollaborationNotifications=0;
 let paymentWatcher=null;
 let paymentRequestInFlight=false;
 let pendingPropertyFiles=[];
@@ -231,6 +234,36 @@ async function loadData(){
   advisorOwners=managementResults[0].status==="fulfilled"?(managementResults[0].value.data||[]):[];
   serviceReceipts=managementResults[1].status==="fulfilled"?(managementResults[1].value.data||[]):[];
   financialEntries=managementResults[2].status==="fulfilled"?(managementResults[2].value.data||[]):[];
+
+  const collaborationResults=await Promise.allSettled([
+    withTimeout(
+      db.from("advisor_directory")
+        .select("user_id,full_name,company_name,city")
+        .order("full_name"),
+      8000,
+      "Carregamento dos assessores cadastrados"
+    ),
+    withTimeout(
+      db.from("advisor_collaborations")
+        .select("*, advisor_collaboration_participants(*)")
+        .eq("owner_advisor_id",currentUser.id)
+        .order("created_at",{ascending:false}),
+      8000,
+      "Carregamento das coassessorias"
+    ),
+    withTimeout(
+      db.from("advisor_notifications")
+        .select("id",{count:"exact",head:true})
+        .eq("advisor_id",currentUser.id)
+        .is("read_at",null),
+      8000,
+      "Carregamento das notificações"
+    )
+  ]);
+
+  advisorDirectory=collaborationResults[0].status==="fulfilled"?(collaborationResults[0].value.data||[]):[];
+  listingCollaborations=collaborationResults[1].status==="fulfilled"?(collaborationResults[1].value.data||[]):[];
+  unreadCollaborationNotifications=collaborationResults[2].status==="fulfilled"?Number(collaborationResults[2].value.count||0):0;
 
   try{
     const changed=await reconcilePendingCreditPayments();
@@ -2367,6 +2400,12 @@ function renderPanel(){
   renderAds();
   renderAdvisorCatalogShare();
   renderRentalControl();
+
+  const notificationBadge=$("#advisorNotificationBadge");
+  if(notificationBadge){
+    notificationBadge.textContent=String(unreadCollaborationNotifications);
+    notificationBadge.classList.toggle("hidden",unreadCollaborationNotifications<=0);
+  }
 
   const newBtn=$("#newAdvisorProperty");
   if(newBtn){
