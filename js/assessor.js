@@ -3055,6 +3055,16 @@ function propertyModal(property=null){
         <input name="contact_whatsapp" inputmode="tel" required value="${escapeHTML(property?.contact_whatsapp||profile?.whatsapp||"")}" placeholder="Ex.: 595981123456">
       </label>
 
+      <div class="span-2 property-owner-link-box">
+        <label>Proprietário responsável pelo imóvel
+          <select name="advisor_owner_id">
+            ${ownerOptions(property?.advisor_owner_id||"",true)}
+          </select>
+          <small>Quando você anuncia como assessor/corretor, vincule o proprietário para manter a gestão e os recibos organizados.</small>
+        </label>
+        <button class="btn ghost compact" type="button" data-new-owner-from-property>+ Cadastrar proprietário</button>
+      </div>
+
       <div class="form-section-title property-section-title">2. Valores e condições</div>
 
       <label>Moeda
@@ -3452,6 +3462,7 @@ async function saveProperty(form){
     contract_payer:fd.get("has_contract")==="true" ? (fd.get("contract_payer")||null) : null,
     closing_mode:fd.get("closing_mode"),
     advertiser_role:fd.get("advertiser_role")||"broker",
+    advisor_owner_id:String(fd.get("advisor_owner_id")||"").trim()||null,
     has_advisory_fee:fd.get("has_advisory_fee")==="true",
     advisory_fee:fd.get("has_advisory_fee")==="true" && fd.get("advisory_fee")!=="" ? Number(fd.get("advisory_fee")) : null,
     contact_whatsapp:String(fd.get("contact_whatsapp")||"").replace(/\D/g,""),
@@ -3479,6 +3490,12 @@ async function saveProperty(form){
     status:"available"
   };
 
+  if(row.advertiser_role==="broker" && !row.advisor_owner_id){
+    msg.textContent="Selecione ou cadastre o proprietário deste imóvel antes de publicar.";
+    form.querySelector('[name="advisor_owner_id"]')?.scrollIntoView({behavior:"smooth",block:"center"});
+    return false;
+  }
+
   const selectedFeatureIds=[...form.querySelectorAll('input[name="features"]:checked')].map(el=>el.value);
   const selectedReferencePointIds=[...form.querySelectorAll('input[name="reference_points"]:checked')].map(el=>el.value);
 
@@ -3500,6 +3517,7 @@ async function saveProperty(form){
       contract_payer:row.contract_payer,
       closing_mode:row.closing_mode,
       advertiser_role:row.advertiser_role,
+      advisor_owner_id:row.advisor_owner_id,
       has_advisory_fee:row.has_advisory_fee,
       advisory_fee:row.advisory_fee,
       contact_whatsapp:row.contact_whatsapp,
@@ -3605,6 +3623,16 @@ async function saveProperty(form){
     );
 
     if(published.error) throw new Error(published.error.message);
+
+    if(row.advisor_owner_id){
+      const ownerLink=await db.from("properties")
+        .update({advisor_owner_id:row.advisor_owner_id})
+        .eq("id",propertyId)
+        .eq("advisor_id",currentUser.id);
+      if(ownerLink.error){
+        console.warn("Imóvel publicado, mas o proprietário não foi vinculado:",ownerLink.error);
+      }
+    }
 
     if(selectedReferencePointIds.length){
       const referenceInsert=await db.from("property_reference_points").insert(
