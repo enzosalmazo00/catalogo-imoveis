@@ -2440,11 +2440,27 @@ function renderPanel(){
     const balance=creditBalance();
     if(balance>0){
       newBtn.disabled=false;
-      newBtn.textContent="+ Novo anúncio";
-      newBtn.title="A publicação consumirá 1 crédito.";
+      newBtn.classList.remove("disabled");
+      newBtn.innerHTML=`
+        <span class="advisor-create-ad-icon">+</span>
+        <span class="advisor-create-ad-copy">
+          <strong>Criar novo anúncio</strong>
+          <small>Publicar um imóvel usando 1 crédito • ${balance} disponível${balance===1?"":"is"}</small>
+        </span>
+        <span class="advisor-create-ad-arrow">→</span>
+      `;
+      newBtn.title="Criar um novo anúncio usando 1 crédito.";
     }else{
       newBtn.disabled=true;
-      newBtn.textContent="Saldo de créditos zerado";
+      newBtn.classList.add("disabled");
+      newBtn.innerHTML=`
+        <span class="advisor-create-ad-icon">+</span>
+        <span class="advisor-create-ad-copy">
+          <strong>Crie seu próximo anúncio</strong>
+          <small>Compre um crédito para publicar um imóvel</small>
+        </span>
+        <span class="advisor-create-ad-arrow">→</span>
+      `;
       newBtn.title="Compre créditos para publicar um novo imóvel.";
     }
   }
