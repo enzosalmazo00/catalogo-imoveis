@@ -10,7 +10,7 @@ import {
 } from "./common.js?v=202609281430";
 
 let properties = [];
-let settings = null;
+let settings = null;\nconst OFFICIAL_SITE_NAME = "Catálogo Imóveis";
 const pageParams=new URLSearchParams(location.search);
 const advisorCatalogCode=String(pageParams.get("catalogo")||"").trim();
 
@@ -133,10 +133,10 @@ function applyFilters() {
 async function load() {
   settings = await getSettings();
 
-  $("#brandName").textContent = settings.site_name;
-  $("#footerName").textContent = settings.site_name;
-  $("#heroTitle").textContent = settings.hero_title;
-  $("#heroSubtitle").textContent = settings.hero_subtitle || "";
+  $("#brandName").textContent = OFFICIAL_SITE_NAME;
+  $("#footerName").textContent = OFFICIAL_SITE_NAME;
+  $("#heroTitle").textContent = "CATÁLOGO";
+  $("#heroSubtitle").textContent = "Encontre, anuncie e alugue com praticidade";
 
   let query=db
     .from("catalog_properties_public")
@@ -169,7 +169,7 @@ async function load() {
     $("#advisorCatalogDescription").textContent=`Você está vendo somente os imóveis publicados por ${displayName}.`;
     notice.classList.remove("hidden");
     $("#generalCatalogTitle").textContent="Imóveis deste assessor";
-    document.title=`Catálogo de ${displayName} | ${settings.site_name}`;
+    document.title=`Catálogo de ${displayName} | ${OFFICIAL_SITE_NAME}`;
   }else if(notice){
     notice.classList.add("hidden");
     $("#generalCatalogTitle").textContent="Imóveis para locação";
