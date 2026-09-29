@@ -175,6 +175,41 @@ function commissionTotals(){
   return {received,pending,overdue};
 }
 
+function tenantAdvisoryRows(){
+  return rentals
+    .filter(r=>r.had_advisory_fee && Number(r.advisory_fee_amount||0)>0)
+    .map(r=>({
+      id:r.id,
+      tenant_name:r.tenant_name||"Inquilino não informado",
+      tenant_whatsapp:r.tenant_phone||"",
+      property_code:r.property_code||"—",
+      property_title:r.property_title||"Imóvel",
+      amount:Number(r.advisory_fee_amount||0),
+      currency:r.currency||"BRL",
+      paid:Boolean(r.advisory_fee_paid),
+      due_date:r.advisory_fee_due_date||null,
+      payment_date:r.advisory_fee_payment_date||null,
+      start_date:r.start_date||r.created_at
+    }));
+}
+
+function tenantAdvisoryTotals(){
+  const received=blankTotals();
+  const pending=blankTotals();
+  let overdue=0;
+  const today=nowDateInput();
+
+  tenantAdvisoryRows().forEach(row=>{
+    if(row.paid) addTotal(received,row.currency,row.amount);
+    else{
+      addTotal(pending,row.currency,row.amount);
+      if(row.due_date && row.due_date<today) overdue++;
+    }
+  });
+
+  return {received,pending,overdue};
+}
+
 function renderOverview(){
   const root=$("#managementOverview");
   if(!root) return;
@@ -200,6 +235,7 @@ function renderOverview(){
     .sort((a,b)=>Number(b.view_count||0)-Number(a.view_count||0))
     .slice(0,5);
   const commissions=commissionTotals();
+  const tenantAdvisories=tenantAdvisoryTotals();
 
   root.innerHTML=`
     <section class="advisor-management-hero">
@@ -215,7 +251,9 @@ function renderOverview(){
         <article><span>Imóveis alugados</span><strong>${rentals.length}</strong><small>locações registradas</small></article>
         <article><span>Visualizações</span><strong>${totalViews.toLocaleString("pt-BR")}</strong><small>${totalWhatsapp.toLocaleString("pt-BR")} contatos no WhatsApp</small></article>
         <article class="money attention"><span>Comissões a receber</span><strong>${formatTotals(commissions.pending)}</strong><small>${commissions.overdue} vencida${commissions.overdue===1?"":"s"}</small></article>
-        <article class="money result"><span>Comissões recebidas</span><strong>${formatTotals(commissions.received)}</strong><small>valores confirmados</small></article>
+        <article class="money result"><span>Comissões recebidas</span><strong>${formatTotals(commissions.received)}</strong><small>pagas pelos proprietários</small></article>
+        <article class="money attention"><span>Assessoria a receber</span><strong>${formatTotals(tenantAdvisories.pending)}</strong><small>${tenantAdvisories.overdue} vencida${tenantAdvisories.overdue===1?"":"s"}</small></article>
+        <article class="money result"><span>Assessoria recebida</span><strong>${formatTotals(tenantAdvisories.received)}</strong><small>paga pelos inquilinos</small></article>
       </div>
 
       <div class="advisor-dashboard-columns">
