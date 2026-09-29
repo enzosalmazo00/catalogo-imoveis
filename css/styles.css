@@ -2133,3 +2133,215 @@ button,input,select,textarea{font-size:16px}
     font-size:24px
   }
 }
+
+
+/* ===== TERMOS DE USO DO ASSESSOR ===== */
+.advisor-terms-consent{
+  margin:4px 0 2px;
+  padding:16px;
+  border:1px solid #d7e1e8;
+  border-radius:16px;
+  background:linear-gradient(180deg,#fbfdff 0%,#f4f8fb 100%);
+}
+.advisor-terms-consent-head{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  margin-bottom:10px;
+}
+.advisor-terms-shield{
+  width:42px;
+  height:42px;
+  border-radius:12px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  background:#eaf4ef;
+  font-size:20px;
+}
+.advisor-terms-consent-head>div{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.advisor-terms-consent-head strong{
+  color:var(--navy);
+  font-size:14px;
+}
+.advisor-terms-consent-head small{
+  color:var(--muted);
+  font-size:11px;
+}
+.advisor-terms-consent>p{
+  margin:0 0 10px;
+  color:#536174;
+  font-size:12px;
+  line-height:1.55;
+}
+.advisor-terms-link{
+  display:inline-flex;
+  margin-bottom:12px;
+  color:var(--navy);
+  font-size:12px;
+  font-weight:900;
+  text-underline-offset:3px;
+}
+.advisor-terms-check{
+  display:grid!important;
+  grid-template-columns:22px minmax(0,1fr);
+  gap:10px!important;
+  align-items:start;
+  margin:0!important;
+  padding:12px;
+  border:1px solid #cad6df;
+  border-radius:12px;
+  background:#fff;
+  color:#263446!important;
+  font-size:12px!important;
+  line-height:1.45;
+}
+.advisor-terms-check input{
+  width:20px!important;
+  height:20px!important;
+  min-height:20px!important;
+  margin:1px 0 0;
+  accent-color:var(--green);
+}
+.advisor-terms-check a{
+  color:var(--navy);
+  font-weight:900;
+}
+.advisor-terms-version{
+  display:block;
+  margin-top:8px;
+  color:#7b8794;
+  font-size:9px;
+  text-align:right;
+}
+#advisorSignupSubmit:disabled{
+  opacity:.55;
+  cursor:not-allowed;
+  filter:grayscale(.2);
+}
+
+/* Página pública de Termos */
+.terms-page{background:#f5f7fa}
+.terms-main{
+  padding-top:42px;
+  padding-bottom:60px;
+}
+.terms-hero{
+  max-width:900px;
+  margin:0 auto 20px;
+}
+.terms-hero h1{
+  margin:0 0 10px;
+  color:var(--navy);
+  font-size:clamp(32px,5vw,52px);
+  line-height:1.05;
+}
+.terms-hero>p:last-child{
+  margin:0;
+  color:var(--muted);
+}
+.terms-document{
+  max-width:900px;
+  margin:0 auto;
+  padding:34px;
+  border:1px solid var(--border);
+  border-radius:20px;
+  background:#fff;
+  box-shadow:var(--shadow);
+}
+.terms-document h2{
+  margin:28px 0 9px;
+  color:var(--navy);
+  font-size:20px;
+}
+.terms-document p{
+  margin:0 0 12px;
+  color:#465467;
+  font-size:14px;
+  line-height:1.75;
+}
+.terms-important,
+.terms-footer-note{
+  padding:18px 20px;
+  border-radius:14px;
+  background:#f5faf7;
+  border:1px solid #d3e6dc;
+}
+.terms-important strong,
+.terms-footer-note strong{
+  display:block;
+  margin-bottom:5px;
+  color:var(--green-dark);
+}
+.terms-important p,
+.terms-footer-note p{
+  margin:0;
+}
+.terms-footer-note{
+  margin-top:30px;
+  background:#fff9ea;
+  border-color:#ead9aa;
+}
+
+/* Registro de aceite no painel administrativo */
+.admin-terms-status{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  margin-top:10px;
+  padding:9px 10px;
+  border-radius:11px;
+  border:1px solid;
+  max-width:390px;
+}
+.admin-terms-status>span{
+  width:22px;
+  height:22px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  font-weight:900;
+  font-size:11px;
+}
+.admin-terms-status>div{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+}
+.admin-terms-status strong{
+  font-size:10px;
+}
+.admin-terms-status small{
+  font-size:9px!important;
+  line-height:1.35;
+}
+.admin-terms-status.accepted{
+  background:#edf8f3;
+  border-color:#bddfce;
+  color:#176548;
+}
+.admin-terms-status.accepted>span{
+  background:#d6efe3;
+}
+.admin-terms-status.missing{
+  background:#fff7e8;
+  border-color:#eed7a3;
+  color:#7d5b13;
+}
+.admin-terms-status.missing>span{
+  background:#f8e8bd;
+}
+
+@media(max-width:560px){
+  .advisor-terms-consent{padding:14px}
+  .advisor-terms-check{padding:11px}
+  .terms-main{padding-top:26px;padding-bottom:40px}
+  .terms-document{padding:20px 16px;border-radius:16px}
+  .terms-document h2{font-size:18px}
+  .terms-document p{font-size:13px}
+}
