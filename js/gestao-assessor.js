@@ -203,7 +203,6 @@ function renderOverview(){
         <article class="${expiring.length?"attention":""}"><span>Vencem em até 5 dias</span><strong>${expiring.length}</strong><small>anúncios que exigem atenção</small></article>
         <article><span>Imóveis alugados</span><strong>${rentals.length}</strong><small>locações registradas</small></article>
         <article><span>Visualizações</span><strong>${totalViews.toLocaleString("pt-BR")}</strong><small>${totalWhatsapp.toLocaleString("pt-BR")} contatos no WhatsApp</small></article>
-        <article><span>Proprietários</span><strong>${owners.length}</strong><small>na sua carteira</small></article>
         <article class="money attention"><span>Comissões a receber</span><strong>${formatTotals(commissions.pending)}</strong><small>${commissions.overdue} vencida${commissions.overdue===1?"":"s"}</small></article>
         <article class="money result"><span>Comissões recebidas</span><strong>${formatTotals(commissions.received)}</strong><small>valores confirmados</small></article>
       </div>
@@ -777,7 +776,7 @@ function receiptModal(row=null){
       <label>Nome
         <input name="owner_name" required value="${escapeHTML(row?.owner_name||linkedOwner?.full_name||"")}">
       </label>
-      <label>Telefone
+      <label>WhatsApp
         <input name="owner_phone" required inputmode="tel" value="${escapeHTML(row?.owner_phone||linkedOwner?.whatsapp||"")}">
       </label>
 
@@ -836,13 +835,6 @@ function receiptModal(row=null){
       </label>
       <label>Referência / comprovante
         <input name="payment_reference" value="${escapeHTML(row?.payment_reference||"")}">
-      </label>
-      <label class="span-2">Incluir no financeiro?
-        <select name="include_in_financials">
-          <option value="false" ${!row?.include_in_financials?"selected":""}>Não — apenas gerar o documento</option>
-          <option value="true" ${row?.include_in_financials?"selected":""}>Sim — contabilizar como receita</option>
-        </select>
-        <small>Marque “Sim” somente se estes valores ainda não estiverem registrados em outro lugar.</small>
       </label>
       <label class="span-2">Observações
         <textarea name="notes" rows="3">${escapeHTML(row?.notes||"")}</textarea>
@@ -922,7 +914,7 @@ async function saveReceipt(form){
     payment_date:fd.get("paid")==="true"?(fd.get("payment_date")||null):null,
     payment_method:String(fd.get("payment_method")||"").trim()||null,
     payment_reference:String(fd.get("payment_reference")||"").trim()||null,
-    include_in_financials:fd.get("include_in_financials")==="true",
+    include_in_financials:false,
     notes:String(fd.get("notes")||"").trim()||null,
     updated_at:new Date().toISOString()
   };
