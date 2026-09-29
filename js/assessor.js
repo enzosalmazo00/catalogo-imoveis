@@ -1409,6 +1409,28 @@ function wireReceiptPaymentFields(form){
 
 function wireManualReceiptFields(form){
   if(!form) return;
+
+  const propertySelect=form.querySelector('[name="property_id"]');
+  const ownerSelect=form.querySelector('[name="advisor_owner_id"]');
+  const ownerName=form.querySelector('[name="owner_name"]');
+  const ownerPhone=form.querySelector('[name="owner_phone"]');
+
+  const fillOwner=(owner)=>{
+    if(!owner) return;
+    if(ownerName) ownerName.value=owner.full_name||"";
+    if(ownerPhone) ownerPhone.value=owner.phone||owner.whatsapp||"";
+  };
+
+  ownerSelect?.addEventListener("change",()=>fillOwner(ownerById(ownerSelect.value)));
+  propertySelect?.addEventListener("change",()=>{
+    const property=properties.find(p=>p.id===propertySelect.value);
+    if(!property) return;
+    if(ownerSelect && property.advisor_owner_id){
+      ownerSelect.value=property.advisor_owner_id;
+      fillOwner(ownerById(property.advisor_owner_id));
+    }
+  });
+
   const mode=form.querySelector('[name="closing_mode"]');
   const wrapper=form.querySelector("#manualAdvisoryFields");
   const guarantee=form.querySelector('[name="guarantee_type"]');
@@ -1487,6 +1509,12 @@ function rentalControlModal(row=null){
         <select name="property_id">
           <option value="">Recibo sem anúncio vinculado</option>
           ${propertyOptions}
+        </select>
+      </label>
+
+      <label class="span-2">Proprietário cadastrado
+        <select name="advisor_owner_id">
+          ${ownerOptions(row?.advisor_owner_id||properties.find(p=>p.id===row?.property_id)?.advisor_owner_id||"",true)}
         </select>
       </label>
 
@@ -1670,6 +1698,7 @@ async function saveRentalControl(form){
     property_city:property?.city||existing?.property_city||null,
     closing_mode:closingMode,
     had_advisory_fee:hadAdvisory,
+    advisor_owner_id:String(fd.get("advisor_owner_id")||"").trim()||null,
     owner_name:String(fd.get("owner_name")||"").trim()||null,
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
     tenant_name:String(fd.get("tenant_name")||"").trim(),
