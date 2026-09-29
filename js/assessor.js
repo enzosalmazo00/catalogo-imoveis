@@ -566,8 +566,8 @@ function financialRecords(){
       id:`entry-${r.id}`,
       raw_id:r.id,
       property_id:r.property_id||null,
-      property_code:property?.public_code||null,
-      property_title:property?.title||"Sem imóvel vinculado",
+      property_code:r.property_code||property?.public_code||null,
+      property_title:r.property_title||property?.title||"Sem imóvel vinculado",
       currency:r.currency||"BRL",
       source:"Lançamento",
       description:r.description,
@@ -986,9 +986,12 @@ async function saveFinancialEntry(form){
   const fd=new FormData(form);
   const id=String(fd.get("id")||"").trim()||null;
   const msg=form.querySelector("#advisorFinancialEntryMessage");
+  const linkedProperty=properties.find(p=>p.id===String(fd.get("property_id")||""));
   const row={
     advisor_id:currentUser.id,
-    property_id:String(fd.get("property_id")||"").trim()||null,
+    property_id:linkedProperty?.id||null,
+    property_code:linkedProperty?.public_code||null,
+    property_title:linkedProperty?.title||null,
     entry_type:fd.get("entry_type"),
     category:fd.get("category")||"other",
     description:String(fd.get("description")||"").trim(),
