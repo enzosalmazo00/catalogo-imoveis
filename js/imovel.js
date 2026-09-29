@@ -307,13 +307,6 @@ async function load() {
           </section>
         ` : ""}
 
-        ${nearby.length ? `
-          <section class="detail-section">
-            <h2>Comodidades por perto</h2>
-            <div class="feature-grid">${nearby.map(item => `<div class="feature-item">${escapeHTML(item.icon||"✓")} ${escapeHTML(item.name)}</div>`).join("")}</div>
-          </section>
-        ` : ""}
-
         ${furniture.length ? `
           <section class="detail-section">
             <h2>O imóvel possui</h2>
@@ -325,6 +318,15 @@ async function load() {
           <section class="detail-section">
             <h2>Incluso no aluguel</h2>
             <div class="feature-grid">${included.map(item => `<div class="feature-item">✓ ${escapeHTML(item.name)}</div>`).join("")}</div>
+          </section>
+        ` : ""}
+
+        ${renderUniversities(universityDistances)}
+
+        ${nearby.length ? `
+          <section class="detail-section">
+            <h2>Comodidades por perto</h2>
+            <div class="feature-grid">${nearby.map(item => `<div class="feature-item">${escapeHTML(item.icon||"✓")} ${escapeHTML(item.name)}</div>`).join("")}</div>
           </section>
         ` : ""}
 
@@ -344,7 +346,6 @@ async function load() {
           </div>
         </section>
 
-        ${renderUniversities(universityDistances)}
         ${renderProtectedLocation()}
       </div>
 
