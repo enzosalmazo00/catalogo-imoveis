@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Gestão do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609290610">
+  <link rel="stylesheet" href="css/styles.css?v=202609290720">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 </head>
@@ -59,6 +59,8 @@
       <button class="advisor-panel-tab active" type="button" data-management-view="overview">Visão geral</button>
       <button class="advisor-panel-tab" type="button" data-management-view="owners">Proprietários</button>
       <button class="advisor-panel-tab" type="button" data-management-view="finance">Recebimentos</button>
+      <button class="advisor-panel-tab" type="button" data-management-view="collaborations">Parcerias</button>
+      <button class="advisor-panel-tab" type="button" data-management-view="notifications">Notificações <span id="managementNotificationBadge" class="notification-badge hidden">0</span></button>
       <button class="advisor-panel-tab" type="button" data-management-view="receipts">Recibos</button>
       <button class="advisor-panel-tab" type="button" data-management-view="rentals">Imóveis alugados</button>
     </div>
@@ -101,6 +103,29 @@
       <div id="managementFinanceContent"></div>
     </section>
 
+    <section id="managementCollaborations" class="admin-panel hidden">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">COASSESSORIAS</p>
+          <h2>Parcerias em imóveis</h2>
+          <p class="muted">Acompanhe imóveis em que você é o assessor principal ou participa como coassessor, incluindo a divisão pré-acordada e o pagamento de cada parte.</p>
+        </div>
+      </div>
+      <div id="managementCollaborationsContent"></div>
+    </section>
+
+    <section id="managementNotifications" class="admin-panel hidden">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">NOTIFICAÇÕES</p>
+          <h2>Atualizações das suas parcerias</h2>
+          <p class="muted">Aqui aparecem novos vínculos, mudanças no status dos imóveis e confirmações de pagamento.</p>
+        </div>
+        <button id="markAllNotificationsRead" class="btn ghost" type="button">Marcar todas como lidas</button>
+      </div>
+      <div id="managementNotificationsList"></div>
+    </section>
+
     <section id="managementReceipts" class="admin-panel hidden">
       <div class="admin-panel-head">
         <div>
@@ -128,6 +153,6 @@
 
 <div id="managementModal" class="modal hidden"></div>
 
-<script type="module" src="js/gestao-assessor.js?v=202609290610"></script>
+<script type="module" src="js/gestao-assessor.js?v=202609290720"></script>
 </body>
 </html>
