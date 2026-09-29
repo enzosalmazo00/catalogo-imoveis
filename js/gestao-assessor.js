@@ -1580,7 +1580,7 @@ function renderNotifications(){
   }
 
   if(!notifications.length){
-    root.innerHTML='<div class="empty-state"><strong>Nenhuma notificação.</strong><span>Atualizações de coassessorias aparecerão aqui.</span></div>';
+    root.innerHTML='<div class="empty-state"><strong>Nenhuma notificação.</strong><span>Mensagens da administração e atualizações da sua gestão aparecerão aqui.</span></div>';
     return;
   }
 
