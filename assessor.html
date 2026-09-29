@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Área do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609290735">
+  <link rel="stylesheet" href="css/styles.css?v=202609290218">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 </head>
 <body class="advisor-page">
@@ -75,13 +75,30 @@
         <label>E-mail<input id="advisorSignupEmail" type="email" required></label>
         <label>Senha<input id="advisorSignupPassword" type="password" required minlength="6"></label>
 
+        <div class="advisor-terms-consent">
+          <div class="advisor-terms-consent-head">
+            <span class="advisor-terms-shield" aria-hidden="true">🛡️</span>
+            <div>
+              <strong>Termos de Uso obrigatórios</strong>
+              <small>Leia as regras da plataforma antes de criar sua conta.</small>
+            </div>
+          </div>
+          <p>Ao criar uma conta você assume responsabilidade pelos anúncios publicados, declara que anuncia apenas imóveis reais e autorizados e reconhece que o Catálogo Imóveis não intermedia pagamentos de locação.</p>
+          <a class="advisor-terms-link" href="termos.html" target="_blank" rel="noopener">Ler os Termos de Uso completos →</a>
+          <label class="advisor-terms-check">
+            <input id="advisorTermsAccepted" type="checkbox" required>
+            <span>Li e concordo integralmente com os <a href="termos.html" target="_blank" rel="noopener">Termos de Uso</a> da plataforma.</span>
+          </label>
+          <small class="advisor-terms-version">Versão 2026-09-29-v1</small>
+        </div>
+
         <div class="advisor-signup-gold-offer" aria-label="Oferta de créditos para anúncios">
           <span class="advisor-signup-gold-kicker">✨ OFERTA PARA ASSESSORES</span>
           <strong>ANÚNCIOS A PARTIR DE <b>R$ 5,00</b><sup>*</sup></strong>
           <small>*condição disponível na compra do pacote Premium.</small>
         </div>
 
-        <button class="btn primary" type="submit">Criar conta</button>
+        <button id="advisorSignupSubmit" class="btn primary" type="submit" disabled>Criar conta</button>
       </form>
       <div id="advisorAuthMessage" class="form-message"></div>
     </div>
@@ -259,7 +276,7 @@
 
 <div id="advisorModal" class="modal-layer hidden"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>\n<script type="module" src="js/assessor.js?v=202609290735"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>\n<script type="module" src="js/assessor.js?v=202609290218"></script>
 <script type="module" src="js/assessor-location-repair.js?v=202609282020"></script>
 
 <script>
