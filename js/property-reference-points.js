@@ -62,8 +62,15 @@ function inject(){
   if(!root || !root.querySelector(".detail-section")) return false;
 
   const universities=findSection("Faculdades próximas");
-  const config=findSection("Configuração e acesso");
-  const anchor=universities||config;
+  const propertyInfoAnchor=[
+    "Incluso no aluguel",
+    "O imóvel possui",
+    "Recursos de segurança",
+    "Cômodos do imóvel",
+    "Configuração e acesso",
+    "Sobre o imóvel"
+  ].map(findSection).find(Boolean);
+  const anchor=universities||propertyInfoAnchor;
   if(!anchor) return false;
 
   anchor.insertAdjacentElement("afterend",renderSection(rowsCache));
