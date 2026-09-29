@@ -1679,6 +1679,8 @@ function renderAll(){
   renderOverview();
   renderOwners();
   renderFinance();
+  renderCollaborations();
+  renderNotifications();
   renderReceipts();
   renderRentals();
 }
@@ -1688,6 +1690,8 @@ function switchView(view){
   $("#managementOverview").classList.toggle("hidden",view!=="overview");
   $("#managementOwners").classList.toggle("hidden",view!=="owners");
   $("#managementFinance").classList.toggle("hidden",view!=="finance");
+  $("#managementCollaborations").classList.toggle("hidden",view!=="collaborations");
+  $("#managementNotifications").classList.toggle("hidden",view!=="notifications");
   $("#managementReceipts").classList.toggle("hidden",view!=="receipts");
   $("#managementRentals").classList.toggle("hidden",view!=="rentals");
   window.scrollTo({top:0,behavior:"smooth"});
@@ -1729,6 +1733,11 @@ async function boot(){
     bootEl.classList.add("hidden");
     authEl.classList.add("hidden");
     panelEl.classList.remove("hidden");
+
+    const requestedView=new URLSearchParams(location.search).get("view");
+    if(["overview","owners","finance","collaborations","notifications","receipts","rentals"].includes(requestedView)){
+      switchView(requestedView);
+    }
   }catch(err){
     console.error("Falha ao abrir gestão:",err);
     bootEl.innerHTML=`
@@ -1784,6 +1793,30 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  if(e.target.closest("[data-new-tenant-advisory]")){
+    tenantAdvisoryModal();
+    return;
+  }
+
+  const editTenantAdvisory=e.target.closest("[data-edit-tenant-advisory]");
+  if(editTenantAdvisory){
+    const rental=rentals.find(item=>item.id===editTenantAdvisory.dataset.editTenantAdvisory);
+    if(rental) tenantAdvisoryModal(rental);
+    return;
+  }
+
+  const markTenantAdvisoryPaid=e.target.closest("[data-mark-tenant-advisory-paid]");
+  if(markTenantAdvisoryPaid){
+    await setTenantAdvisoryPaid(markTenantAdvisoryPaid.dataset.markTenantAdvisoryPaid,true);
+    return;
+  }
+
+  const markTenantAdvisoryPending=e.target.closest("[data-mark-tenant-advisory-pending]");
+  if(markTenantAdvisoryPending && confirm("Marcar esta assessoria novamente como a receber?")){
+    await setTenantAdvisoryPaid(markTenantAdvisoryPending.dataset.markTenantAdvisoryPending,false);
+    return;
+  }
+
   if(e.target.closest("[data-new-owner-commission]")){
     commissionModal();
     return;
@@ -1819,6 +1852,35 @@ document.addEventListener("click",async e=>{
       await refreshAndRender();
       switchView("finance");
     }
+    return;
+  }
+
+  const collabPaid=e.target.closest("[data-collab-mark-paid]");
+  if(collabPaid){
+    await setCollaborationParticipantPaid(collabPaid.dataset.collabMarkPaid,true);
+    return;
+  }
+
+  const collabPending=e.target.closest("[data-collab-mark-pending]");
+  if(collabPending && confirm("Marcar novamente como pagamento pendente?")){
+    await setCollaborationParticipantPaid(collabPending.dataset.collabMarkPending,false);
+    return;
+  }
+
+  const collabConfirm=e.target.closest("[data-collab-confirm-received]");
+  if(collabConfirm){
+    await confirmCollaborationReceipt(collabConfirm.dataset.collabConfirmReceived);
+    return;
+  }
+
+  const notificationRead=e.target.closest("[data-notification-read]");
+  if(notificationRead){
+    await markNotificationRead(notificationRead.dataset.notificationRead);
+    return;
+  }
+
+  if(e.target.closest("#markAllNotificationsRead")){
+    await markAllNotificationsRead();
     return;
   }
 
@@ -1859,6 +1921,7 @@ $("#managementModal").addEventListener("submit",async e=>{
   e.preventDefault();
   if(e.target.id==="managementOwnerPropertiesForm") await saveOwnerProperties(e.target);
   if(e.target.id==="managementCommissionForm") await saveCommission(e.target);
+  if(e.target.id==="managementTenantAdvisoryForm") await saveTenantAdvisory(e.target);
   if(e.target.id==="managementReceiptForm") await saveReceipt(e.target);
 });
 
