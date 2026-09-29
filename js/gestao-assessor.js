@@ -1452,6 +1452,228 @@ function renderRentals(){
   `;
 }
 
+
+function collaborationStatusInfo(row){
+  if(row.deal_status==="rented") return {label:"ALUGADO",className:"paid"};
+  if(row.deal_status==="closed" || row.deal_status==="cancelled") return {label:"ENCERRADO",className:"expense"};
+  if(row.listing_expires_at && new Date(row.listing_expires_at).getTime()<=Date.now()) return {label:"EXPIRADO",className:"expense"};
+  if(row.is_published===false) return {label:"FORA DO AR",className:"pending"};
+  return {label:"ATIVO",className:"paid"};
+}
+
+function advisorDirectoryName(userId){
+  const row=advisorDirectory.find(item=>item.user_id===userId);
+  return row?.company_name||row?.full_name||"Assessor";
+}
+
+function renderCollaborations(){
+  const root=$("#managementCollaborationsContent");
+  if(!root) return;
+
+  const owned=collaborations.filter(row=>row.owner_advisor_id===currentUser.id);
+  const participating=collaborations.filter(row=>
+    row.owner_advisor_id!==currentUser.id &&
+    (row.advisor_collaboration_participants||[]).some(p=>p.participant_advisor_id===currentUser.id)
+  );
+
+  const ownedHtml=owned.length?owned.map(row=>{
+    const status=collaborationStatusInfo(row);
+    const parts=row.advisor_collaboration_participants||[];
+    return `
+      <article class="collaboration-management-card">
+        <div class="collaboration-management-head">
+          <div>
+            <span class="collaboration-role-label">VOCÊ É O ASSESSOR PRINCIPAL</span>
+            <h3>${escapeHTML(row.property_code||"—")} • ${escapeHTML(row.property_title||"Imóvel")}</h3>
+          </div>
+          <span class="pill ${status.className}">${status.label}</span>
+        </div>
+
+        <div class="collaboration-money-summary">
+          <div><span>Total acordado</span><strong>${money(row.total_amount,row.currency)}</strong></div>
+          <div><span>Sua parte</span><strong>${money(row.owner_share_amount,row.currency)}</strong></div>
+          <div><span>Coassessores</span><strong>${parts.length}</strong></div>
+        </div>
+
+        <div class="collaboration-participant-list">
+          ${parts.length?parts.map(part=>`
+            <div class="collaboration-participant-item">
+              <div>
+                <strong>${escapeHTML(part.participant_name)}</strong>
+                <small>Parte pré-acordada: ${money(part.agreed_amount,row.currency)}</small>
+              </div>
+              <div class="collaboration-payment-state">
+                <span class="pill ${part.payout_status==="paid"?"paid":"pending"}">${part.payout_status==="paid"?"PAGA":"A PAGAR"}</span>
+                ${part.confirmed_received_at
+                  ? '<small class="collaboration-confirmed">✓ recebimento confirmado</small>'
+                  : part.payout_status==="paid"
+                    ? '<small>aguardando confirmação</small>'
+                    : ""
+                }
+              </div>
+              <div class="table-actions">
+                ${part.payout_status==="paid"
+                  ? `<button class="btn ghost compact" type="button" data-collab-mark-pending="${part.id}">Desfazer pagamento</button>`
+                  : `<button class="btn primary compact" type="button" data-collab-mark-paid="${part.id}">Marcar como paga</button>`
+                }
+              </div>
+            </div>
+          `).join(""):'<div class="advisor-empty-compact">Nenhum coassessor vinculado.</div>'}
+        </div>
+      </article>
+    `;
+  }).join(""):'<div class="advisor-empty-compact">Você ainda não coordena nenhuma coassessoria.</div>';
+
+  const participatingHtml=participating.length?participating.map(row=>{
+    const status=collaborationStatusInfo(row);
+    const myPart=(row.advisor_collaboration_participants||[]).find(p=>p.participant_advisor_id===currentUser.id);
+    if(!myPart) return "";
+    return `
+      <article class="collaboration-management-card participant-view">
+        <div class="collaboration-management-head">
+          <div>
+            <span class="collaboration-role-label">VOCÊ PARTICIPA DESTA ASSESSORIA</span>
+            <h3>${escapeHTML(row.property_code||"—")} • ${escapeHTML(row.property_title||"Imóvel")}</h3>
+            <small>Assessor principal: ${escapeHTML(advisorDirectoryName(row.owner_advisor_id))}</small>
+          </div>
+          <span class="pill ${status.className}">${status.label}</span>
+        </div>
+
+        <div class="collaboration-money-summary">
+          <div><span>Sua parte pré-acordada</span><strong>${money(myPart.agreed_amount,row.currency)}</strong></div>
+          <div><span>Pagamento</span><strong>${myPart.payout_status==="paid"?"Marcado como pago":"A receber"}</strong></div>
+          <div><span>Confirmação</span><strong>${myPart.confirmed_received_at?"Confirmado":"Pendente"}</strong></div>
+        </div>
+
+        ${myPart.payout_status==="paid" && !myPart.confirmed_received_at?`
+          <button class="btn primary" type="button" data-collab-confirm-received="${myPart.id}">✓ Confirmar que recebi minha parte</button>
+        `:""}
+      </article>
+    `;
+  }).join(""):'<div class="advisor-empty-compact">Você ainda não participa como coassessor de outro anúncio.</div>';
+
+  root.innerHTML=`
+    <div class="collaboration-management-columns">
+      <section>
+        <div class="management-subheading"><p class="eyebrow">MINHAS PARCERIAS</p><h3>Negócios que você coordena</h3></div>
+        <div class="collaboration-management-list">${ownedHtml}</div>
+      </section>
+      <section>
+        <div class="management-subheading"><p class="eyebrow">COMO COASSESSOR</p><h3>Negócios em que você participa</h3></div>
+        <div class="collaboration-management-list">${participatingHtml}</div>
+      </section>
+    </div>
+  `;
+}
+
+function renderNotifications(){
+  const root=$("#managementNotificationsList");
+  const badge=$("#managementNotificationBadge");
+  if(!root) return;
+
+  const unread=notifications.filter(item=>!item.read_at).length;
+  if(badge){
+    badge.textContent=String(unread);
+    badge.classList.toggle("hidden",unread===0);
+  }
+
+  if(!notifications.length){
+    root.innerHTML='<div class="empty-state"><strong>Nenhuma notificação.</strong><span>Atualizações de coassessorias aparecerão aqui.</span></div>';
+    return;
+  }
+
+  root.innerHTML=`
+    <div class="management-notification-list">
+      ${notifications.map(item=>`
+        <article class="management-notification-item ${item.read_at?"":"unread"}">
+          <div class="notification-dot"></div>
+          <div class="management-notification-copy">
+            <div class="management-notification-top">
+              <strong>${escapeHTML(item.title||"Atualização")}</strong>
+              <small>${dateBR(item.created_at)}</small>
+            </div>
+            <p>${escapeHTML(item.message||"")}</p>
+            ${item.property_code||item.property_title?`<span>${escapeHTML([item.property_code,item.property_title].filter(Boolean).join(" • "))}</span>`:""}
+          </div>
+          ${item.read_at?"":`<button class="btn ghost compact" type="button" data-notification-read="${item.id}">Marcar como lida</button>`}
+        </article>
+      `).join("")}
+    </div>
+  `;
+}
+
+async function setCollaborationParticipantPaid(id,paid){
+  const {error}=await db.from("advisor_collaboration_participants")
+    .update({
+      payout_status:paid?"paid":"pending",
+      paid_at:paid?nowDateInput():null,
+      updated_at:new Date().toISOString()
+    })
+    .eq("id",id);
+
+  if(error){
+    alert(error.message);
+    return;
+  }
+
+  await refreshAndRender();
+  switchView("collaborations");
+}
+
+async function confirmCollaborationReceipt(id){
+  const {error}=await db.from("advisor_collaboration_participants")
+    .update({
+      confirmed_received_at:new Date().toISOString(),
+      updated_at:new Date().toISOString()
+    })
+    .eq("id",id)
+    .eq("participant_advisor_id",currentUser.id);
+
+  if(error){
+    alert(error.message);
+    return;
+  }
+
+  await refreshAndRender();
+  switchView("collaborations");
+}
+
+async function markNotificationRead(id){
+  const {error}=await db.from("advisor_notifications")
+    .update({read_at:new Date().toISOString()})
+    .eq("id",id)
+    .eq("advisor_id",currentUser.id);
+
+  if(error){
+    alert(error.message);
+    return;
+  }
+
+  const item=notifications.find(row=>row.id===id);
+  if(item) item.read_at=new Date().toISOString();
+  renderNotifications();
+}
+
+async function markAllNotificationsRead(){
+  const unreadIds=notifications.filter(item=>!item.read_at).map(item=>item.id);
+  if(!unreadIds.length) return;
+
+  const now=new Date().toISOString();
+  const {error}=await db.from("advisor_notifications")
+    .update({read_at:now})
+    .in("id",unreadIds)
+    .eq("advisor_id",currentUser.id);
+
+  if(error){
+    alert(error.message);
+    return;
+  }
+
+  notifications.forEach(item=>{ if(!item.read_at) item.read_at=now; });
+  renderNotifications();
+}
+
+
 function renderAll(){
   $("#managementWelcome").textContent=profile?.company_name||profile?.full_name||"Minha gestão";
   renderOverview();
