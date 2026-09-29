@@ -20,6 +20,7 @@ let paymentWatcher=null;
 let paymentRequestInFlight=false;
 let pendingPropertyFiles=[];
 let pendingPropertyCoverExplicit=false;
+const ADVISOR_TERMS_VERSION="2026-09-29-v1";
 
 function withTimeout(promise,ms=8000,label="requisição"){
   let timer;
@@ -4872,30 +4873,75 @@ $("#advisorLoginForm").addEventListener("submit",async e=>{
   }
 });
 
+const advisorTermsCheckbox=$("#advisorTermsAccepted");
+const advisorSignupSubmit=$("#advisorSignupSubmit");
+
+function syncAdvisorTermsConsent(){
+  if(advisorSignupSubmit){
+    advisorSignupSubmit.disabled=!Boolean(advisorTermsCheckbox?.checked);
+  }
+}
+
+advisorTermsCheckbox?.addEventListener("change",syncAdvisorTermsConsent);
+syncAdvisorTermsConsent();
+
 $("#advisorSignupForm").addEventListener("submit",async e=>{
   e.preventDefault();
-  const msg=$("#advisorAuthMessage");msg.textContent="Criando conta...";
+  const msg=$("#advisorAuthMessage");
+
+  if(!advisorTermsCheckbox?.checked){
+    msg.textContent="Para criar sua conta, leia e aceite os Termos de Uso.";
+    advisorTermsCheckbox?.focus();
+    return;
+  }
+
+  const submitBtn=$("#advisorSignupSubmit");
+  const originalText=submitBtn?.textContent||"Criar conta";
+  if(submitBtn){
+    submitBtn.disabled=true;
+    submitBtn.textContent="Criando conta...";
+  }
+  msg.textContent="Criando conta...";
+
   const meta={
     full_name:$("#advisorSignupName").value.trim(),
     company_name:$("#advisorSignupCompany").value.trim(),
     whatsapp:$("#advisorSignupWhatsapp").value.replace(/\D/g,""),
-    city:$("#advisorSignupCity").value.trim()
+    city:$("#advisorSignupCity").value.trim(),
+    terms_accepted:true,
+    terms_version:ADVISOR_TERMS_VERSION
   };
-  const {data,error}=await db.auth.signUp({
-    email:$("#advisorSignupEmail").value.trim(),
-    password:$("#advisorSignupPassword").value,
-    options:{data:meta}
-  });
-  if(error){msg.textContent=error.message;return;}
-  if(data.session && data.user){
-    msg.textContent="";
-    await enterAdvisorPanel(data.user);
-  }else{
-    msg.textContent="A conta foi criada, mas a sessão não foi iniciada. Tente entrar com o mesmo e-mail e senha.";
-    document.querySelectorAll(".auth-tab").forEach(b=>b.classList.toggle("active",b.dataset.authTab==="login"));
-    $("#advisorLoginForm").classList.remove("hidden");
-    $("#advisorSignupForm").classList.add("hidden");
-    $("#advisorLoginEmail").value=$("#advisorSignupEmail").value.trim();
+
+  try{
+    const {data,error}=await db.auth.signUp({
+      email:$("#advisorSignupEmail").value.trim(),
+      password:$("#advisorSignupPassword").value,
+      options:{data:meta}
+    });
+
+    if(error){
+      msg.textContent=error.message;
+      return;
+    }
+
+    if(data.session && data.user){
+      msg.textContent="";
+      await enterAdvisorPanel(data.user);
+    }else{
+      msg.textContent="A conta foi criada, mas a sessão não foi iniciada. Tente entrar com o mesmo e-mail e senha.";
+      document.querySelectorAll(".auth-tab").forEach(b=>b.classList.toggle("active",b.dataset.authTab==="login"));
+      $("#advisorLoginForm").classList.remove("hidden");
+      $("#advisorSignupForm").classList.add("hidden");
+      $("#advisorLoginEmail").value=$("#advisorSignupEmail").value.trim();
+    }
+  }catch(err){
+    console.error("Erro ao criar conta de assessor:",err);
+    msg.textContent=err?.message||"Não foi possível criar a conta.";
+  }finally{
+    if(submitBtn && document.body.contains(submitBtn)){
+      submitBtn.textContent=originalText;
+      syncAdvisorTermsConsent();
+    }
   }
 });
 
