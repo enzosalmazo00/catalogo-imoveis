@@ -1,5 +1,5 @@
 import { advisorDb as db, STORAGE_BUCKET } from "./config.js?v=202609282145";
-import { $, escapeHTML, money, propertyTypeLabel, statusLabel } from "./common.js?v=202609281430";
+import { $, escapeHTML, money, propertyTypeLabel, statusLabel, sanitizeImageForUpload } from "./common.js?v=202609290400";
 
 let currentUser=null;
 let profile=null;
@@ -2760,11 +2760,11 @@ function advisorProfileModal(){
       </label>
 
       <label>Nova senha
-        <input name="new_password" type="password" autocomplete="new-password" minlength="6">
+        <input name="new_password" type="password" autocomplete="new-password" minlength="8">
       </label>
 
       <label>Confirmar nova senha
-        <input name="confirm_password" type="password" autocomplete="new-password" minlength="6">
+        <input name="confirm_password" type="password" autocomplete="new-password" minlength="8">
       </label>
 
       <div></div>
@@ -2835,8 +2835,8 @@ async function saveAdvisorProfile(form){
       msg.textContent="Para alterar a senha, preencha senha atual, nova senha e confirmação.";
       return;
     }
-    if(newPassword.length<6){
-      msg.textContent="A nova senha deve ter pelo menos 6 caracteres.";
+    if(newPassword.length<8){
+      msg.textContent="A nova senha deve ter pelo menos 8 caracteres.";
       return;
     }
     if(newPassword!==confirmPassword){
@@ -2857,11 +2857,24 @@ async function saveAdvisorProfile(form){
       return;
     }
 
-    const ext=(avatarFile.name.split(".").pop()||"jpg").toLowerCase().replace(/[^a-z0-9]/g,"") || "jpg";
-    uploadedAvatarPath=`${currentUser.id}/avatar-${crypto.randomUUID()}.${ext}`;
+    let preparedAvatar;
+    try{
+      msg.textContent="Preparando foto com segurança...";
+      preparedAvatar=await sanitizeImageForUpload(avatarFile,{
+        maxBytes:5*1024*1024,
+        maxDimension:1200,
+        quality:0.86
+      });
+    }catch(err){
+      msg.textContent=err?.message||"Não foi possível preparar a foto.";
+      return;
+    }
+
+    uploadedAvatarPath=`${currentUser.id}/avatar-${crypto.randomUUID()}.webp`;
 
     msg.textContent="Enviando foto...";
-    const upload=await db.storage.from("advisor-avatars").upload(uploadedAvatarPath,avatarFile,{
+    const upload=await db.storage.from("advisor-avatars").upload(uploadedAvatarPath,preparedAvatar.blob,{
+      contentType:preparedAvatar.contentType,
       cacheControl:"3600",
       upsert:false
     });
@@ -3869,10 +3882,10 @@ function propertyModal(property=null){
           <span class="property-options-help">Adicione uma foto por vez. Cada nova foto entra automaticamente na sequência Foto 1, Foto 2, Foto 3...</span>
 
           <div class="upload single-property-upload">
-            <input id="advisorSinglePhotoInput" type="file" accept="image/jpeg,image/png,image/webp">
+            <input id="advisorSinglePhotoInput" type="file" accept="image/jpeg,image/png,image/webp,image/avif">
             <div class="single-property-upload-copy">
               <strong>📷 Escolher foto da galeria</strong>
-              <small>JPG, PNG ou WEBP · uma foto por vez</small>
+              <small>JPG, PNG, WEBP ou AVIF · máximo 10 MB · uma foto por vez</small>
             </div>
           </div>
 
@@ -3908,8 +3921,13 @@ function propertyModal(property=null){
     const file=imageInput.files?.[0]||null;
     if(!file) return;
 
-    if(!["image/jpeg","image/png","image/webp"].includes(file.type)){
-      alert("Use uma imagem JPG, PNG ou WEBP.");
+    if(!["image/jpeg","image/png","image/webp","image/avif"].includes(file.type)){
+      alert("Use uma imagem JPG, PNG, WEBP ou AVIF.");
+      imageInput.value="";
+      return;
+    }
+    if(file.size>10*1024*1024){
+      alert("A foto deve ter no máximo 10 MB.");
       imageInput.value="";
       return;
     }
@@ -4133,12 +4151,17 @@ async function saveProperty(form){
     msg.textContent="2/4 • Enviando fotos...";
     for(let index=0;index<pendingPropertyFiles.length;index++){
       const file=pendingPropertyFiles[index];
-      const safe=file.name.replace(/[^A-Za-z0-9._-]/g,"_");
-      const path=`${currentUser.id}/${propertyId}/${crypto.randomUUID()}-${safe}`;
+      msg.textContent=`2/4 • Preparando foto ${index+1} de ${pendingPropertyFiles.length}...`;
+      const prepared=await sanitizeImageForUpload(file,{
+        maxBytes:10*1024*1024,
+        maxDimension:2400,
+        quality:0.84
+      });
+      const path=`${currentUser.id}/${propertyId}/${crypto.randomUUID()}.webp`;
 
-      const up=await db.storage.from(STORAGE_BUCKET).upload(path,file,{
-        contentType:file.type||undefined,
-        cacheControl:"3600",
+      const up=await db.storage.from(STORAGE_BUCKET).upload(path,prepared.blob,{
+        contentType:prepared.contentType,
+        cacheControl:"31536000",
         upsert:false
       });
       if(up.error) throw new Error("Falha ao enviar a foto "+(index+1)+": "+up.error.message);
