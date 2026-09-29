@@ -10,6 +10,9 @@ let properties=[];
 let features=[];
 let referencePoints=[];
 let rentalControls=[];
+let advisorOwners=[];
+let serviceReceipts=[];
+let financialEntries=[];
 let paymentWatcher=null;
 let paymentRequestInFlight=false;
 let pendingPropertyFiles=[];
@@ -196,6 +199,38 @@ async function loadData(){
   features=featuresRes.status==="fulfilled"?(featuresRes.value.data||[]):[];
   referencePoints=referenceRes.status==="fulfilled"?(referenceRes.value.data||[]):[];
   rentalControls=rentalRes.status==="fulfilled"?(rentalRes.value.data||[]):[];
+
+  const managementResults=await Promise.allSettled([
+    withTimeout(
+      db.from("advisor_owners")
+        .select("*")
+        .eq("advisor_id",currentUser.id)
+        .order("full_name"),
+      8000,
+      "Carregamento dos proprietários"
+    ),
+    withTimeout(
+      db.from("advisor_service_receipts")
+        .select("*")
+        .eq("advisor_id",currentUser.id)
+        .order("issued_at",{ascending:false}),
+      8000,
+      "Carregamento dos recibos de assessoria"
+    ),
+    withTimeout(
+      db.from("advisor_financial_entries")
+        .select("*")
+        .eq("advisor_id",currentUser.id)
+        .order("entry_date",{ascending:false})
+        .order("created_at",{ascending:false}),
+      8000,
+      "Carregamento financeiro"
+    )
+  ]);
+
+  advisorOwners=managementResults[0].status==="fulfilled"?(managementResults[0].value.data||[]):[];
+  serviceReceipts=managementResults[1].status==="fulfilled"?(managementResults[1].value.data||[]):[];
+  financialEntries=managementResults[2].status==="fulfilled"?(managementResults[2].value.data||[]):[];
 
   try{
     const changed=await reconcilePendingCreditPayments();
