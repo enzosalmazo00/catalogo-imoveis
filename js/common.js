@@ -1,7 +1,7 @@
 import { db, publicImageUrl } from "./config.js";
 
 export const $ = (selector, root = document) => root.querySelector(selector);
-export const $ = (selector, root = document) => [...root.querySelectorAll(selector)];
+export const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 
 
 export async function sanitizeImageForUpload(file,{
