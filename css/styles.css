@@ -1214,3 +1214,85 @@ button,input,select,textarea{font-size:16px}
   .advisor-catalog-notice .btn,
   .advisor-catalog-detail-strip .btn{width:100%}
 }
+
+
+/* Central de gestão do assessor */
+
+.advisor-management-hero{
+  margin-bottom:20px;
+  padding:22px;
+  border:1px solid #cfdbe6;
+  border-radius:20px;
+  background:linear-gradient(135deg,#f7fbff 0%,#fff 52%,#f5fbf8 100%);
+  box-shadow:0 12px 30px rgba(19,35,59,.06)
+}
+.advisor-management-title h2{margin:3px 0 7px;color:var(--navy);font-size:26px}
+.advisor-management-title p:last-child{margin:0;color:var(--muted);font-size:13px;line-height:1.55}
+.advisor-kpi-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-top:20px}
+.advisor-kpi-grid article{min-width:0;padding:15px;border:1px solid var(--border);border-radius:15px;background:#fff;display:flex;flex-direction:column;gap:4px}
+.advisor-kpi-grid article.attention{background:#fff9ed;border-color:#e5c46f}
+.advisor-kpi-grid article.result{background:#edf8f3;border-color:#b8ddcd}
+.advisor-kpi-grid span{font-size:11px;color:var(--muted);font-weight:800;text-transform:uppercase;letter-spacing:.04em}
+.advisor-kpi-grid strong{font-size:25px;color:var(--navy);overflow-wrap:anywhere}
+.advisor-kpi-grid article.money strong{font-size:17px;line-height:1.3}
+.advisor-kpi-grid small{font-size:10px;color:var(--muted);line-height:1.35}
+.advisor-dashboard-columns,.advisor-finance-columns{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-top:16px}
+.advisor-dashboard-box{min-width:0;border:1px solid var(--border);border-radius:16px;background:#fff;padding:16px}
+.advisor-dashboard-box-head{display:flex;justify-content:space-between;gap:12px;align-items:center;margin-bottom:12px}
+.advisor-dashboard-box-head h3{margin:2px 0 0;color:var(--navy);font-size:17px}
+.advisor-dashboard-box-head .eyebrow{margin:0}
+.advisor-deadline-list,.advisor-performance-list{display:grid;gap:8px}
+.advisor-deadline-list>div,.advisor-performance-list>div{display:flex;align-items:center;gap:10px;padding:10px 11px;border:1px solid #edf0f3;border-radius:12px;background:#fafcfd}
+.advisor-deadline-list>div>span,.advisor-performance-list .info{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.advisor-deadline-list strong,.advisor-performance-list strong{font-size:12px;color:var(--navy);overflow-wrap:anywhere}
+.advisor-deadline-list small,.advisor-performance-list small{font-size:10px;color:var(--muted)}
+.advisor-deadline-list b{white-space:nowrap;padding:5px 8px;border-radius:999px;background:#fff1cf;color:#765600;font-size:10px}
+.advisor-performance-list .rank{flex:0 0 26px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:#fff;font-size:10px;font-weight:900}
+.advisor-performance-list b{white-space:nowrap;color:var(--green-dark);font-size:11px}
+.advisor-empty-compact{padding:18px;border:1px dashed var(--border);border-radius:12px;color:var(--muted);font-size:12px;text-align:center}
+
+.advisor-owner-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.advisor-owner-card{min-width:0;padding:17px;border:1px solid var(--border);border-radius:16px;background:#fff}
+.advisor-owner-card-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}
+.advisor-owner-card-head h3{margin:2px 0 4px;color:var(--navy)}
+.advisor-owner-card-head>div:first-child>span{color:var(--muted);font-size:12px}
+.advisor-owner-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:14px}
+.advisor-owner-stats>div{padding:10px;border-radius:11px;background:#f7f9fb;border:1px solid #edf0f3}
+.advisor-owner-stats span{display:block;font-size:9px;color:var(--muted);text-transform:uppercase;font-weight:800}
+.advisor-owner-stats strong{display:block;margin-top:3px;font-size:18px;color:var(--navy)}
+.advisor-owner-contact{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px}
+.advisor-owner-contact>span{font-size:11px;color:var(--muted)}
+.advisor-owner-notes{margin:12px 0 0;padding-top:10px;border-top:1px solid #edf0f3;font-size:11px;color:var(--muted);line-height:1.5}
+.property-owner-link-box{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:end;padding:13px;border:1px solid #cfe2dc;border-radius:13px;background:#f7fbfa}
+.property-owner-link-box .btn{margin-bottom:1px}
+
+.advisor-finance-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:16px}
+.advisor-finance-summary article{padding:15px;border:1px solid var(--border);border-radius:14px;background:#fafcfc;min-width:0}
+.advisor-finance-summary article.result{background:#edf8f3;border-color:#b8ddcd}
+.advisor-finance-summary span{display:block;font-size:10px;text-transform:uppercase;color:var(--muted);font-weight:900;letter-spacing:.04em}
+.advisor-finance-summary strong{display:block;margin-top:5px;color:var(--navy);font-size:18px;overflow-wrap:anywhere}
+.advisor-finance-summary small{display:block;margin-top:4px;color:var(--muted);font-size:10px;line-height:1.35}
+.advisor-finance-property-table,.advisor-finance-ledger,.advisor-service-receipt-table{min-width:900px}
+.pill.expense{background:#fde7e9;color:#9a1a27}
+.receipt-total-preview{padding:14px;border-radius:12px;background:#edf8f3;border:1px solid #b8ddcd;color:var(--green-dark);font-weight:800}
+.receipt-total-preview strong{font-size:18px;margin-left:6px}
+
+.advisor-panel-tabs{overflow-x:auto;scrollbar-width:thin}
+.advisor-panel-tab{white-space:nowrap}
+
+@media(max-width:980px){
+  .advisor-kpi-grid,.advisor-finance-summary{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .advisor-dashboard-columns,.advisor-finance-columns{grid-template-columns:1fr}
+  .advisor-owner-grid{grid-template-columns:1fr}
+}
+@media(max-width:650px){
+  .advisor-management-hero{padding:15px}
+  .advisor-kpi-grid,.advisor-finance-summary{grid-template-columns:1fr 1fr}
+  .advisor-owner-stats{grid-template-columns:1fr 1fr}
+  .advisor-owner-card-head{flex-direction:column}
+  .property-owner-link-box{grid-template-columns:1fr}
+  .property-owner-link-box .btn{width:100%}
+}
+@media(max-width:430px){
+  .advisor-kpi-grid,.advisor-finance-summary{grid-template-columns:1fr}
+}
