@@ -2456,3 +2456,203 @@ button,input,select,textarea{font-size:16px}
   .safety-responsibility-grid article{padding:14px}
   .safety-card-enhanced .safety-note{padding:13px 14px}
 }
+
+
+/* ===== ACEITE DE TERMOS PARA CONTAS ANTIGAS ===== */
+.advisor-legacy-terms-notice{
+  display:grid;
+  grid-template-columns:auto minmax(0,1fr) auto;
+  gap:16px;
+  align-items:center;
+  margin:0 0 20px;
+  padding:18px 20px;
+  border:1px solid #e7cf8b;
+  border-radius:18px;
+  background:linear-gradient(135deg,#fffaf0 0%,#fff3cf 100%);
+  box-shadow:0 10px 26px rgba(126,94,20,.08);
+}
+.advisor-legacy-terms-icon{
+  width:48px;
+  height:48px;
+  display:grid;
+  place-items:center;
+  border-radius:14px;
+  background:#fff;
+  border:1px solid #ead9aa;
+  font-size:24px;
+}
+.advisor-legacy-terms-copy{
+  min-width:0;
+}
+.advisor-legacy-terms-kicker{
+  display:block;
+  margin-bottom:3px;
+  color:#8a6518;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.1em;
+}
+.advisor-legacy-terms-copy>strong{
+  display:block;
+  color:var(--navy);
+  font-size:16px;
+}
+.advisor-legacy-terms-copy p{
+  margin:5px 0 0;
+  color:#5d6470;
+  font-size:11px;
+  line-height:1.5;
+}
+.legacy-terms-acceptance-modal{
+  max-width:760px;
+}
+.legacy-terms-acceptance-head{
+  display:flex;
+  align-items:flex-start;
+  gap:14px;
+}
+.legacy-terms-document-icon{
+  width:52px;
+  height:52px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border-radius:15px;
+  background:#eef4f8;
+  font-size:27px;
+}
+.legacy-terms-acceptance-head h2{
+  margin:2px 0 8px;
+  color:var(--navy);
+}
+.legacy-terms-acceptance-head p:last-child{
+  margin:0;
+  color:var(--muted);
+  font-size:12px;
+  line-height:1.55;
+}
+.legacy-terms-summary{
+  margin:18px 0 14px;
+  padding:16px 18px;
+  border:1px solid #e3e8ed;
+  border-radius:14px;
+  background:#f8fafc;
+}
+.legacy-terms-summary>strong{
+  display:block;
+  margin-bottom:8px;
+  color:var(--navy);
+  font-size:13px;
+}
+.legacy-terms-summary ul{
+  margin:0;
+  padding-left:20px;
+  color:#526071;
+  font-size:12px;
+  line-height:1.6;
+}
+.legacy-terms-full-link{
+  display:inline-flex;
+  margin-bottom:14px;
+  color:var(--navy);
+  font-size:12px;
+  font-weight:900;
+  text-underline-offset:3px;
+}
+.legacy-terms-signature{
+  display:grid;
+  gap:3px;
+  margin:0 0 14px;
+  padding:14px 16px;
+  border:1px solid #cfe0d7;
+  border-radius:13px;
+  background:#f2faf6;
+}
+.legacy-terms-signature>span{
+  color:var(--green-dark);
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.1em;
+}
+.legacy-terms-signature>strong{
+  color:var(--navy);
+  font-size:15px;
+}
+.legacy-terms-signature>small{
+  color:#617167;
+  font-size:10px;
+  line-height:1.45;
+}
+.legacy-terms-confirm-check{
+  display:grid!important;
+  grid-template-columns:22px minmax(0,1fr);
+  gap:10px!important;
+  align-items:start;
+  padding:13px 14px;
+  border:1px solid #ccd7df;
+  border-radius:13px;
+  background:#fff;
+  color:#263446!important;
+  font-size:12px!important;
+  line-height:1.5;
+}
+.legacy-terms-confirm-check input{
+  width:20px!important;
+  height:20px!important;
+  min-height:20px!important;
+  margin:1px 0 0;
+  accent-color:var(--green);
+}
+.legacy-terms-no-signature-note{
+  margin:10px 0 0;
+  color:#7a8794;
+  font-size:9px;
+  line-height:1.45;
+  text-align:center;
+}
+.terms-accepted-success{
+  border-color:#b9decf!important;
+  background:#eef9f4!important;
+}
+.management-notification-actions{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+@media(max-width:760px){
+  .advisor-legacy-terms-notice{
+    grid-template-columns:auto minmax(0,1fr);
+  }
+  .advisor-legacy-terms-notice>.btn{
+    grid-column:1/-1;
+    width:100%;
+  }
+}
+@media(max-width:560px){
+  .advisor-legacy-terms-notice{
+    padding:15px;
+    border-radius:15px;
+  }
+  .advisor-legacy-terms-icon{
+    width:42px;
+    height:42px;
+    font-size:21px;
+  }
+  .legacy-terms-acceptance-head{
+    gap:10px;
+  }
+  .legacy-terms-document-icon{
+    width:44px;
+    height:44px;
+    font-size:23px;
+  }
+  .legacy-terms-summary{
+    padding:14px;
+  }
+  .management-notification-actions{
+    grid-column:2;
+    justify-content:flex-start;
+  }
+}
