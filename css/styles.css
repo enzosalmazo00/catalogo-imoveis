@@ -1300,3 +1300,19 @@ button,input,select,textarea{font-size:16px}
 .advisor-expired-mini-title{margin:14px 0 8px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#9a1a27}
 .advisor-deadline-list.expired b{background:#fde7e9;color:#9a1a27}
 .advisor-deadline-more{display:block;margin-top:8px;color:var(--muted);font-size:10px}
+
+/* Gestão separada do assessor */
+.management-page-head{margin-bottom:18px}
+.management-tabs{margin-bottom:18px}
+.management-property-checklist{display:grid;gap:8px;max-height:55vh;overflow:auto;padding-right:4px}
+.management-property-choice{display:flex;align-items:flex-start;gap:10px;padding:12px;border:1px solid var(--border);border-radius:12px;background:#fff;cursor:pointer}
+.management-property-choice input{margin-top:3px;flex:0 0 auto}
+.management-property-choice span{display:flex;flex-direction:column;gap:3px;min-width:0}
+.management-property-choice strong{font-size:12px;color:var(--navy)}
+.management-property-choice small{font-size:10px;color:var(--muted);line-height:1.35}
+#managementOverview.hidden,#managementOwners.hidden,#managementFinance.hidden,#managementReceipts.hidden,#managementRentals.hidden{display:none!important}
+@media(max-width:700px){
+  .management-page-head{align-items:flex-start}
+  .management-page-head .advisor-head-actions{width:100%}
+  .management-page-head .advisor-head-actions .btn{flex:1 1 160px}
+}
