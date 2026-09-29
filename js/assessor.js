@@ -3061,6 +3061,221 @@ function applyPublishedPropertyEditLock(form,property){
   form.classList.add("editing-published-property");
 }
 
+
+function collaborationForProperty(propertyId){
+  if(!propertyId) return null;
+  return listingCollaborations.find(item=>item.property_id===propertyId)||null;
+}
+
+function collaborationFormHTML(property=null){
+  const collaboration=collaborationForProperty(property?.id);
+  const existingParticipants=collaboration?.advisor_collaboration_participants||[];
+  const participantMap=new Map(existingParticipants.map(item=>[item.participant_advisor_id,item]));
+  const coAdvisors=advisorDirectory.filter(item=>item.user_id!==currentUser?.id);
+  const enabled=existingParticipants.length>0;
+
+  return `
+    <div class="form-section-title property-section-title">2.1 Coassessoria (opcional)</div>
+    <div class="span-2 advisor-collaboration-form-card">
+      <div class="collaboration-form-intro">
+        <div>
+          <strong>Outros assessores participam deste negócio?</strong>
+          <span>Vincule somente assessores cadastrados na plataforma. Eles receberão atualizações do imóvel e verão o valor pré-acordado da própria participação.</span>
+        </div>
+        <label>
+          <span>Coassessoria</span>
+          <select name="has_collaborators">
+            <option value="false" ${enabled?"":"selected"}>Não</option>
+            <option value="true" ${enabled?"selected":""}>Sim</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="advisorCollaborationFields" class="collaboration-fields ${enabled?"":"hidden"}">
+        <label>Valor total a dividir entre os assessores
+          <input name="collaboration_total" type="number" min="0.01" step="0.01" value="${collaboration?.total_amount??""}" placeholder="Ex.: 800">
+          <small>O sistema sugere divisão igual entre o assessor principal e os coassessores. Você pode ajustar depois.</small>
+        </label>
+
+        <div class="collaboration-directory">
+          <strong>Assessores cadastrados</strong>
+          ${coAdvisors.length?`
+            <div class="collaboration-advisor-list">
+              ${coAdvisors.map(advisor=>{
+                const existing=participantMap.get(advisor.user_id);
+                const label=[advisor.full_name,advisor.company_name].filter(Boolean).join(" • ");
+                return `
+                  <label class="collaboration-advisor-choice">
+                    <input
+                      type="checkbox"
+                      name="collab_advisor_${advisor.user_id}"
+                      value="${advisor.user_id}"
+                      data-collab-advisor
+                      data-advisor-name="${escapeHTML(advisor.full_name)}"
+                      data-existing-share="${existing?.agreed_amount??""}"
+                      ${existing?"checked":""}
+                    >
+                    <span>
+                      <strong>${escapeHTML(label)}</strong>
+                      ${advisor.city?`<small>${escapeHTML(advisor.city)}</small>`:""}
+                    </span>
+                  </label>
+                `;
+              }).join("")}
+            </div>
+          `:'<div class="advisor-empty-compact">Ainda não existem outros assessores cadastrados para vincular.</div>'}
+        </div>
+
+        <div id="collaborationShareRows" class="collaboration-share-rows"></div>
+        <div class="collaboration-owner-share">
+          <span>Sua parte estimada</span>
+          <strong id="collaborationOwnerShare">${money(collaboration?.owner_share_amount||0,collaboration?.currency||property?.currency||"BRL")}</strong>
+        </div>
+        <p class="collaboration-private-note">🔒 A divisão é privada entre os assessores participantes e não aparece no anúncio público.</p>
+      </div>
+    </div>
+  `;
+}
+
+function selectedCollaborationAdvisors(form){
+  return [...form.querySelectorAll("[data-collab-advisor]:checked")].map(input=>({
+    advisor_id:input.value,
+    name:input.dataset.advisorName||"Assessor",
+    existing_share:Number(input.dataset.existingShare||0)
+  }));
+}
+
+function updateCollaborationOwnerShare(form){
+  const total=Number(form.querySelector('[name="collaboration_total"]')?.value||0);
+  const currency=form.querySelector('[name="currency"]')?.value||"BRL";
+  const selected=selectedCollaborationAdvisors(form);
+  const participantTotal=selected.reduce((sum,item)=>{
+    const input=form.querySelector(`[name="collab_share_${item.advisor_id}"]`);
+    return sum+Number(input?.value||0);
+  },0);
+  const owner=Math.max(0,total-participantTotal);
+  const target=form.querySelector("#collaborationOwnerShare");
+  if(target) target.textContent=money(owner,currency);
+}
+
+function renderCollaborationShares(form,{equalize=false}={}){
+  const root=form.querySelector("#collaborationShareRows");
+  if(!root) return;
+
+  const selected=selectedCollaborationAdvisors(form);
+  const total=Number(form.querySelector('[name="collaboration_total"]')?.value||0);
+  const currency=form.querySelector('[name="currency"]')?.value||"BRL";
+  const previous=new Map(
+    [...root.querySelectorAll("[data-collab-share]")].map(input=>[input.dataset.advisorId,input.value])
+  );
+  const equal=selected.length>=1 && total>0 ? total/(selected.length+1) : 0;
+
+  root.innerHTML=selected.length?`
+    <div class="collaboration-share-head">
+      <strong>Divisão pré-acordada</strong>
+      <small>Valores individuais podem ser ajustados.</small>
+    </div>
+    ${selected.map(item=>{
+      let value="";
+      if(equalize) value=equal?equal.toFixed(2):"";
+      else if(previous.has(item.advisor_id)) value=previous.get(item.advisor_id);
+      else if(item.existing_share>0) value=item.existing_share.toFixed(2);
+      else value=equal?equal.toFixed(2):"";
+      return `
+        <label class="collaboration-share-row">
+          <span>${escapeHTML(item.name)}</span>
+          <div>
+            <small>${currency==="PYG"?"₲":"R$"}</small>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              name="collab_share_${item.advisor_id}"
+              data-collab-share
+              data-advisor-id="${item.advisor_id}"
+              value="${value}"
+            >
+          </div>
+        </label>
+      `;
+    }).join("")}
+  `:"";
+
+  root.querySelectorAll("[data-collab-share]").forEach(input=>{
+    input.addEventListener("input",()=>updateCollaborationOwnerShare(form));
+  });
+  updateCollaborationOwnerShare(form);
+}
+
+function wirePropertyCollaborationFields(form){
+  if(!form) return;
+  const toggle=form.querySelector('[name="has_collaborators"]');
+  const fields=form.querySelector("#advisorCollaborationFields");
+  const total=form.querySelector('[name="collaboration_total"]');
+
+  const refreshVisibility=()=>{
+    const enabled=toggle?.value==="true";
+    fields?.classList.toggle("hidden",!enabled);
+    if(enabled) renderCollaborationShares(form);
+  };
+
+  if(form.dataset.collaborationWired!=="1"){
+    toggle?.addEventListener("change",()=>{
+      refreshVisibility();
+      if(toggle.value==="true") renderCollaborationShares(form,{equalize:true});
+    });
+    total?.addEventListener("input",()=>renderCollaborationShares(form,{equalize:true}));
+    form.querySelector('[name="currency"]')?.addEventListener("change",()=>renderCollaborationShares(form));
+    form.querySelectorAll("[data-collab-advisor]").forEach(input=>{
+      input.addEventListener("change",()=>renderCollaborationShares(form,{equalize:true}));
+    });
+    form.dataset.collaborationWired="1";
+  }
+
+  refreshVisibility();
+}
+
+function collectCollaborationData(form){
+  const enabled=form.querySelector('[name="has_collaborators"]')?.value==="true";
+  if(!enabled) return {enabled:false,total:0,participants:[]};
+
+  const selected=selectedCollaborationAdvisors(form);
+  const total=Number(form.querySelector('[name="collaboration_total"]')?.value||0);
+
+  if(!selected.length) throw new Error("Selecione pelo menos um coassessor.");
+  if(!(total>0)) throw new Error("Informe o valor total que será dividido entre os assessores.");
+
+  const participants=selected.map(item=>({
+    advisor_id:item.advisor_id,
+    amount:Number(form.querySelector(`[name="collab_share_${item.advisor_id}"]`)?.value||0)
+  }));
+
+  if(participants.some(item=>item.amount<0)) throw new Error("Confira os valores da divisão entre assessores.");
+  const sum=participants.reduce((acc,item)=>acc+item.amount,0);
+  if(sum>total+0.009) throw new Error("A soma dos coassessores não pode ser maior que o valor total da divisão.");
+
+  return {enabled:true,total,participants};
+}
+
+async function savePropertyCollaboration(propertyId,form,currency){
+  let collaboration;
+  try{
+    collaboration=collectCollaborationData(form);
+  }catch(err){
+    return {error:err};
+  }
+
+  const {error,data}=await db.rpc("save_advisor_collaboration",{
+    p_property_id:propertyId,
+    p_total_amount:collaboration.enabled?collaboration.total:0,
+    p_currency:currency||"BRL",
+    p_participants:collaboration.enabled?collaboration.participants:[]
+  });
+
+  return {error,data};
+}
+
+
 function propertyModal(property=null){
   pendingPropertyFiles=[];
   pendingPropertyCoverExplicit=false;
