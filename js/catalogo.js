@@ -7,7 +7,7 @@ import {
   coverUrl,
   getSettings,
   locationText
-} from "./common.js?v=202609281430";
+} from "./common.js?v=202609290430";
 
 let properties = [];
 let settings = null;
