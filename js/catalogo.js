@@ -10,7 +10,8 @@ import {
 } from "./common.js?v=202609281430";
 
 let properties = [];
-let settings = null;\nconst OFFICIAL_SITE_NAME = "Catálogo Imóveis";
+let settings = null;
+const OFFICIAL_SITE_NAME = "Catálogo Imóveis";
 const pageParams=new URLSearchParams(location.search);
 const advisorCatalogCode=String(pageParams.get("catalogo")||"").trim();
 
