@@ -22,6 +22,121 @@ let pendingPropertyFiles=[];
 let pendingPropertyCoverExplicit=false;
 const ADVISOR_TERMS_VERSION="2026-09-29-v1";
 
+function advisorHasCurrentTerms(){
+  return Boolean(
+    profile?.terms_accepted_at &&
+    profile?.terms_version===ADVISOR_TERMS_VERSION
+  );
+}
+
+function renderLegacyTermsNotice(){
+  const notice=$("#advisorLegacyTermsNotice");
+  if(!notice) return;
+  notice.classList.toggle("hidden",advisorHasCurrentTerms());
+}
+
+function showLegacyTermsAcceptanceModal(){
+  if(advisorHasCurrentTerms()) return;
+
+  const displayName=profile?.full_name||profile?.company_name||"Assessor";
+
+  showAdvisorModal(`
+    <div class="legacy-terms-acceptance-modal">
+      <div class="legacy-terms-acceptance-head">
+        <span class="legacy-terms-document-icon" aria-hidden="true">📄</span>
+        <div>
+          <p class="eyebrow">ACEITE OBRIGATÓRIO</p>
+          <h2>Termos de Uso do Catálogo Imóveis</h2>
+          <p>Sua conta foi criada antes da implantação desta versão dos Termos. Para manter o registro correto da sua conta, leia o documento e confirme seu aceite eletrônico.</p>
+        </div>
+      </div>
+
+      <div class="legacy-terms-summary">
+        <strong>Ao confirmar, você declara que leu e concorda, entre outros pontos, que:</strong>
+        <ul>
+          <li>somente anunciará imóveis reais que sejam seus ou para os quais possua autorização legítima do proprietário;</li>
+          <li>é responsável pela veracidade, atualização e condições informadas nos seus anúncios;</li>
+          <li>o Catálogo Imóveis não recebe nem intermedeia aluguel, caução, reserva, comissão, taxa ou qualquer pagamento da locação;</li>
+          <li>cada anúncio ativado consome 1 crédito e permanece ativo por até 30 dias;</li>
+          <li>os créditos possuem os prazos de utilização definidos no pacote adquirido;</li>
+          <li>você manterá sua senha protegida e não publicará dados sensíveis.</li>
+        </ul>
+      </div>
+
+      <a class="legacy-terms-full-link" href="termos.html" target="_blank" rel="noopener">
+        Abrir e ler os Termos de Uso completos →
+      </a>
+
+      <div class="legacy-terms-signature">
+        <span>ACEITE ELETRÔNICO</span>
+        <strong>${escapeHTML(displayName)}</strong>
+        <small>Ao confirmar, a plataforma registrará a data, a hora e a versão ${ADVISOR_TERMS_VERSION} como aceite desta conta.</small>
+      </div>
+
+      <label class="legacy-terms-confirm-check">
+        <input id="legacyTermsConfirmCheck" type="checkbox">
+        <span>Li os Termos de Uso completos e concordo expressamente com a versão ${ADVISOR_TERMS_VERSION}.</span>
+      </label>
+
+      <div id="legacyTermsAcceptanceMessage" class="form-message"></div>
+
+      <button id="confirmLegacyTermsAcceptance" class="btn primary full" type="button" disabled>
+        Confirmar meu aceite
+      </button>
+
+      <p class="legacy-terms-no-signature-note">Este registro corresponde ao aceite eletrônico dos Termos de Uso da conta e não utiliza assinatura manuscrita ou documento pessoal.</p>
+    </div>
+  `);
+
+  const check=$("#legacyTermsConfirmCheck");
+  const button=$("#confirmLegacyTermsAcceptance");
+  check?.addEventListener("change",()=>{
+    if(button) button.disabled=!check.checked;
+  });
+
+  button?.addEventListener("click",async()=>{
+    if(!check?.checked) return;
+    const msg=$("#legacyTermsAcceptanceMessage");
+    button.disabled=true;
+    button.textContent="Registrando aceite...";
+    if(msg) msg.textContent="";
+
+    try{
+      const {data,error}=await db.rpc("accept_advisor_terms",{
+        p_terms_version:ADVISOR_TERMS_VERSION
+      });
+      if(error) throw error;
+
+      profile={
+        ...profile,
+        terms_accepted_at:data?.accepted_at||new Date().toISOString(),
+        terms_version:data?.terms_version||ADVISOR_TERMS_VERSION
+      };
+
+      try{
+        const {count}=await db.from("advisor_notifications")
+          .select("id",{count:"exact",head:true})
+          .eq("advisor_id",currentUser.id)
+          .is("read_at",null);
+        unreadCollaborationNotifications=Number(count||0);
+      }catch{}
+
+      closeAdvisorModal();
+      renderPanel();
+
+      const alertBox=$("#advisorExpiredNotice");
+      if(alertBox){
+        alertBox.innerHTML='<div class="advisor-expired-alert terms-accepted-success"><strong>✓ Termos de Uso confirmados.</strong><span>Seu aceite eletrônico foi registrado com data, hora e versão dos Termos.</span></div>';
+      }
+    }catch(err){
+      console.error("Erro ao registrar aceite dos termos:",err);
+      if(msg) msg.textContent=err?.message||"Não foi possível registrar seu aceite. Tente novamente.";
+      button.disabled=false;
+      button.textContent="Confirmar meu aceite";
+    }
+  });
+}
+
 function withTimeout(promise,ms=8000,label="requisição"){
   let timer;
   const timeout=new Promise((_,reject)=>{
@@ -2401,6 +2516,7 @@ function renderPanel(){
   renderAds();
   renderAdvisorCatalogShare();
   renderRentalControl();
+  renderLegacyTermsNotice();
 
   const notificationBadge=$("#advisorNotificationBadge");
   if(notificationBadge){
@@ -2411,7 +2527,19 @@ function renderPanel(){
   const newBtn=$("#newAdvisorProperty");
   if(newBtn){
     const balance=creditBalance();
-    if(balance>0){
+    if(!advisorHasCurrentTerms()){
+      newBtn.disabled=true;
+      newBtn.classList.add("disabled");
+      newBtn.innerHTML=`
+        <span class="advisor-create-ad-icon">📄</span>
+        <span class="advisor-create-ad-copy">
+          <strong>Confirme os Termos de Uso</strong>
+          <small>Registre seu aceite antes de criar ou publicar novos anúncios</small>
+        </span>
+        <span class="advisor-create-ad-arrow">→</span>
+      `;
+      newBtn.title="Aceite os Termos de Uso para continuar.";
+    }else if(balance>0){
       newBtn.disabled=false;
       newBtn.classList.remove("disabled");
       newBtn.innerHTML=`
@@ -4216,6 +4344,12 @@ async function enterAdvisorPanel(user){
     await ensureProfile(user);
     const fullyLoaded=await loadData();
     renderPanel();
+
+    const searchParams=new URLSearchParams(location.search);
+    if(!advisorHasCurrentTerms() || searchParams.get("terms")==="1"){
+      setTimeout(()=>showLegacyTermsAcceptanceModal(),120);
+    }
+
     if(!fullyLoaded){
       $("#advisorExpiredNotice").innerHTML=
         '<div class="advisor-expired-alert"><strong>Painel aberto.</strong><span>Algumas informações demoraram para carregar. Atualize a página se algum plano ou anúncio não aparecer.</span></div>';
@@ -4291,6 +4425,13 @@ async function boot(){
 }
 
 document.addEventListener("click",async e=>{
+  const openLegacyTerms=e.target.closest("#openLegacyTermsAcceptance,[data-open-legacy-terms]");
+  if(openLegacyTerms){
+    e.preventDefault();
+    showLegacyTermsAcceptanceModal();
+    return;
+  }
+
   const tab=e.target.closest("[data-auth-tab]");
   if(tab){
     document.querySelectorAll(".auth-tab").forEach(b=>b.classList.toggle("active",b===tab));
