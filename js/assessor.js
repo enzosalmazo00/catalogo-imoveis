@@ -497,7 +497,7 @@ function ownerMatchesRental(owner,row){
 function ownerOptions(selectedId="",includeBlank=true){
   return [
     includeBlank?'<option value="">Selecione um proprietário</option>':"",
-    ...advisorOwners.map(owner=>`<option value="${owner.id}" ${owner.id===selectedId?"selected":""}>${escapeHTML(owner.full_name)}${owner.phone?` • ${escapeHTML(owner.phone)}`:""}</option>`)
+    ...advisorOwners.map(owner=>`<option value="${owner.id}" ${owner.id===selectedId?"selected":""}>${escapeHTML(owner.full_name)}${owner.whatsapp?` • ${escapeHTML(owner.whatsapp)}`:""}</option>`)
   ].join("");
 }
 
@@ -734,14 +734,14 @@ function renderOwners(){
         const expired=ownerProperties.length-active;
         const ownerViews=ownerProperties.reduce((sum,p)=>sum+Number(p.view_count||0),0);
         const ownerWhatsapp=ownerProperties.reduce((sum,p)=>sum+Number(p.whatsapp_click_count||0),0);
-        const phone=String(owner.whatsapp||owner.phone||"").replace(/\D/g,"");
+        const phone=String(owner.whatsapp||"").replace(/\D/g,"");
         return `
           <article class="advisor-owner-card">
             <div class="advisor-owner-card-head">
               <div>
                 <p class="eyebrow">PROPRIETÁRIO</p>
                 <h3>${escapeHTML(owner.full_name)}</h3>
-                <span>${escapeHTML(owner.phone||owner.whatsapp||"Telefone não informado")}</span>
+                <span>${escapeHTML(owner.whatsapp||"WhatsApp não informado")}</span>
               </div>
               <div class="table-actions">
                 <button class="btn ghost compact" type="button" data-edit-owner="${owner.id}">Editar</button>
@@ -757,11 +757,9 @@ function renderOwners(){
               <div><span>WhatsApp</span><strong>${ownerWhatsapp.toLocaleString("pt-BR")}</strong></div>
             </div>
             <div class="advisor-owner-contact">
-              ${owner.email?`<span>✉ ${escapeHTML(owner.email)}</span>`:""}
               ${owner.document?`<span>Documento: ${escapeHTML(owner.document)}</span>`:""}
               ${phone?`<a class="btn whatsapp compact" href="https://wa.me/${phone}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}
             </div>
-            ${owner.notes?`<p class="advisor-owner-notes">${escapeHTML(owner.notes)}</p>`:""}
           </article>
         `;
       }).join("")}
@@ -784,20 +782,8 @@ function ownerModal(row=null){
       <label class="span-2">Nome completo
         <input name="full_name" required value="${escapeHTML(row?.full_name||"")}" autocomplete="name">
       </label>
-      <label>Telefone
-        <input name="phone" required inputmode="tel" value="${escapeHTML(row?.phone||"")}">
-      </label>
-      <label>WhatsApp
-        <input name="whatsapp" inputmode="tel" value="${escapeHTML(row?.whatsapp||row?.phone||"")}">
-      </label>
-      <label>E-mail
-        <input name="email" type="email" value="${escapeHTML(row?.email||"")}">
-      </label>
-      <label>CPF / CI / documento
-        <input name="document" value="${escapeHTML(row?.document||"")}">
-      </label>
-      <label class="span-2">Observações
-        <textarea name="notes" rows="3" placeholder="Informações internas opcionais">${escapeHTML(row?.notes||"")}</textarea>
+      <label class="span-2">WhatsApp
+        <input name="whatsapp" required inputmode="tel" value="${escapeHTML(row?.whatsapp||"")}" placeholder="Ex.: 595981123456">
       </label>
       <div id="advisorOwnerMessage" class="form-message span-2"></div>
       <div class="form-actions span-2">
@@ -815,16 +801,12 @@ async function saveOwner(form){
   const row={
     advisor_id:currentUser.id,
     full_name:String(fd.get("full_name")||"").trim(),
-    phone:String(fd.get("phone")||"").trim()||null,
-    whatsapp:String(fd.get("whatsapp")||"").trim()||null,
-    email:String(fd.get("email")||"").trim()||null,
-    document:String(fd.get("document")||"").trim()||null,
-    notes:String(fd.get("notes")||"").trim()||null,
+    whatsapp:String(fd.get("whatsapp")||"").replace(/\D/g,"").trim(),
     updated_at:new Date().toISOString()
   };
 
-  if(!row.full_name || !row.phone){
-    if(msg) msg.textContent="Informe nome e telefone do proprietário.";
+  if(!row.full_name || !row.whatsapp){
+    if(msg) msg.textContent="Informe nome e WhatsApp do proprietário.";
     return;
   }
 
@@ -1007,9 +989,6 @@ function financialEntryModal(row=null){
       <label>Valor
         <input name="amount" type="number" min="0" step="1" required value="${row?.amount??""}">
       </label>
-      <label class="span-2">Observações
-        <textarea name="notes" rows="3">${escapeHTML(row?.notes||"")}</textarea>
-      </label>
       <div id="advisorFinancialEntryMessage" class="form-message span-2"></div>
       <div class="form-actions span-2">
         <button class="btn ghost" type="button" data-close>Cancelar</button>
@@ -1037,7 +1016,6 @@ async function saveFinancialEntry(form){
     currency:fd.get("currency")||"BRL",
     status:fd.get("status")||"paid",
     entry_date:fd.get("entry_date"),
-    notes:String(fd.get("notes")||"").trim()||null,
     updated_at:new Date().toISOString()
   };
 
@@ -1133,28 +1111,10 @@ function serviceReceiptModal(row=null){
       <label>Nome do proprietário
         <input name="owner_name" required value="${escapeHTML(row?.owner_name||ownerById(ownerId)?.full_name||"")}">
       </label>
-      <label>Telefone do proprietário
-        <input name="owner_phone" required inputmode="tel" value="${escapeHTML(row?.owner_phone||ownerById(ownerId)?.phone||"")}">
-      </label>
-      <label>Documento do proprietário
-        <input name="owner_document" value="${escapeHTML(row?.owner_document||ownerById(ownerId)?.document||"")}">
-      </label>
-      <label>E-mail do proprietário
-        <input name="owner_email" type="email" value="${escapeHTML(row?.owner_email||ownerById(ownerId)?.email||"")}">
-      </label>
 
       <div class="form-section-title">Cliente / inquilino</div>
       <label>Nome
         <input name="client_name" value="${escapeHTML(row?.client_name||"")}">
-      </label>
-      <label>Telefone
-        <input name="client_phone" inputmode="tel" value="${escapeHTML(row?.client_phone||"")}">
-      </label>
-      <label>Documento
-        <input name="client_document" value="${escapeHTML(row?.client_document||"")}">
-      </label>
-      <label>E-mail
-        <input name="client_email" type="email" value="${escapeHTML(row?.client_email||"")}">
       </label>
 
       <div class="form-section-title">Serviço e valores</div>
@@ -1212,9 +1172,6 @@ function serviceReceiptModal(row=null){
         </select>
         <small>Use “Sim” apenas se este valor ainda não estiver registrado na locação ou em outro lançamento, para evitar duplicidade.</small>
       </label>
-      <label class="span-2">Observações
-        <textarea name="notes" rows="3">${escapeHTML(row?.notes||"")}</textarea>
-      </label>
 
       <div id="advisorServiceReceiptMessage" class="form-message span-2"></div>
       <div class="form-actions span-2">
@@ -1240,9 +1197,7 @@ function wireServiceReceiptForm(form){
   const fillOwner=(owner)=>{
     if(!owner) return;
     form.querySelector('[name="owner_name"]').value=owner.full_name||"";
-    form.querySelector('[name="owner_phone"]').value=owner.phone||owner.whatsapp||"";
-    form.querySelector('[name="owner_document"]').value=owner.document||"";
-    form.querySelector('[name="owner_email"]').value=owner.email||"";
+    form.querySelector('[name="owner_phone"]').value=owner.whatsapp||"";
   };
 
   propertySelect?.addEventListener("change",()=>{
@@ -1295,12 +1250,8 @@ async function saveServiceReceipt(form){
     property_address:String(fd.get("property_address")||(property?[property.address,property.neighborhood,property.city].filter(Boolean).join(" • "):"")).trim()||null,
     owner_name:String(fd.get("owner_name")||"").trim(),
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
-    owner_document:String(fd.get("owner_document")||"").trim()||null,
-    owner_email:String(fd.get("owner_email")||"").trim()||null,
     client_name:String(fd.get("client_name")||"").trim()||null,
     client_phone:String(fd.get("client_phone")||"").trim()||null,
-    client_document:String(fd.get("client_document")||"").trim()||null,
-    client_email:String(fd.get("client_email")||"").trim()||null,
     service_description:String(fd.get("service_description")||"").trim(),
     currency:fd.get("currency")||"BRL",
     commission_amount:Number(fd.get("commission_amount")||0),
@@ -1312,7 +1263,6 @@ async function saveServiceReceipt(form){
     payment_method:String(fd.get("payment_method")||"").trim()||null,
     payment_reference:String(fd.get("payment_reference")||"").trim()||null,
     include_in_financials:fd.get("include_in_financials")==="true",
-    notes:String(fd.get("notes")||"").trim()||null,
     updated_at:new Date().toISOString()
   };
 
@@ -1475,7 +1425,7 @@ function wireManualReceiptFields(form){
   const fillOwner=(owner)=>{
     if(!owner) return;
     if(ownerName) ownerName.value=owner.full_name||"";
-    if(ownerPhone) ownerPhone.value=owner.phone||owner.whatsapp||"";
+    if(ownerPhone) ownerPhone.value=owner.whatsapp||"";
   };
 
   ownerSelect?.addEventListener("change",()=>fillOwner(ownerById(ownerSelect.value)));
@@ -1585,9 +1535,7 @@ function rentalControlModal(row=null){
 
       <div class="form-section-title property-section-title">Partes</div>
       <label>Nome do proprietário<input name="owner_name" required value="${escapeHTML(row?.owner_name||"")}"></label>
-      <label>Telefone do proprietário<input name="owner_phone" inputmode="tel" value="${escapeHTML(row?.owner_phone||"")}"></label>
       <label>Nome do inquilino<input name="tenant_name" required value="${escapeHTML(row?.tenant_name||"")}"></label>
-      <label>Telefone do inquilino<input name="tenant_phone" inputmode="tel" value="${escapeHTML(row?.tenant_phone||"")}"></label>
 
       <div class="form-section-title property-section-title">Aluguel e pagamentos</div>
       <label>Moeda
@@ -1713,7 +1661,6 @@ function rentalControlModal(row=null){
       <label>Status
         <select name="status"><option value="active" ${row?.status!=="ended"?"selected":""}>Ativa</option><option value="ended" ${row?.status==="ended"?"selected":""}>Encerrada</option></select>
       </label>
-      <label class="span-2">Observações do recibo<textarea name="notes" rows="4">${escapeHTML(row?.notes||"")}</textarea></label>
 
       <div id="advisorRentalControlMessage" class="form-message span-2"></div>
       <div class="form-actions span-2">
@@ -1846,14 +1793,8 @@ function rentalReceiptModal(property){
       <label>Nome do proprietário
         <input name="owner_name" required autocomplete="name" value="${escapeHTML(linkedOwner?.full_name||"")}">
       </label>
-      <label>Telefone do proprietário
-        <input name="owner_phone" inputmode="tel" value="${escapeHTML(linkedOwner?.phone||linkedOwner?.whatsapp||"")}">
-      </label>
       <label>Nome do inquilino
         <input name="tenant_name" required autocomplete="name">
-      </label>
-      <label>Telefone do inquilino
-        <input name="tenant_phone" inputmode="tel">
       </label>
 
       <div class="form-section-title property-section-title">Aluguel e pagamentos</div>
@@ -1949,10 +1890,6 @@ ${usesDeposit?`
       </label>
       <label>Dia de vencimento do aluguel
         <input name="rent_due_day" type="number" min="1" max="31" step="1">
-      </label>
-
-      <label class="span-2">Observações do recibo
-        <textarea name="notes" rows="3" placeholder="Opcional"></textarea>
       </label>
 
       <div id="advisorRentalReceiptMessage" class="form-message span-2"></div>
@@ -2131,15 +2068,11 @@ function generateServiceReceiptPdf(row){
   addSection("Proprietário");
   addLine("Nome:",row.owner_name);
   addLine("Telefone:",row.owner_phone);
-  addLine("Documento:",row.owner_document);
-  addLine("E-mail:",row.owner_email);
 
-  if(row.client_name || row.client_phone || row.client_document || row.client_email){
+  if(row.client_name || row.client_phone){
     addSection("Cliente / inquilino");
     addLine("Nome:",row.client_name);
     addLine("Telefone:",row.client_phone);
-    addLine("Documento:",row.client_document);
-    addLine("E-mail:",row.client_email);
   }
 
   addSection("Serviço");
@@ -2505,10 +2438,6 @@ function advisorProfileModal(){
 
       <label>WhatsApp
         <input name="whatsapp" inputmode="tel" required value="${escapeHTML(profile?.whatsapp||"")}" placeholder="Ex.: 595981123456">
-      </label>
-
-      <label>Telefone
-        <input name="phone" inputmode="tel" value="${escapeHTML(profile?.phone||"")}" placeholder="Ex.: 6734321234">
       </label>
 
       <label class="span-2">E-mail da conta
