@@ -458,198 +458,249 @@ async function saveOwnerProperties(form){
   switchView("owners");
 }
 
+
 function renderFinance(){
   const root=$("#managementFinanceContent");
   if(!root) return;
 
-  const rows=financeRows().sort((a,b)=>new Date(b.date||0)-new Date(a.date||0));
-  const totals=financeTotals();
+  const rows=commissionRows().sort((a,b)=>{
+    if(a.paid!==b.paid) return a.paid?1:-1;
+    const ad=a.due_date||"9999-12-31";
+    const bd=b.due_date||"9999-12-31";
+    return ad.localeCompare(bd);
+  });
+  const totals=commissionTotals();
+  const pendingOwners=new Set(rows.filter(r=>!r.paid).map(r=>r.owner_id||r.owner_name));
+  const unconfigured=rentals.filter(r=>!r.advisor_commission_charged || Number(r.commission_amount||0)<=0);
 
   const grouped=new Map();
   rows.forEach(r=>{
-    const key=r.property_id||`${r.property_code||""}|${r.property_title||"Sem imóvel"}`;
+    const key=r.owner_id||r.owner_name;
     if(!grouped.has(key)){
       grouped.set(key,{
-        code:r.property_code||"—",
-        title:r.property_title||"Sem imóvel vinculado",
+        name:r.owner_name,
+        whatsapp:r.owner_whatsapp,
         received:blankTotals(),
-        pending:blankTotals(),
-        expenses:blankTotals()
+        pending:blankTotals()
       });
     }
     const g=grouped.get(key);
-    if(r.entry_type==="income" && r.status==="paid") addTotal(g.received,r.currency,r.amount);
-    if(r.entry_type==="income" && r.status==="pending") addTotal(g.pending,r.currency,r.amount);
-    if(r.entry_type==="expense" && r.status==="paid") addTotal(g.expenses,r.currency,r.amount);
+    addTotal(r.paid?g.received:g.pending,r.currency,r.amount);
   });
 
   root.innerHTML=`
-    <div class="advisor-finance-summary">
-      <article><span>Comissões recebidas</span><strong>${formatTotals(totals.commissions)}</strong><small>comissões pagas</small></article>
-      <article><span>Assessoria recebida</span><strong>${formatTotals(totals.advisory)}</strong><small>taxas pagas</small></article>
-      <article><span>Receita recebida</span><strong>${formatTotals(totals.received)}</strong><small>todas as receitas</small></article>
-      <article><span>A receber</span><strong>${formatTotals(totals.pending)}</strong><small>receitas pendentes</small></article>
-      <article><span>Despesas pagas</span><strong>${formatTotals(totals.expenses)}</strong><small>Pendentes: ${formatTotals(totals.pendingExpenses)}</small></article>
-      <article class="result"><span>Resultado líquido</span><strong>${formatTotals(totals.net)}</strong><small>receitas recebidas − despesas pagas</small></article>
+    <div class="commission-summary-grid">
+      <article class="commission-summary-card pending">
+        <span>A receber</span>
+        <strong>${formatTotals(totals.pending)}</strong>
+        <small>${pendingOwners.size} proprietário${pendingOwners.size===1?"":"s"} com comissão pendente</small>
+      </article>
+      <article class="commission-summary-card received">
+        <span>Recebidas</span>
+        <strong>${formatTotals(totals.received)}</strong>
+        <small>comissões confirmadas</small>
+      </article>
+      <article class="commission-summary-card ${totals.overdue?"overdue":""}">
+        <span>Vencidas</span>
+        <strong>${totals.overdue}</strong>
+        <small>pendentes fora do prazo</small>
+      </article>
     </div>
 
-    <div class="advisor-finance-columns">
-      <section class="advisor-dashboard-box">
-        <div class="advisor-dashboard-box-head"><div><p class="eyebrow">POR IMÓVEL</p><h3>Resultado consolidado</h3></div></div>
-        ${grouped.size?`
-          <div class="admin-table-wrap">
-            <table class="admin-table advisor-finance-property-table">
-              <thead><tr><th>Imóvel</th><th>Recebido</th><th>A receber</th><th>Despesas</th><th>Resultado</th></tr></thead>
-              <tbody>
-                ${[...grouped.values()].map(g=>{
-                  const net={
-                    BRL:Number(g.received.BRL||0)-Number(g.expenses.BRL||0),
-                    PYG:Number(g.received.PYG||0)-Number(g.expenses.PYG||0)
-                  };
-                  return `<tr>
-                    <td><strong>${escapeHTML(g.code)}</strong><br><span class="muted">${escapeHTML(g.title)}</span></td>
-                    <td>${formatTotals(g.received)}</td>
-                    <td>${formatTotals(g.pending)}</td>
-                    <td>${formatTotals(g.expenses)}</td>
-                    <td><strong>${formatTotals(net)}</strong></td>
-                  </tr>`;
-                }).join("")}
-              </tbody>
-            </table>
-          </div>
-        `:'<div class="advisor-empty-compact">Ainda não há movimentação por imóvel.</div>'}
-      </section>
+    ${grouped.size?`
+      <div class="commission-owner-grid">
+        ${[...grouped.values()].map(owner=>`
+          <article class="commission-owner-card">
+            <div>
+              <span>Proprietário</span>
+              <strong>${escapeHTML(owner.name)}</strong>
+              ${owner.whatsapp?`<small>WhatsApp: ${escapeHTML(owner.whatsapp)}</small>`:""}
+            </div>
+            <div class="commission-owner-values">
+              <span>A receber <b>${formatTotals(owner.pending)}</b></span>
+              <span>Recebido <b>${formatTotals(owner.received)}</b></span>
+            </div>
+          </article>
+        `).join("")}
+      </div>
+    `:""}
 
-      <section class="advisor-dashboard-box">
-        <div class="advisor-dashboard-box-head"><div><p class="eyebrow">MOVIMENTAÇÕES</p><h3>Todos os lançamentos</h3></div></div>
-        ${rows.length?`
-          <div class="admin-table-wrap">
-            <table class="admin-table advisor-finance-ledger">
-              <thead><tr><th>Data</th><th>Descrição</th><th>Imóvel</th><th>Tipo</th><th>Status</th><th>Valor</th><th></th></tr></thead>
-              <tbody>
-                ${rows.map(r=>`
+    <section class="advisor-dashboard-box commission-control-box">
+      <div class="advisor-dashboard-box-head">
+        <div>
+          <p class="eyebrow">CONTROLE DE COMISSÕES</p>
+          <h3>Por proprietário e imóvel</h3>
+        </div>
+      </div>
+
+      ${rows.length?`
+        <div class="admin-table-wrap">
+          <table class="admin-table commission-table">
+            <thead>
+              <tr><th>Proprietário</th><th>Imóvel</th><th>Comissão</th><th>Vencimento</th><th>Status</th><th>Ação</th></tr>
+            </thead>
+            <tbody>
+              ${rows.map(r=>{
+                const overdue=!r.paid && r.due_date && r.due_date<nowDateInput();
+                return `
                   <tr>
-                    <td>${dateOnlyBR(r.date)}</td>
-                    <td><strong>${escapeHTML(r.description)}</strong><br><span class="muted">${escapeHTML(r.source)}</span></td>
-                    <td>${escapeHTML(r.property_code||"—")}<br><span class="muted">${escapeHTML(r.property_title||"")}</span></td>
-                    <td><span class="pill ${r.entry_type==="expense"?"expense":"paid"}">${r.entry_type==="expense"?"Despesa":"Receita"}</span></td>
-                    <td><span class="pill ${r.status==="paid"?"paid":"pending"}">${r.status==="paid"?"Pago":"Pendente"}</span></td>
+                    <td><strong>${escapeHTML(r.owner_name)}</strong>${r.owner_whatsapp?`<br><span class="muted">${escapeHTML(r.owner_whatsapp)}</span>`:""}</td>
+                    <td><strong>${escapeHTML(r.property_code)}</strong><br><span class="muted">${escapeHTML(r.property_title)}</span></td>
                     <td><strong>${money(r.amount,r.currency)}</strong></td>
-                    <td>${r.raw_id?`<div class="table-actions"><button class="btn ghost compact" type="button" data-edit-financial-entry="${r.raw_id}">Editar</button><button class="btn danger compact" type="button" data-delete-financial-entry="${r.raw_id}">Excluir</button></div>`:""}</td>
+                    <td>${r.due_date?dateOnlyBR(r.due_date):'<span class="muted">Sem vencimento</span>'}</td>
+                    <td>
+                      <span class="pill ${r.paid?"paid":overdue?"expense":"pending"}">
+                        ${r.paid?"RECEBIDA":overdue?"VENCIDA":"A RECEBER"}
+                      </span>
+                      ${r.paid && r.payment_date?`<br><small>${dateOnlyBR(r.payment_date)}</small>`:""}
+                    </td>
+                    <td>
+                      <div class="table-actions">
+                        <button class="btn ghost compact" type="button" data-edit-commission="${r.id}">Editar</button>
+                        ${r.paid
+                          ? `<button class="btn ghost compact" type="button" data-mark-commission-pending="${r.id}">Desfazer</button>`
+                          : `<button class="btn primary compact" type="button" data-mark-commission-paid="${r.id}">✓ Recebida</button>`
+                        }
+                      </div>
+                    </td>
                   </tr>
-                `).join("")}
-              </tbody>
-            </table>
-          </div>
-        `:'<div class="advisor-empty-compact">Nenhuma movimentação registrada.</div>'}
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      `:'<div class="advisor-empty-compact">Nenhuma comissão registrada ainda.</div>'}
+    </section>
+
+    ${unconfigured.length?`
+      <section class="advisor-dashboard-box commission-unconfigured-box">
+        <div class="advisor-dashboard-box-head">
+          <div><p class="eyebrow">SEM COMISSÃO DEFINIDA</p><h3>Locações que precisam de configuração</h3></div>
+        </div>
+        <div class="commission-unconfigured-list">
+          ${unconfigured.map(r=>`
+            <div>
+              <span><strong>${escapeHTML(r.property_code||"—")} • ${escapeHTML(r.property_title||"Imóvel")}</strong><small>${escapeHTML(r.owner_name||"Proprietário não informado")}</small></span>
+              <button class="btn primary compact" type="button" data-edit-commission="${r.id}">Adicionar comissão</button>
+            </div>
+          `).join("")}
+        </div>
       </section>
-    </div>
+    `:""}
   `;
 }
 
-function financialModal(row=null){
+function commissionModal(rental){
+  if(!rental) return;
   showModal(`
     <div class="modal-head">
       <div>
-        <p class="eyebrow">FINANCEIRO</p>
-        <h2>${row?"Editar lançamento":"Novo lançamento"}</h2>
-        <p class="muted">Use para despesas e receitas extras. Comissões de locações entram automaticamente.</p>
+        <p class="eyebrow">COMISSÃO</p>
+        <h2>Comissão do imóvel</h2>
+        <p class="muted">${escapeHTML(rental.property_code||"—")} • ${escapeHTML(rental.property_title||"Imóvel")}</p>
       </div>
       <button class="icon-btn" type="button" data-close-modal>✕</button>
     </div>
 
-    <form id="managementFinancialForm" class="form-grid">
-      <input type="hidden" name="id" value="${row?.id||""}">
-      <label>Tipo
-        <select name="entry_type" required>
-          <option value="income" ${(row?.entry_type||"income")==="income"?"selected":""}>Receita</option>
-          <option value="expense" ${row?.entry_type==="expense"?"selected":""}>Despesa</option>
+    <form id="managementCommissionForm" class="form-grid">
+      <input type="hidden" name="id" value="${rental.id}">
+      <label class="span-2">Proprietário
+        <select name="advisor_owner_id" required>
+          ${ownerOptions(rental.advisor_owner_id||"")}
         </select>
-      </label>
-      <label>Status
-        <select name="status" required>
-          <option value="paid" ${(row?.status||"paid")==="paid"?"selected":""}>Pago / recebido</option>
-          <option value="pending" ${row?.status==="pending"?"selected":""}>Pendente</option>
-        </select>
-      </label>
-      <label class="span-2">Imóvel
-        <select name="property_id">${propertyOptions(row?.property_id||"")}</select>
-      </label>
-      <label>Categoria
-        <select name="category">
-          <option value="other" ${(row?.category||"other")==="other"?"selected":""}>Outro</option>
-          <option value="commission" ${row?.category==="commission"?"selected":""}>Comissão</option>
-          <option value="advisory" ${row?.category==="advisory"?"selected":""}>Assessoria</option>
-          <option value="advertising" ${row?.category==="advertising"?"selected":""}>Publicidade</option>
-          <option value="transport" ${row?.category==="transport"?"selected":""}>Deslocamento</option>
-          <option value="documents" ${row?.category==="documents"?"selected":""}>Documentação</option>
-        </select>
-      </label>
-      <label>Data
-        <input name="entry_date" type="date" required value="${safeDate(row?.entry_date)||nowDateInput()}">
-      </label>
-      <label class="span-2">Descrição
-        <input name="description" required value="${escapeHTML(row?.description||"")}" placeholder="Ex.: combustível para visita">
+        <small>Somente nome e WhatsApp; esses dados são privados.</small>
       </label>
       <label>Moeda
         <select name="currency">
-          <option value="BRL" ${(row?.currency||"BRL")==="BRL"?"selected":""}>Real (R$)</option>
-          <option value="PYG" ${row?.currency==="PYG"?"selected":""}>Guarani (₲)</option>
+          <option value="BRL" ${(rental.currency||"BRL")==="BRL"?"selected":""}>Real (R$)</option>
+          <option value="PYG" ${rental.currency==="PYG"?"selected":""}>Guarani (₲)</option>
         </select>
       </label>
-      <label>Valor
-        <input name="amount" type="number" min="0" step="1" required value="${row?.amount??""}">
+      <label>Valor da comissão
+        <input name="commission_amount" type="number" min="0.01" step="0.01" required value="${rental.commission_amount??""}">
       </label>
-      <label class="span-2">Observações
-        <textarea name="notes" rows="3">${escapeHTML(row?.notes||"")}</textarea>
+      <label>Vencimento
+        <input name="commission_due_date" type="date" value="${safeDate(rental.commission_due_date)}">
       </label>
-      <div id="managementFinancialMessage" class="form-message span-2"></div>
+      <label>Status
+        <select name="commission_paid">
+          <option value="false" ${!rental.commission_paid?"selected":""}>A receber</option>
+          <option value="true" ${rental.commission_paid?"selected":""}>Recebida</option>
+        </select>
+      </label>
+      <label class="span-2">Data do recebimento
+        <input name="advisor_commission_payment_date" type="date" value="${safeDate(rental.advisor_commission_payment_date)}">
+      </label>
+
+      <div id="managementCommissionMessage" class="form-message span-2"></div>
       <div class="form-actions span-2">
         <button class="btn ghost" type="button" data-close-modal>Cancelar</button>
-        <button class="btn primary" type="submit">Salvar lançamento</button>
+        <button class="btn primary" type="submit">Salvar comissão</button>
       </div>
     </form>
   `);
 }
 
-async function saveFinancial(form){
+async function saveCommission(form){
   const fd=new FormData(form);
-  const id=String(fd.get("id")||"").trim()||null;
-  const linked=propertyById(String(fd.get("property_id")||""));
-  const existing=id?entries.find(e=>e.id===id):null;
-  const msg=form.querySelector("#managementFinancialMessage");
-  const row={
-    advisor_id:currentUser.id,
-    property_id:linked?.id||null,
-    property_code:linked?.public_code||existing?.property_code||null,
-    property_title:linked?.title||existing?.property_title||null,
-    entry_type:fd.get("entry_type"),
-    category:fd.get("category")||"other",
-    description:String(fd.get("description")||"").trim(),
-    amount:Number(fd.get("amount")||0),
-    currency:fd.get("currency")||"BRL",
-    status:fd.get("status")||"paid",
-    entry_date:fd.get("entry_date")||nowDateInput(),
-    notes:String(fd.get("notes")||"").trim()||null,
-    updated_at:new Date().toISOString()
-  };
+  const id=String(fd.get("id")||"");
+  const owner=ownerById(String(fd.get("advisor_owner_id")||""));
+  const msg=form.querySelector("#managementCommissionMessage");
+  const paid=fd.get("commission_paid")==="true";
+  const amount=Number(fd.get("commission_amount")||0);
 
-  if(!row.description || row.amount<0){
-    msg.textContent="Informe uma descrição e um valor válido.";
+  if(!owner){
+    msg.textContent="Selecione o proprietário responsável.";
+    return;
+  }
+  if(!(amount>0)){
+    msg.textContent="Informe um valor de comissão maior que zero.";
     return;
   }
 
-  const result=id
-    ? await db.from("advisor_financial_entries").update(row).eq("id",id).eq("advisor_id",currentUser.id)
-    : await db.from("advisor_financial_entries").insert(row);
+  const row={
+    advisor_owner_id:owner.id,
+    owner_name:owner.full_name,
+    owner_phone:owner.whatsapp,
+    advisor_commission_charged:true,
+    commission_amount:amount,
+    currency:fd.get("currency")||"BRL",
+    commission_due_date:fd.get("commission_due_date")||null,
+    commission_paid:paid,
+    advisor_commission_payment_date:paid?(fd.get("advisor_commission_payment_date")||nowDateInput()):null,
+    updated_at:new Date().toISOString()
+  };
 
-  if(result.error){
-    msg.textContent=result.error.message;
+  const {error}=await db.from("advisor_rental_control")
+    .update(row)
+    .eq("id",id)
+    .eq("advisor_id",currentUser.id);
+
+  if(error){
+    msg.textContent=error.message;
     return;
   }
 
   await refreshAndRender();
   closeModal();
+  switchView("finance");
+}
+
+async function setCommissionPaid(id,paid){
+  const {error}=await db.from("advisor_rental_control")
+    .update({
+      commission_paid:paid,
+      advisor_commission_payment_date:paid?nowDateInput():null,
+      updated_at:new Date().toISOString()
+    })
+    .eq("id",id)
+    .eq("advisor_id",currentUser.id);
+
+  if(error){
+    alert(error.message);
+    return;
+  }
+  await refreshAndRender();
   switchView("finance");
 }
 
@@ -731,7 +782,7 @@ function receiptModal(row=null){
         <input name="owner_name" required value="${escapeHTML(row?.owner_name||linkedOwner?.full_name||"")}">
       </label>
       <label>Telefone
-        <input name="owner_phone" required inputmode="tel" value="${escapeHTML(row?.owner_phone||linkedOwner?.phone||linkedOwner?.whatsapp||"")}">
+        <input name="owner_phone" required inputmode="tel" value="${escapeHTML(row?.owner_phone||linkedOwner?.whatsapp||"")}">
       </label>
 
       <div class="form-section-title">Cliente / inquilino</div>
@@ -821,7 +872,7 @@ function wireReceiptForm(form){
   const fillOwner=(owner)=>{
     if(!owner) return;
     form.querySelector('[name="owner_name"]').value=owner.full_name||"";
-    form.querySelector('[name="owner_phone"]').value=owner.phone||owner.whatsapp||"";
+    form.querySelector('[name="owner_phone"]').value=owner.whatsapp||"";
   };
 
   propertySelect?.addEventListener("change",()=>{
@@ -881,7 +932,7 @@ async function saveReceipt(form){
   };
 
   if(!row.owner_name || !row.owner_phone || !row.service_description){
-    msg.textContent="Informe proprietário, telefone e descrição do serviço.";
+    msg.textContent="Informe proprietário, WhatsApp e descrição do serviço.";
     return;
   }
   if(receiptTotal(row)<=0){
