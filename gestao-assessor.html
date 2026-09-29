@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Gestão do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609290545">
+  <link rel="stylesheet" href="css/styles.css?v=202609290610">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 </head>
@@ -58,7 +58,7 @@
     <div class="advisor-panel-tabs management-tabs">
       <button class="advisor-panel-tab active" type="button" data-management-view="overview">Visão geral</button>
       <button class="advisor-panel-tab" type="button" data-management-view="owners">Proprietários</button>
-      <button class="advisor-panel-tab" type="button" data-management-view="finance">Comissões</button>
+      <button class="advisor-panel-tab" type="button" data-management-view="finance">Recebimentos</button>
       <button class="advisor-panel-tab" type="button" data-management-view="receipts">Recibos</button>
       <button class="advisor-panel-tab" type="button" data-management-view="rentals">Imóveis alugados</button>
     </div>
@@ -89,11 +89,14 @@
     <section id="managementFinance" class="admin-panel hidden">
       <div class="admin-panel-head">
         <div>
-          <p class="eyebrow">COMISSÕES</p>
-          <h2>Recebidas e a receber dos proprietários</h2>
-          <p class="muted">Controle simples por proprietário e imóvel: valor da comissão, vencimento e confirmação do recebimento.</p>
+          <p class="eyebrow">RECEBIMENTOS</p>
+          <h2>Comissões e assessorias</h2>
+          <p class="muted">Separe claramente o que o proprietário deve de comissão e o que o inquilino deve de assessoria.</p>
         </div>
-        <button class="btn primary" type="button" data-new-owner-commission>+ Nova comissão</button>
+        <div class="management-finance-actions">
+          <button class="btn ghost" type="button" data-new-tenant-advisory>+ Assessoria do inquilino</button>
+          <button class="btn primary" type="button" data-new-owner-commission>+ Comissão do proprietário</button>
+        </div>
       </div>
       <div id="managementFinanceContent"></div>
     </section>
@@ -125,6 +128,6 @@
 
 <div id="managementModal" class="modal hidden"></div>
 
-<script type="module" src="js/gestao-assessor.js?v=202609290540"></script>
+<script type="module" src="js/gestao-assessor.js?v=202609290610"></script>
 </body>
 </html>
