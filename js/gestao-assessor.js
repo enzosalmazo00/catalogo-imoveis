@@ -48,7 +48,7 @@ function propertyById(id){
 }
 function ownerOptions(selected=""){
   return '<option value="">Sem proprietário vinculado</option>'+
-    owners.map(o=>`<option value="${o.id}" ${o.id===selected?"selected":""}>${escapeHTML(o.full_name)}${o.phone?` • ${escapeHTML(o.phone)}`:""}</option>`).join("");
+    owners.map(o=>`<option value="${o.id}" ${o.id===selected?"selected":""}>${escapeHTML(o.full_name)} • ${escapeHTML(o.whatsapp||"")}</option>`).join("");
 }
 function propertyOptions(selected=""){
   return '<option value="">Sem anúncio vinculado</option>'+
@@ -374,7 +374,7 @@ function renderOwners(){
         const expired=linked.length-active;
         const views=linked.reduce((sum,p)=>sum+Number(p.view_count||0),0);
         const whatsapp=linked.reduce((sum,p)=>sum+Number(p.whatsapp_click_count||0),0);
-        const phone=String(owner.whatsapp||owner.phone||"").replace(/\D/g,"");
+        const phone=String(owner.whatsapp||"").replace(/\D/g,"");
 
         return `
           <article class="advisor-owner-card">
@@ -382,7 +382,7 @@ function renderOwners(){
               <div>
                 <p class="eyebrow">PROPRIETÁRIO</p>
                 <h3>${escapeHTML(owner.full_name)}</h3>
-                <span>${escapeHTML(owner.phone||owner.whatsapp||"Telefone não informado")}</span>
+                <span>WhatsApp: ${escapeHTML(owner.whatsapp||"—")}</span>
               </div>
               <div class="table-actions">
                 <button class="btn ghost compact" type="button" data-link-owner-properties="${owner.id}">Vincular imóveis</button>
@@ -401,11 +401,8 @@ function renderOwners(){
             </div>
 
             <div class="advisor-owner-contact">
-              ${owner.email?`<span>✉ ${escapeHTML(owner.email)}</span>`:""}
               ${phone?`<a class="btn whatsapp compact" href="https://wa.me/${phone}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}
             </div>
-
-            ${owner.notes?`<p class="advisor-owner-notes">${escapeHTML(owner.notes)}</p>`:""}
           </article>
         `;
       }).join("")}
@@ -426,20 +423,12 @@ function ownerModal(row=null){
 
     <form id="managementOwnerForm" class="form-grid">
       <input type="hidden" name="id" value="${row?.id||""}">
-      <label class="span-2">Nome completo
-        <input name="full_name" required value="${escapeHTML(row?.full_name||"")}">
+      <label class="span-2">Nome do proprietário
+        <input name="full_name" required value="${escapeHTML(row?.full_name||"")}" autocomplete="name">
       </label>
-      <label>Telefone
-        <input name="phone" required inputmode="tel" value="${escapeHTML(row?.phone||"")}">
-      </label>
-      <label>WhatsApp
-        <input name="whatsapp" inputmode="tel" value="${escapeHTML(row?.whatsapp||row?.phone||"")}">
-      </label>
-      <label>E-mail
-        <input name="email" type="email" value="${escapeHTML(row?.email||"")}">
-      </label>
-      <label class="span-2">Observações internas
-        <textarea name="notes" rows="3">${escapeHTML(row?.notes||"")}</textarea>
+      <label class="span-2">WhatsApp
+        <input name="whatsapp" required inputmode="tel" value="${escapeHTML(row?.whatsapp||"")}" placeholder="Ex.: 595981123456">
+        <small>Somente para seu controle interno. Esse número não aparece no anúncio.</small>
       </label>
 
       <div id="managementOwnerMessage" class="form-message span-2"></div>
@@ -458,15 +447,12 @@ async function saveOwner(form){
   const row={
     advisor_id:currentUser.id,
     full_name:String(fd.get("full_name")||"").trim(),
-    phone:String(fd.get("phone")||"").trim()||null,
-    whatsapp:String(fd.get("whatsapp")||"").trim()||null,
-    email:String(fd.get("email")||"").trim()||null,
-    notes:String(fd.get("notes")||"").trim()||null,
+    whatsapp:String(fd.get("whatsapp")||"").replace(/\D/g,"").trim(),
     updated_at:new Date().toISOString()
   };
 
-  if(!row.full_name || !row.phone){
-    msg.textContent="Informe o nome e o telefone do proprietário.";
+  if(!row.full_name || !row.whatsapp){
+    msg.textContent="Informe o nome e o WhatsApp do proprietário.";
     return;
   }
 
@@ -835,9 +821,6 @@ function receiptModal(row=null){
       <label>Telefone
         <input name="owner_phone" required inputmode="tel" value="${escapeHTML(row?.owner_phone||linkedOwner?.phone||linkedOwner?.whatsapp||"")}">
       </label>
-      <label>E-mail
-        <input name="owner_email" type="email" value="${escapeHTML(row?.owner_email||linkedOwner?.email||"")}">
-      </label>
 
       <div class="form-section-title">Cliente / inquilino</div>
       <label>Nome
@@ -845,9 +828,6 @@ function receiptModal(row=null){
       </label>
       <label>Telefone
         <input name="client_phone" inputmode="tel" value="${escapeHTML(row?.client_phone||"")}">
-      </label>
-      <label>E-mail
-        <input name="client_email" type="email" value="${escapeHTML(row?.client_email||"")}">
       </label>
 
       <div class="form-section-title">Serviço e valores</div>
@@ -930,7 +910,6 @@ function wireReceiptForm(form){
     if(!owner) return;
     form.querySelector('[name="owner_name"]').value=owner.full_name||"";
     form.querySelector('[name="owner_phone"]').value=owner.phone||owner.whatsapp||"";
-    form.querySelector('[name="owner_email"]').value=owner.email||"";
   };
 
   propertySelect?.addEventListener("change",()=>{
@@ -972,10 +951,8 @@ async function saveReceipt(form){
     property_address:String(fd.get("property_address")||(property?[property.address,property.neighborhood,property.city].filter(Boolean).join(" • "):"")).trim()||null,
     owner_name:String(fd.get("owner_name")||"").trim(),
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
-    owner_email:String(fd.get("owner_email")||"").trim()||null,
     client_name:String(fd.get("client_name")||"").trim()||null,
     client_phone:String(fd.get("client_phone")||"").trim()||null,
-    client_email:String(fd.get("client_email")||"").trim()||null,
     service_description:String(fd.get("service_description")||"").trim(),
     currency:fd.get("currency")||"BRL",
     commission_amount:Number(fd.get("commission_amount")||0),
@@ -1087,13 +1064,11 @@ function generateServiceReceiptPdf(row){
   section("Proprietário");
   line("Nome:",row.owner_name);
   line("Telefone:",row.owner_phone);
-  line("E-mail:",row.owner_email);
 
-  if(row.client_name || row.client_phone || row.client_email){
+  if(row.client_name || row.client_phone){
     section("Cliente / inquilino");
     line("Nome:",row.client_name);
     line("Telefone:",row.client_phone);
-    line("E-mail:",row.client_email);
   }
 
   section("Serviço");
