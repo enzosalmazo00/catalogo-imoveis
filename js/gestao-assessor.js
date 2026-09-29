@@ -1598,10 +1598,9 @@ function renderNotifications(){
             ${item.property_code||item.property_title?`<span>${escapeHTML([item.property_code,item.property_title].filter(Boolean).join(" • "))}</span>`:""}
           </div>
           <div class="management-notification-actions">
-            ${item.notification_type==="terms_acceptance_required" && !profile?.terms_accepted_at
+            ${item.notification_type==="terms_acceptance_required" && !(profile?.terms_accepted_at && profile?.terms_version==="2026-09-29-v1")
               ? '<a class="btn primary compact" href="assessor.html?terms=1">Ler e aceitar os termos</a>'
-              : ""}
-            ${item.read_at?"":`<button class="btn ghost compact" type="button" data-notification-read="${item.id}">Marcar como lida</button>`}
+              : (item.read_at?"":`<button class="btn ghost compact" type="button" data-notification-read="${item.id}">Marcar como lida</button>`)}
           </div>
         </article>
       `).join("")}
@@ -1662,7 +1661,11 @@ async function markNotificationRead(id){
 }
 
 async function markAllNotificationsRead(){
-  const unreadIds=notifications.filter(item=>!item.read_at).map(item=>item.id);
+  const hasCurrentTerms=Boolean(profile?.terms_accepted_at && profile?.terms_version==="2026-09-29-v1");
+  const unreadIds=notifications
+    .filter(item=>!item.read_at)
+    .filter(item=>item.notification_type!=="terms_acceptance_required" || hasCurrentTerms)
+    .map(item=>item.id);
   if(!unreadIds.length) return;
 
   const now=new Date().toISOString();
@@ -1735,6 +1738,12 @@ async function boot(){
 
     currentUser=user;
     await loadData();
+
+    if(!(profile?.terms_accepted_at && profile?.terms_version==="2026-09-29-v1")){
+      location.href="assessor.html?terms=1";
+      return;
+    }
+
     renderAll();
 
     bootEl.classList.add("hidden");
