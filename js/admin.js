@@ -24,6 +24,7 @@ const state = {
   rentals: [],
   finances: [],
   receipts: [],
+  notifications: [],
   settings: null
 };
 
@@ -31,6 +32,7 @@ const titles = {
   dashboard: "Visão geral",
   properties: "Imóveis",
   advisors: "Assessores",
+  notifications: "Notificações",
   finance: "Financeiro",
   universities: "Faculdades",
   settings: "Configurações"
@@ -103,6 +105,7 @@ async function refreshData() {
     rentals,
     finances,
     receipts,
+    notifications,
     settings
   ] = await Promise.all([
     db.from("properties").select("*, property_media(*), property_features(feature_id)").order("created_at",{ascending:false}),
@@ -117,6 +120,11 @@ async function refreshData() {
     db.from("rentals").select("*").order("created_at",{ascending:false}),
     db.from("financial_entries").select("*").order("created_at",{ascending:false}),
     db.from("advisor_rental_control").select("*").order("created_at",{ascending:false}),
+    db.from("advisor_notifications")
+      .select("*")
+      .eq("notification_type","admin_message")
+      .order("created_at",{ascending:false})
+      .limit(100),
     db.from("site_settings").select("*").eq("id",true).maybeSingle()
   ]);
 
@@ -132,6 +140,7 @@ async function refreshData() {
   state.rentals = rentals.data || [];
   state.finances = finances.data || [];
   state.receipts = receipts.data || [];
+  state.notifications = notifications.data || [];
   state.settings = settings.data || null;
 }
 
@@ -162,6 +171,7 @@ function renderDashboard() {
       <div class="property-facts">
         <button class="btn ghost" data-goto="properties">Gerenciar imóveis</button>
         <button class="btn ghost" data-goto="advisors">Assessores</button>
+        <button class="btn ghost" data-goto="notifications">🔔 Enviar notificação</button>
         <button class="btn ghost" data-goto="finance">Financeiro de créditos</button>
         <button class="btn ghost" data-goto="universities">Faculdades</button>
         <button class="btn ghost" data-goto="settings">Configurações do catálogo</button>
@@ -1466,6 +1476,155 @@ function renderCreditFinance(){
   `;
 }
 
+
+function adminNotificationRecipientName(id){
+  const advisor=state.advisors.find(item=>item.user_id===id);
+  return advisor?.full_name || advisor?.company_name || "Assessor";
+}
+
+function renderNotificationsAdmin(){
+  const advisorOptions=state.advisors.map(advisor=>`
+    <option value="${advisor.user_id}">${escapeHTML(advisor.full_name||"Assessor")}${advisor.company_name?` • ${escapeHTML(advisor.company_name)}`:""}</option>
+  `).join("");
+
+  const history=state.notifications.map(item=>`
+    <tr>
+      <td>${adminDateTime(item.created_at)}</td>
+      <td><strong>${escapeHTML(adminNotificationRecipientName(item.advisor_id))}</strong></td>
+      <td><strong>${escapeHTML(item.title||"Notificação")}</strong><br><span class="muted">${escapeHTML(item.message||"")}</span></td>
+      <td><span class="pill ${item.read_at?"paid":"pending"}">${item.read_at?"LIDA":"NÃO LIDA"}</span></td>
+    </tr>
+  `).join("");
+
+  $("#adminContent").innerHTML=`
+    <section class="admin-panel admin-notification-compose">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">CENTRAL DE NOTIFICAÇÕES</p>
+          <h2>Enviar mensagem aos assessores</h2>
+          <p class="muted">Envie uma notificação para um assessor específico ou para todos os assessores cadastrados. A mensagem aparecerá no sino de notificações com contador vermelho até ser lida.</p>
+        </div>
+      </div>
+
+      <form id="adminNotificationForm" class="form-grid admin-notification-form">
+        <label>Destino
+          <select id="adminNotificationScope" name="scope" required>
+            <option value="all">Todos os assessores</option>
+            <option value="individual">Um assessor específico</option>
+          </select>
+        </label>
+
+        <label id="adminNotificationAdvisorField" class="hidden">Assessor
+          <select id="adminNotificationAdvisor" name="advisor_id">
+            <option value="">Selecione...</option>
+            ${advisorOptions}
+          </select>
+        </label>
+
+        <label class="span-2">Título da notificação
+          <input name="title" maxlength="120" required placeholder="Ex.: Atualização importante da plataforma">
+        </label>
+
+        <label class="span-2">Mensagem
+          <textarea name="message" rows="6" maxlength="2000" required placeholder="Digite a mensagem que o assessor receberá..."></textarea>
+        </label>
+
+        <div class="admin-notification-preview span-2">
+          <span>🔔</span>
+          <div>
+            <strong>Como aparecerá para o assessor</strong>
+            <p>A notificação ficará pendente no sino até ser marcada como lida. O contador vermelho mostrará a quantidade de notificações não lidas.</p>
+          </div>
+        </div>
+
+        <div id="adminNotificationMessage" class="form-message span-2"></div>
+
+        <div class="form-actions span-2">
+          <button id="adminNotificationSubmit" class="btn primary" type="submit">🔔 Enviar notificação</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">HISTÓRICO</p>
+          <h2>Notificações enviadas pela administração</h2>
+          <p class="muted">O status muda para “Lida” quando o assessor abre a área de notificações e marca a mensagem como lida.</p>
+        </div>
+      </div>
+      <div class="admin-table-wrap">
+        <table class="admin-table">
+          <thead><tr><th>Enviada em</th><th>Assessor</th><th>Mensagem</th><th>Status</th></tr></thead>
+          <tbody>${history || '<tr><td colspan="4" class="muted">Nenhuma notificação administrativa enviada.</td></tr>'}</tbody>
+        </table>
+      </div>
+    </section>
+  `;
+
+  const scope=$("#adminNotificationScope");
+  const advisorField=$("#adminNotificationAdvisorField");
+  const advisorSelect=$("#adminNotificationAdvisor");
+  const sync=()=>{
+    const individual=scope?.value==="individual";
+    advisorField?.classList.toggle("hidden",!individual);
+    if(advisorSelect) advisorSelect.required=individual;
+  };
+  scope?.addEventListener("change",sync);
+  sync();
+}
+
+async function sendAdminNotification(form){
+  const fd=new FormData(form);
+  const scope=String(fd.get("scope")||"all");
+  const advisorId=scope==="individual"?String(fd.get("advisor_id")||"").trim():null;
+  const title=String(fd.get("title")||"").trim();
+  const messageText=String(fd.get("message")||"").trim();
+  const msg=$("#adminNotificationMessage");
+  const button=$("#adminNotificationSubmit");
+
+  if(scope==="individual" && !advisorId){
+    if(msg) msg.innerHTML=message("Selecione o assessor que receberá a notificação.");
+    return;
+  }
+
+  if(!title || !messageText){
+    if(msg) msg.innerHTML=message("Preencha o título e a mensagem.");
+    return;
+  }
+
+  if(button){
+    button.disabled=true;
+    button.textContent="Enviando...";
+  }
+  if(msg) msg.textContent="Enviando notificação...";
+
+  try{
+    const {data,error}=await db.rpc("admin_send_advisor_notification",{
+      p_title:title,
+      p_message:messageText,
+      p_advisor_id:advisorId||null
+    });
+    if(error) throw error;
+
+    const count=Number(data?.recipient_count||0);
+    if(msg) msg.innerHTML=message(`Notificação enviada com sucesso para ${count} assessor${count===1?"":"es"}.`,true);
+
+    form.reset();
+    $("#adminNotificationAdvisorField")?.classList.add("hidden");
+    await refreshData();
+    setTimeout(()=>renderNotificationsAdmin(),500);
+  }catch(err){
+    console.error("Erro ao enviar notificação:",err);
+    if(msg) msg.innerHTML=message(err?.message||"Não foi possível enviar a notificação.");
+  }finally{
+    if(button && document.body.contains(button)){
+      button.disabled=false;
+      button.textContent="🔔 Enviar notificação";
+    }
+  }
+}
+
 function renderSettings() {
   const s = state.settings || {};
   $("#adminContent").innerHTML = `
@@ -1490,6 +1649,7 @@ function renderCurrent() {
     dashboard: renderDashboard,
     properties: renderProperties,
     advisors: renderAdvisors,
+    notifications: renderNotificationsAdmin,
     finance: renderCreditFinance,
     universities: renderUniversities,
     settings: renderSettings
@@ -1800,6 +1960,12 @@ $("#adminModal").addEventListener("submit",async event=>{
 });
 
 $("#adminContent").addEventListener("submit",async event=>{
+  if(event.target.id==="adminNotificationForm"){
+    event.preventDefault();
+    await sendAdminNotification(event.target);
+    return;
+  }
+
   if(event.target.id!=="settingsForm")return;
   event.preventDefault();
   const fd=new FormData(event.target);
