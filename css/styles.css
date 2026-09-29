@@ -1794,3 +1794,18 @@ button,input,select,textarea{font-size:16px}
   .management-notification-item>.btn{grid-column:2}
   .management-notification-top{flex-direction:column;gap:3px}
 }
+
+.collaboration-payment-locked{
+  display:inline-flex;
+  align-items:center;
+  min-height:30px;
+  padding:6px 9px;
+  border-radius:9px;
+  background:#edf8f3;
+  border:1px solid #b8ddcd;
+  color:var(--green-dark);
+  font-size:9px;
+  font-weight:900;
+  text-transform:uppercase;
+  letter-spacing:.03em
+}
