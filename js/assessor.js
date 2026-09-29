@@ -607,7 +607,9 @@ function renderManagementDashboard(){
   const now=Date.now();
   const fiveDays=5*24*60*60*1000;
   const active=properties.filter(p=>p.is_published && p.status==="available" && p.listing_expires_at && new Date(p.listing_expires_at).getTime()>now);
-  const expired=properties.filter(p=>!p.is_published || !p.listing_expires_at || new Date(p.listing_expires_at).getTime()<=now);
+  const expired=properties
+    .filter(p=>!p.is_published || !p.listing_expires_at || new Date(p.listing_expires_at).getTime()<=now)
+    .sort((a,b)=>new Date(b.listing_expires_at||0)-new Date(a.listing_expires_at||0));
   const expiring=active
     .filter(p=>new Date(p.listing_expires_at).getTime()<=now+fiveDays)
     .sort((a,b)=>new Date(a.listing_expires_at)-new Date(b.listing_expires_at));
@@ -667,6 +669,18 @@ function renderManagementDashboard(){
               }).join("")}
             </div>
           `:'<div class="advisor-empty-compact">Nenhum anúncio vence nos próximos 5 dias.</div>'}
+          ${expired.length?`
+            <div class="advisor-expired-mini-title">Já expirados</div>
+            <div class="advisor-deadline-list expired">
+              ${expired.slice(0,5).map(p=>`
+                <div>
+                  <span><strong>${escapeHTML(p.public_code||"—")} • ${escapeHTML(p.title)}</strong><small>Venceu em ${p.listing_expires_at?dateOnlyBR(p.listing_expires_at):"data não informada"}</small></span>
+                  <b>Expirado</b>
+                </div>
+              `).join("")}
+            </div>
+            ${expired.length>5?`<small class="advisor-deadline-more">+ ${expired.length-5} anúncio${expired.length-5===1?"":"s"} expirado${expired.length-5===1?"":"s"} em “Meus anúncios”.</small>`:""}
+          `:""}
         </section>
 
         <section class="advisor-dashboard-box">
@@ -2163,7 +2177,7 @@ function generateServiceReceiptPdf(row){
   doc.line(right-72,y,right,y);
   y+=5;
   doc.setFontSize(8.5);
-  doc.text("Proprietário / pagador",left+36,y,{align:"center"});
+  doc.text("Pagador / responsável",left+36,y,{align:"center"});
   doc.text("Assessor / emitente",right-36,y,{align:"center"});
 
   doc.setFontSize(7.5);
