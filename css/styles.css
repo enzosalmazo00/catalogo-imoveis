@@ -1531,3 +1531,57 @@ button,input,select,textarea{font-size:16px}
   .advisor-create-ad-icon{width:50px;height:50px;border-radius:15px;font-size:32px}
   .advisor-create-ad-copy strong{font-size:19px}
 }
+
+
+/* Oferta dourada no cadastro do assessor */
+.advisor-signup-gold-offer{
+  position:relative;
+  overflow:hidden;
+  padding:16px 18px;
+  border:1px solid #d7ad3c;
+  border-radius:16px;
+  background:
+    radial-gradient(circle at 12% 10%,rgba(255,255,255,.62),transparent 28%),
+    linear-gradient(135deg,#fff6cf 0%,#f2d26d 38%,#d9a928 100%);
+  box-shadow:0 10px 26px rgba(173,128,16,.20),inset 0 1px 0 rgba(255,255,255,.75);
+  color:#3b2a00;
+  text-align:center
+}
+.advisor-signup-gold-offer::after{
+  content:"";
+  position:absolute;
+  inset:-35% auto -35% -30%;
+  width:34%;
+  transform:rotate(16deg);
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.55),transparent)
+}
+.advisor-signup-gold-kicker{
+  display:block;
+  margin-bottom:5px;
+  font-size:9px;
+  font-weight:900;
+  letter-spacing:.11em;
+  color:#6f5100
+}
+.advisor-signup-gold-offer>strong{
+  display:block;
+  font-size:18px;
+  line-height:1.15;
+  letter-spacing:-.02em;
+  color:#3c2b00
+}
+.advisor-signup-gold-offer>strong b{
+  font-size:24px;
+  color:#1f1700
+}
+.advisor-signup-gold-offer sup{
+  font-size:9px;
+  vertical-align:super
+}
+.advisor-signup-gold-offer small{
+  display:block;
+  margin-top:6px;
+  font-size:8px;
+  line-height:1.25;
+  color:#6d571b
+}
