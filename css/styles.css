@@ -1987,3 +1987,72 @@ button,input,select,textarea{font-size:16px}
     box-shadow:0 16px 38px rgba(0,0,0,.26);
   }
 }
+/* ===== CAPA REAL CATÁLOGO IMÓVEIS 2026-09-29 ===== */
+.hero.hero-cover{
+  position:relative;
+  min-height:0;
+  padding:0;
+  display:block;
+  overflow:hidden;
+  isolation:isolate;
+  background:#071a31;
+  color:#fff;
+}
+.hero.hero-cover::before{display:none}
+.hero-cover-art{
+  display:block;
+  width:100%;
+  height:clamp(420px,42.85vw,720px);
+  object-fit:cover;
+  object-position:center;
+}
+.hero-cover .hero-inner{
+  position:relative;
+  z-index:2;
+  width:min(1180px,calc(100% - 32px));
+  margin:-92px auto 0;
+  padding:0 0 28px;
+}
+.hero-cover .hero-brand-lockup{
+  position:absolute!important;
+  width:1px!important;
+  height:1px!important;
+  padding:0!important;
+  margin:-1px!important;
+  overflow:hidden!important;
+  clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important;
+  border:0!important;
+}
+.hero-cover .search-panel{
+  margin:0;
+  background:rgba(255,255,255,.97);
+  border:1px solid rgba(255,255,255,.72);
+  box-shadow:0 20px 58px rgba(0,0,0,.32);
+  backdrop-filter:blur(10px);
+  -webkit-backdrop-filter:blur(10px);
+}
+.hero-cover .search-panel .btn.primary{background:#102a49}
+.hero-cover .search-panel .btn.primary:hover{background:#183b62}
+@media(max-width:820px){
+  .hero-cover-art{
+    width:100%;
+    height:auto;
+    object-fit:contain;
+  }
+  .hero-cover .hero-inner{
+    width:min(1180px,calc(100% - 24px));
+    margin:-34px auto 0;
+    padding-bottom:22px;
+  }
+}
+@media(max-width:560px){
+  .hero-cover .hero-inner{
+    width:min(1180px,calc(100% - 20px));
+    margin:-4px auto 0;
+    padding-bottom:18px;
+  }
+  .hero-cover .search-panel{
+    box-shadow:0 14px 32px rgba(0,0,0,.24);
+  }
+}
