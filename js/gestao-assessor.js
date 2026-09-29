@@ -359,6 +359,7 @@ function ownerModal(row=null){
 }
 
 
+
 async function saveOwner(form){
   const fd=new FormData(form);
   const id=String(fd.get("id")||"").trim()||null;
@@ -366,25 +367,19 @@ async function saveOwner(form){
   const submit=form.querySelector('button[type="submit"]');
   const originalText=submit?.textContent||"Salvar proprietário";
 
-  const row={
-    advisor_id:currentUser?.id,
-    full_name:String(fd.get("full_name")||"").trim(),
-    whatsapp:String(fd.get("whatsapp")||"").replace(/\D/g,"").trim(),
-    updated_at:new Date().toISOString()
-  };
+  const fullName=String(fd.get("full_name")||"").trim();
+  const whatsapp=String(fd.get("whatsapp")||"").replace(/\D/g,"").trim();
 
-  if(!row.advisor_id){
+  if(!currentUser?.id){
     if(msg) msg.textContent="Sua sessão expirou. Entre novamente na Área do Assessor.";
     return;
   }
-
-  if(!row.full_name || !row.whatsapp){
-    if(msg) msg.textContent="Informe o nome e o WhatsApp do proprietário.";
+  if(!fullName){
+    if(msg) msg.textContent="Informe o nome do proprietário.";
     return;
   }
-
-  if(row.whatsapp.length<8){
-    if(msg) msg.textContent="Confira o número do WhatsApp.";
+  if(whatsapp.length<8){
+    if(msg) msg.textContent="Informe um WhatsApp válido.";
     return;
   }
 
@@ -392,41 +387,35 @@ async function saveOwner(form){
     submit.disabled=true;
     submit.textContent="Salvando...";
   }
-  if(msg) msg.textContent="";
+  if(msg) msg.textContent="Salvando proprietário...";
 
   try{
-    const query=id
-      ? db.from("advisor_owners")
-          .update(row)
-          .eq("id",id)
-          .eq("advisor_id",currentUser.id)
-          .select("id,advisor_id,full_name,whatsapp,created_at,updated_at")
-          .single()
-      : db.from("advisor_owners")
-          .insert(row)
-          .select("id,advisor_id,full_name,whatsapp,created_at,updated_at")
-          .single();
+    const {data,error}=await db.rpc("save_advisor_owner",{
+      p_full_name:fullName,
+      p_whatsapp:whatsapp,
+      p_owner_id:id
+    });
 
-    const {data,error}=await query;
     if(error) throw error;
-    if(!data) throw new Error("O proprietário não foi retornado após o salvamento.");
+    if(!data?.id) throw new Error("O cadastro não retornou confirmação do banco.");
 
     if(id){
       owners=owners.map(owner=>owner.id===data.id?data:owner);
-    }else{
-      owners=[...owners,data].sort((a,b)=>String(a.full_name||"").localeCompare(String(b.full_name||""),"pt-BR"));
+    }else if(!owners.some(owner=>owner.id===data.id)){
+      owners=[...owners,data];
     }
 
-    renderOwners();
-    renderOverview();
+    owners.sort((a,b)=>String(a.full_name||"").localeCompare(String(b.full_name||""),"pt-BR"));
 
     if(msg) msg.textContent="Proprietário salvo com sucesso ✓";
     if(submit) submit.textContent="Salvo ✓";
 
+    try{ renderOwners(); }catch(renderError){ console.warn("Proprietário salvo; falha apenas ao redesenhar a lista:",renderError); }
+
     setTimeout(()=>{
       closeModal();
       switchView("owners");
-    },250);
+    },300);
   }catch(err){
     console.error("Erro ao salvar proprietário:",err);
     if(msg) msg.textContent=err?.message||"Não foi possível salvar o proprietário.";
