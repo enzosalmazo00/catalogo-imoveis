@@ -523,6 +523,7 @@ function financialRecords(){
         id:`rental-commission-${r.id}`,
         source:"Locação",
         description:"Comissão do assessor",
+        category:"commission",
         entry_type:"income",
         amount:Number(r.commission_amount||0),
         status:r.commission_paid?"paid":"pending",
@@ -535,6 +536,7 @@ function financialRecords(){
         id:`rental-advisory-${r.id}`,
         source:"Locação",
         description:"Taxa de assessoria",
+        category:"advisory",
         entry_type:"income",
         amount:Number(r.advisory_fee_amount||0),
         status:r.advisory_fee_paid?"paid":"pending",
@@ -544,20 +546,31 @@ function financialRecords(){
   });
 
   serviceReceipts.filter(r=>r.include_in_financials).forEach(r=>{
-    const amount=totalServiceReceipt(r);
-    if(amount<=0) return;
-    rows.push({
-      id:`service-${r.id}`,
+    const base={
       property_id:r.property_id||null,
       property_code:r.property_code||null,
       property_title:r.property_title||"Serviço de assessoria",
       currency:r.currency||"BRL",
       source:"Recibo",
-      description:r.service_description||"Recibo de assessoria",
       entry_type:"income",
-      amount,
       status:r.paid?"paid":"pending",
       date:r.payment_date||r.issued_at
+    };
+    [
+      ["commission_amount","Comissão","commission"],
+      ["advisory_fee_amount","Taxa de assessoria","advisory"],
+      ["contract_amount","Contrato / documentação","documents"],
+      ["other_amount","Outros valores","other"]
+    ].forEach(([field,label,category])=>{
+      const amount=Number(r[field]||0);
+      if(amount<=0) return;
+      rows.push({
+        ...base,
+        id:`service-${category}-${r.id}`,
+        description:`${label} • ${r.service_description||"Recibo de assessoria"}`,
+        category,
+        amount
+      });
     });
   });
 
@@ -846,12 +859,16 @@ function renderFinance(){
   const pending=blankCurrencyTotals();
   const expenses=blankCurrencyTotals();
   const pendingExpenses=blankCurrencyTotals();
+  const commissionsReceived=blankCurrencyTotals();
+  const advisoryReceived=blankCurrencyTotals();
 
   records.forEach(r=>{
     if(r.entry_type==="income" && r.status==="paid") addCurrencyValue(received,r.currency,r.amount);
     if(r.entry_type==="income" && r.status==="pending") addCurrencyValue(pending,r.currency,r.amount);
     if(r.entry_type==="expense" && r.status==="paid") addCurrencyValue(expenses,r.currency,r.amount);
     if(r.entry_type==="expense" && r.status==="pending") addCurrencyValue(pendingExpenses,r.currency,r.amount);
+    if(r.entry_type==="income" && r.status==="paid" && r.category==="commission") addCurrencyValue(commissionsReceived,r.currency,r.amount);
+    if(r.entry_type==="income" && r.status==="paid" && r.category==="advisory") addCurrencyValue(advisoryReceived,r.currency,r.amount);
   });
 
   const result={
@@ -879,7 +896,9 @@ function renderFinance(){
 
   root.innerHTML=`
     <div class="advisor-finance-summary">
-      <article><span>Receita recebida</span><strong>${formatCurrencyTotals(received)}</strong><small>Comissões + assessorias + receitas lançadas</small></article>
+      <article><span>Comissões recebidas</span><strong>${formatCurrencyTotals(commissionsReceived)}</strong><small>Comissões marcadas como pagas</small></article>
+      <article><span>Assessoria recebida</span><strong>${formatCurrencyTotals(advisoryReceived)}</strong><small>Taxas de assessoria pagas</small></article>
+      <article><span>Receita recebida</span><strong>${formatCurrencyTotals(received)}</strong><small>Todas as receitas contabilizadas</small></article>
       <article><span>A receber</span><strong>${formatCurrencyTotals(pending)}</strong><small>Receitas pendentes</small></article>
       <article><span>Despesas pagas</span><strong>${formatCurrencyTotals(expenses)}</strong><small>Pendentes: ${formatCurrencyTotals(pendingExpenses)}</small></article>
       <article class="result"><span>Resultado líquido</span><strong>${formatCurrencyTotals(result)}</strong><small>Receitas recebidas − despesas pagas</small></article>
