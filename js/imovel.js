@@ -10,7 +10,7 @@ import {
   getSettings,
   whatsappLink,
   locationText
-} from "./common.js?v=202609281430";
+} from "./common.js?v=202609290430";
 
 const params = new URLSearchParams(location.search);
 const id = params.get("id");
