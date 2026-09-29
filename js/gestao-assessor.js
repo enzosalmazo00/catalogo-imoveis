@@ -352,10 +352,31 @@ function ownerModal(row=null){
       <div id="managementOwnerMessage" class="form-message span-2"></div>
       <div class="form-actions span-2">
         <button class="btn ghost" type="button" data-close-modal>Cancelar</button>
-        <button class="btn primary" type="submit">Salvar proprietário</button>
+        <button id="managementOwnerSaveBtn" class="btn primary" type="button">Salvar proprietário</button>
       </div>
     </form>
   `);
+
+  const form=$("#managementOwnerForm");
+  const saveButton=$("#managementOwnerSaveBtn");
+
+  const triggerSave=async()=>{
+    if(!form) return;
+    if(!form.reportValidity()) return;
+    await saveOwner(form);
+  };
+
+  saveButton?.addEventListener("click",async e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    await triggerSave();
+  });
+
+  form?.addEventListener("submit",async e=>{
+    e.preventDefault();
+    e.stopPropagation();
+    await triggerSave();
+  });
 }
 
 
@@ -364,7 +385,7 @@ async function saveOwner(form){
   const fd=new FormData(form);
   const id=String(fd.get("id")||"").trim()||null;
   const msg=form.querySelector("#managementOwnerMessage");
-  const submit=form.querySelector('button[type="submit"]');
+  const submit=form.querySelector("#managementOwnerSaveBtn");
   const originalText=submit?.textContent||"Salvar proprietário";
 
   const fullName=String(fd.get("full_name")||"").trim();
@@ -1381,7 +1402,6 @@ document.addEventListener("click",async e=>{
 
 $("#managementModal").addEventListener("submit",async e=>{
   e.preventDefault();
-  if(e.target.id==="managementOwnerForm") await saveOwner(e.target);
   if(e.target.id==="managementOwnerPropertiesForm") await saveOwnerProperties(e.target);
   if(e.target.id==="managementCommissionForm") await saveCommission(e.target);
   if(e.target.id==="managementReceiptForm") await saveReceipt(e.target);
