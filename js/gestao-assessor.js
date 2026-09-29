@@ -267,25 +267,26 @@ function renderOverview(){
   `;
 }
 
+
 function renderOwners(){
   const root=$("#managementOwnersList");
   if(!root) return;
 
   if(!owners.length){
-    root.innerHTML='<div class="empty-state"><strong>Nenhum proprietário cadastrado.</strong><span>Cadastre o proprietário aqui e depois vincule os imóveis dele.</span></div>';
+    root.innerHTML='<div class="empty-state"><strong>Nenhum proprietário cadastrado.</strong><span>Cadastre somente nome e WhatsApp e depois vincule os imóveis dele.</span></div>';
     return;
   }
+
+  const commissions=commissionRows();
 
   root.innerHTML=`
     <div class="advisor-owner-grid">
       ${owners.map(owner=>{
         const linked=properties.filter(p=>p.advisor_owner_id===owner.id);
         const linkedRentals=rentals.filter(r=>ownerMatchesRental(owner,r));
-        const now=Date.now();
-        const active=linked.filter(p=>p.is_published && (!p.listing_expires_at || new Date(p.listing_expires_at).getTime()>now)).length;
-        const expired=linked.length-active;
-        const views=linked.reduce((sum,p)=>sum+Number(p.view_count||0),0);
-        const whatsapp=linked.reduce((sum,p)=>sum+Number(p.whatsapp_click_count||0),0);
+        const ownerCommissions=commissions.filter(r=>r.owner_id===owner.id);
+        const pending=blankTotals();
+        ownerCommissions.filter(r=>!r.paid).forEach(r=>addTotal(pending,r.currency,r.amount));
         const phone=String(owner.whatsapp||"").replace(/\D/g,"");
 
         return `
@@ -297,24 +298,19 @@ function renderOwners(){
                 <span>WhatsApp: ${escapeHTML(owner.whatsapp||"—")}</span>
               </div>
               <div class="table-actions">
-                <button class="btn ghost compact" type="button" data-link-owner-properties="${owner.id}">Vincular imóveis</button>
+                <button class="btn ghost compact" type="button" data-link-owner-properties="${owner.id}">Imóveis</button>
                 <button class="btn ghost compact" type="button" data-edit-owner="${owner.id}">Editar</button>
                 <button class="btn danger compact" type="button" data-delete-owner="${owner.id}">Excluir</button>
               </div>
             </div>
 
-            <div class="advisor-owner-stats">
+            <div class="advisor-owner-stats compact-owner-stats">
               <div><span>Imóveis</span><strong>${linked.length}</strong></div>
-              <div><span>Ativos</span><strong>${active}</strong></div>
-              <div><span>Expirados</span><strong>${expired}</strong></div>
               <div><span>Alugados</span><strong>${linkedRentals.length}</strong></div>
-              <div><span>Visualizações</span><strong>${views.toLocaleString("pt-BR")}</strong></div>
-              <div><span>WhatsApp</span><strong>${whatsapp.toLocaleString("pt-BR")}</strong></div>
+              <div><span>Comissão a receber</span><strong>${formatTotals(pending)}</strong></div>
             </div>
 
-            <div class="advisor-owner-contact">
-              ${phone?`<a class="btn whatsapp compact" href="https://wa.me/${phone}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}
-            </div>
+            ${phone?`<div class="advisor-owner-contact"><a class="btn whatsapp compact" href="https://wa.me/${phone}" target="_blank" rel="noopener">💬 Abrir WhatsApp</a></div>`:""}
           </article>
         `;
       }).join("")}
