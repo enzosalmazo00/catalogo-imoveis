@@ -140,6 +140,11 @@ function renderDashboard() {
   const receipts=state.receipts.length;
   const published=state.properties.filter(p=>p.is_published).length;
   const total=state.properties.length;
+  const mostViewed=[...state.properties].sort((a,b)=>{
+    const diff=Number(b.view_count||0)-Number(a.view_count||0);
+    if(diff!==0) return diff;
+    return String(a.title||"").localeCompare(String(b.title||""),"pt-BR");
+  });
 
   $("#adminContent").innerHTML = `
     <div class="dashboard-grid">
@@ -161,6 +166,34 @@ function renderDashboard() {
         <button class="btn ghost" data-goto="universities">Faculdades</button>
         <button class="btn ghost" data-goto="settings">Configurações do catálogo</button>
       </div>
+    </section>
+
+    <section class="admin-panel">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">IMÓVEIS MAIS VISUALIZADOS</p>
+          <h2>Visualizações por anúncio</h2>
+          <p class="muted">Cada navegador conta uma vez por imóvel, evitando somar simples recarregamentos da mesma pessoa.</p>
+        </div>
+      </div>
+      ${mostViewed.length ? `
+        <div class="admin-table-wrap">
+          <table class="admin-table">
+            <thead><tr><th>#</th><th>Código</th><th>Imóvel</th><th>Responsável</th><th>Visualizações</th></tr></thead>
+            <tbody>
+              ${mostViewed.map((p,index)=>`
+                <tr>
+                  <td><strong>${index+1}</strong></td>
+                  <td><strong class="admin-property-code">${escapeHTML(p.public_code||"—")}</strong></td>
+                  <td><strong>${escapeHTML(p.title||"Imóvel")}</strong><br><span class="muted">${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</span></td>
+                  <td>${escapeHTML(p.advisor_company||p.advisor_name||"Administração")}</td>
+                  <td><strong>👁 ${Number(p.view_count||0).toLocaleString("pt-BR")}</strong></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      ` : '<div class="empty-state"><strong>Nenhum imóvel cadastrado.</strong></div>'}
     </section>
 
     <section class="admin-panel">
