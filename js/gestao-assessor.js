@@ -1270,10 +1270,15 @@ document.addEventListener("click",async e=>{
     return;
   }
 
+  if(e.target.closest("[data-new-owner-commission]")){
+    commissionModal();
+    return;
+  }
+
   const editCommission=e.target.closest("[data-edit-commission]");
   if(editCommission){
-    const rental=rentals.find(item=>item.id===editCommission.dataset.editCommission);
-    if(rental) commissionModal(rental);
+    const row=ownerCommissions.find(item=>item.id===editCommission.dataset.editCommission);
+    if(row) commissionModal(row);
     return;
   }
 
@@ -1286,6 +1291,20 @@ document.addEventListener("click",async e=>{
   const markCommissionPending=e.target.closest("[data-mark-commission-pending]");
   if(markCommissionPending && confirm("Marcar esta comissão novamente como a receber?")){
     await setCommissionPaid(markCommissionPending.dataset.markCommissionPending,false);
+    return;
+  }
+
+  const deleteCommission=e.target.closest("[data-delete-owner-commission]");
+  if(deleteCommission && confirm("Excluir esta comissão do controle?")){
+    const {error}=await db.from("advisor_owner_commissions")
+      .delete()
+      .eq("id",deleteCommission.dataset.deleteOwnerCommission)
+      .eq("advisor_id",currentUser.id);
+    if(error) alert(error.message);
+    else{
+      await refreshAndRender();
+      switchView("finance");
+    }
     return;
   }
 
