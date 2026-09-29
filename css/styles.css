@@ -1809,3 +1809,181 @@ button,input,select,textarea{font-size:16px}
   text-transform:uppercase;
   letter-spacing:.03em
 }
+
+
+/* ===== CAPA CATÁLOGO IMÓVEIS ===== */
+.hero.hero-cover{
+  position:relative;
+  min-height:640px;
+  padding:58px 0 40px;
+  overflow:hidden;
+  isolation:isolate;
+  background:
+    linear-gradient(90deg,rgba(3,20,42,.93) 0%,rgba(3,25,52,.82) 34%,rgba(5,35,67,.48) 56%,rgba(5,25,45,.12) 78%),
+    url("../assets/catalogo-imoveis-hero.svg") center center/cover no-repeat;
+}
+.hero.hero-cover::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  z-index:-1;
+  background:
+    radial-gradient(circle at 19% 48%,rgba(219,166,77,.16),transparent 32%),
+    linear-gradient(180deg,rgba(0,0,0,.02),rgba(0,0,0,.18));
+  pointer-events:none;
+}
+.hero-cover .hero-inner{
+  position:relative;
+  z-index:1;
+}
+.hero-brand-lockup{
+  width:min(720px,70%);
+  margin:0 0 34px;
+  color:#fff;
+  text-shadow:0 5px 24px rgba(0,0,0,.28);
+}
+.hero-brand-icon{
+  display:block;
+  width:190px;
+  height:auto;
+  color:#e8c77d;
+  margin:0 0 6px 34px;
+  filter:drop-shadow(0 5px 16px rgba(0,0,0,.22));
+}
+.hero-cover .hero-brand-lockup h1{
+  margin:0;
+  max-width:none;
+  font-size:clamp(50px,6vw,84px);
+  font-weight:800;
+  line-height:.92;
+  letter-spacing:.025em;
+  color:#fff;
+}
+.hero-brand-secondary{
+  display:flex;
+  align-items:center;
+  gap:18px;
+  width:min(520px,100%);
+  margin:15px 0 13px;
+  color:#e8c77d;
+}
+.hero-brand-secondary::before,
+.hero-brand-secondary::after{
+  content:"";
+  height:2px;
+  flex:1;
+  max-width:82px;
+  background:linear-gradient(90deg,transparent,#e8c77d);
+}
+.hero-brand-secondary::after{
+  background:linear-gradient(90deg,#e8c77d,transparent);
+}
+.hero-brand-secondary span{
+  font-size:clamp(25px,3vw,39px);
+  line-height:1;
+  font-weight:700;
+  letter-spacing:.31em;
+  padding-left:.31em;
+}
+.hero-cover .hero-tagline,
+.hero.hero-cover>div>p.hero-tagline{
+  margin:0;
+  color:rgba(255,255,255,.94);
+  font-size:clamp(16px,1.5vw,21px);
+  font-weight:500;
+  letter-spacing:.015em;
+}
+.hero-cover .search-panel{
+  margin-top:30px;
+  background:rgba(255,255,255,.97);
+  border:1px solid rgba(255,255,255,.6);
+  box-shadow:0 22px 60px rgba(0,0,0,.28);
+  backdrop-filter:blur(9px);
+  -webkit-backdrop-filter:blur(9px);
+}
+.hero-cover .search-panel .btn.primary{
+  background:#102a49;
+}
+.hero-cover .search-panel .btn.primary:hover{
+  background:#183b62;
+}
+
+@media(max-width:820px){
+  .hero.hero-cover{
+    min-height:590px;
+    padding:42px 0 28px;
+    background-position:62% center;
+    background-image:
+      linear-gradient(90deg,rgba(3,20,42,.94) 0%,rgba(3,25,52,.84) 50%,rgba(3,23,45,.42) 100%),
+      url("../assets/catalogo-imoveis-hero.svg");
+  }
+  .hero-brand-lockup{
+    width:min(620px,88%);
+    margin-bottom:24px;
+  }
+  .hero-brand-icon{
+    width:142px;
+    margin-left:18px;
+  }
+  .hero-cover .hero-brand-lockup h1{
+    font-size:clamp(43px,10vw,64px);
+  }
+  .hero-brand-secondary{
+    width:min(410px,100%);
+    gap:12px;
+  }
+  .hero-brand-secondary span{
+    font-size:clamp(22px,5vw,31px);
+  }
+  .hero-cover .search-panel{
+    margin-top:22px;
+  }
+}
+
+@media(max-width:560px){
+  .hero.hero-cover{
+    min-height:0;
+    padding:30px 0 22px;
+    background-position:67% center;
+    background-image:
+      linear-gradient(90deg,rgba(3,18,39,.96) 0%,rgba(3,23,47,.9) 58%,rgba(3,22,43,.6) 100%),
+      url("../assets/catalogo-imoveis-hero.svg");
+  }
+  .hero-brand-lockup{
+    width:100%;
+    margin-bottom:20px;
+  }
+  .hero-brand-icon{
+    width:112px;
+    margin:0 0 7px 8px;
+  }
+  .hero-cover .hero-brand-lockup h1{
+    font-size:clamp(38px,13vw,54px);
+    letter-spacing:.01em;
+  }
+  .hero-brand-secondary{
+    width:100%;
+    justify-content:flex-start;
+    gap:9px;
+    margin:10px 0 9px;
+  }
+  .hero-brand-secondary::before,
+  .hero-brand-secondary::after{
+    max-width:48px;
+  }
+  .hero-brand-secondary span{
+    font-size:clamp(19px,7vw,28px);
+    letter-spacing:.22em;
+    padding-left:.22em;
+  }
+  .hero-cover .hero-tagline,
+  .hero.hero-cover>div>p.hero-tagline{
+    max-width:330px;
+    font-size:15px;
+    line-height:1.45;
+  }
+  .hero-cover .search-panel{
+    margin-top:18px;
+    box-shadow:0 16px 38px rgba(0,0,0,.26);
+  }
+}
