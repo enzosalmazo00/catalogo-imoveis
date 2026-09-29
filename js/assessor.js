@@ -1970,6 +1970,147 @@ function safePdfText(value){
   return String(value??"").replace(/[\r\n]+/g," ").trim();
 }
 
+
+function generateServiceReceiptPdf(row){
+  const JsPDF=window.jspdf?.jsPDF;
+  if(!JsPDF){
+    alert("O gerador de PDF ainda não carregou. Atualize a página e tente novamente.");
+    return;
+  }
+
+  const doc=new JsPDF({unit:"mm",format:"a4"});
+  const left=18;
+  const right=192;
+  const width=right-left;
+  let y=18;
+
+  const addSection=(title)=>{
+    y+=3;
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(11.5);
+    doc.setTextColor(19,35,59);
+    doc.text(title,left,y);
+    doc.setTextColor(0);
+    y+=7;
+  };
+
+  const addLine=(label,value)=>{
+    if(value===null || value===undefined || value==="") return;
+    if(y>260){
+      doc.addPage();
+      y=20;
+    }
+    doc.setFont("helvetica","bold");
+    doc.setFontSize(9.5);
+    doc.text(label,left,y);
+    doc.setFont("helvetica","normal");
+    const text=doc.splitTextToSize(safePdfText(value),width-48);
+    doc.text(text,left+48,y);
+    y+=Math.max(6,text.length*4.7);
+  };
+
+  doc.setFillColor(19,35,59);
+  doc.roundedRect(left,y,width,25,3,3,"F");
+  doc.setTextColor(255);
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(17);
+  doc.text("RECIBO DE ASSESSORIA IMOBILIÁRIA",left+5,y+9);
+  doc.setFontSize(9);
+  doc.setFont("helvetica","normal");
+  doc.text(`${safePdfText(row.receipt_code||"RECIBO")} • Emitido em ${new Intl.DateTimeFormat("pt-BR").format(new Date())}`,left+5,y+17);
+  doc.setTextColor(0);
+  y+=34;
+
+  addSection("Assessor / emitente");
+  addLine("Nome:",profile?.full_name||profile?.company_name||"Assessor");
+  addLine("Assessoria:",profile?.company_name);
+  addLine("Telefone / WhatsApp:",profile?.whatsapp||profile?.phone);
+
+  addSection("Imóvel");
+  addLine("Código:",row.property_code||"Sem anúncio vinculado");
+  addLine("Imóvel:",row.property_title);
+  addLine("Endereço:",row.property_address);
+
+  addSection("Proprietário");
+  addLine("Nome:",row.owner_name);
+  addLine("Telefone:",row.owner_phone);
+  addLine("Documento:",row.owner_document);
+  addLine("E-mail:",row.owner_email);
+
+  if(row.client_name || row.client_phone || row.client_document || row.client_email){
+    addSection("Cliente / inquilino");
+    addLine("Nome:",row.client_name);
+    addLine("Telefone:",row.client_phone);
+    addLine("Documento:",row.client_document);
+    addLine("E-mail:",row.client_email);
+  }
+
+  addSection("Serviço");
+  addLine("Descrição:",row.service_description);
+
+  addSection("Valores");
+  if(Number(row.commission_amount||0)>0) addLine("Comissão:",money(row.commission_amount,row.currency));
+  if(Number(row.advisory_fee_amount||0)>0) addLine("Taxa de assessoria:",money(row.advisory_fee_amount,row.currency));
+  if(Number(row.contract_amount||0)>0) addLine("Contrato / documentação:",money(row.contract_amount,row.currency));
+  if(Number(row.other_amount||0)>0) addLine("Outros valores:",money(row.other_amount,row.currency));
+  addLine("TOTAL:",money(totalServiceReceipt(row),row.currency));
+
+  addSection("Pagamento");
+  addLine("Situação:",row.paid?"Valor recebido":"Pagamento pendente");
+  addLine("Data:",row.payment_date?dateOnlyBR(row.payment_date):"—");
+  addLine("Forma:",row.payment_method);
+  addLine("Referência:",row.payment_reference);
+
+  if(row.notes){
+    addSection("Observações");
+    const notes=doc.splitTextToSize(safePdfText(row.notes),width);
+    doc.setFont("helvetica","normal");
+    doc.setFontSize(9);
+    doc.text(notes,left,y);
+    y+=notes.length*4.5+4;
+  }
+
+  if(y>220){
+    doc.addPage();
+    y=25;
+  }else{
+    y=Math.max(y+10,205);
+  }
+
+  doc.setFillColor(248,249,251);
+  doc.setDrawColor(210);
+  doc.roundedRect(left,y,width,30,2,2,"FD");
+  doc.setFont("helvetica","bold");
+  doc.setFontSize(8.5);
+  doc.text("DECLARAÇÃO",left+4,y+6);
+  doc.setFont("helvetica","normal");
+  doc.setFontSize(8);
+  const declaration=row.paid
+    ? `Declaro, para fins de registro, o recebimento do valor total de ${money(totalServiceReceipt(row),row.currency)}, referente ao serviço descrito neste documento.`
+    : `Este documento registra os valores e serviços informados, permanecendo o pagamento indicado como pendente.`;
+  const decLines=doc.splitTextToSize(declaration,width-8);
+  doc.text(decLines,left+4,y+12);
+  y+=36;
+
+  doc.setDrawColor(150);
+  doc.line(left,y,left+72,y);
+  doc.line(right-72,y,right,y);
+  y+=5;
+  doc.setFontSize(8.5);
+  doc.text("Proprietário / pagador",left+36,y,{align:"center"});
+  doc.text("Assessor / emitente",right-36,y,{align:"center"});
+
+  doc.setFontSize(7.5);
+  doc.setTextColor(100);
+  const disclaimer="Este recibo documenta as informações declaradas pelo emissor e não substitui contrato de locação, contrato de assessoria, instrumento de quitação específico ou orientação jurídica.";
+  const discLines=doc.splitTextToSize(disclaimer,width);
+  doc.text(discLines,left,282-(discLines.length*3.5));
+
+  const code=safePdfText(row.receipt_code||"recibo").replace(/[^A-Za-z0-9_-]+/g,"-");
+  doc.save(`${code}.pdf`);
+}
+
+
 function generateRentalReceiptPdf(row){
   const JsPDF=window.jspdf?.jsPDF;
   if(!JsPDF){
