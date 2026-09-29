@@ -2656,3 +2656,57 @@ button,input,select,textarea{font-size:16px}
     justify-content:flex-start;
   }
 }
+
+
+/* ===== ACEITE RETROATIVO DOS TERMOS ===== */
+.advisor-legacy-terms-modal{
+  width:min(920px,100%);
+}
+.advisor-legacy-terms-warning{
+  display:flex;
+  align-items:flex-start;
+  gap:8px;
+  margin:14px 0;
+  padding:12px 14px;
+  border:1px solid #cfe0d7;
+  border-radius:12px;
+  background:#f3faf6;
+  color:var(--green-dark);
+}
+.advisor-legacy-terms-warning strong{
+  display:block;
+  margin-bottom:2px;
+}
+.advisor-legacy-terms-warning span{
+  color:#4d6258;
+  font-size:11px;
+  line-height:1.4;
+}
+.advisor-terms-frame{
+  width:100%;
+  height:min(56vh,560px);
+  border:1px solid #dce3e9;
+  border-radius:14px;
+  background:#fff;
+}
+.advisor-legacy-terms-actions{
+  display:grid;
+  gap:11px;
+  margin-top:14px;
+}
+.advisor-legacy-terms-check{
+  margin:0!important;
+}
+.advisor-legacy-terms-actions .form-message{
+  min-height:0;
+  margin:0;
+}
+@media(max-width:600px){
+  .advisor-terms-frame{
+    height:52vh;
+    border-radius:12px;
+  }
+  .advisor-legacy-terms-modal .modal-head h2{
+    font-size:22px;
+  }
+}
