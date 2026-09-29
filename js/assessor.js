@@ -483,6 +483,816 @@ function paymentStatusText(paid,date){
   return date ? `Pago em ${dateOnlyBR(date)}` : "Pago";
 }
 
+
+function ownerById(id){
+  return advisorOwners.find(owner=>owner.id===id)||null;
+}
+
+function ownerMatchesRental(owner,row){
+  if(!owner || !row) return false;
+  if(row.advisor_owner_id && row.advisor_owner_id===owner.id) return true;
+  return String(row.owner_name||"").trim().toLocaleLowerCase("pt-BR")===String(owner.full_name||"").trim().toLocaleLowerCase("pt-BR");
+}
+
+function ownerOptions(selectedId="",includeBlank=true){
+  return [
+    includeBlank?'<option value="">Selecione um proprietário</option>':"",
+    ...advisorOwners.map(owner=>`<option value="${owner.id}" ${owner.id===selectedId?"selected":""}>${escapeHTML(owner.full_name)}${owner.phone?` • ${escapeHTML(owner.phone)}`:""}</option>`)
+  ].join("");
+}
+
+function totalServiceReceipt(row){
+  return ["commission_amount","advisory_fee_amount","contract_amount","other_amount"]
+    .reduce((sum,key)=>sum+Number(row?.[key]||0),0);
+}
+
+function financialRecords(){
+  const rows=[];
+
+  rentalControls.forEach(r=>{
+    const base={
+      property_id:r.property_id||null,
+      property_code:r.property_code||null,
+      property_title:r.property_title||"Imóvel alugado",
+      currency:r.currency||"BRL"
+    };
+    if(Number(r.commission_amount||0)>0){
+      rows.push({
+        ...base,
+        id:`rental-commission-${r.id}`,
+        source:"Locação",
+        description:"Comissão do assessor",
+        entry_type:"income",
+        amount:Number(r.commission_amount||0),
+        status:r.commission_paid?"paid":"pending",
+        date:r.advisor_commission_payment_date||r.start_date||r.created_at
+      });
+    }
+    if(Number(r.advisory_fee_amount||0)>0){
+      rows.push({
+        ...base,
+        id:`rental-advisory-${r.id}`,
+        source:"Locação",
+        description:"Taxa de assessoria",
+        entry_type:"income",
+        amount:Number(r.advisory_fee_amount||0),
+        status:r.advisory_fee_paid?"paid":"pending",
+        date:r.advisory_fee_payment_date||r.start_date||r.created_at
+      });
+    }
+  });
+
+  serviceReceipts.filter(r=>r.include_in_financials).forEach(r=>{
+    const amount=totalServiceReceipt(r);
+    if(amount<=0) return;
+    rows.push({
+      id:`service-${r.id}`,
+      property_id:r.property_id||null,
+      property_code:r.property_code||null,
+      property_title:r.property_title||"Serviço de assessoria",
+      currency:r.currency||"BRL",
+      source:"Recibo",
+      description:r.service_description||"Recibo de assessoria",
+      entry_type:"income",
+      amount,
+      status:r.paid?"paid":"pending",
+      date:r.payment_date||r.issued_at
+    });
+  });
+
+  financialEntries.forEach(r=>{
+    const property=properties.find(p=>p.id===r.property_id);
+    rows.push({
+      id:`entry-${r.id}`,
+      raw_id:r.id,
+      property_id:r.property_id||null,
+      property_code:property?.public_code||null,
+      property_title:property?.title||"Sem imóvel vinculado",
+      currency:r.currency||"BRL",
+      source:"Lançamento",
+      description:r.description,
+      entry_type:r.entry_type,
+      amount:Number(r.amount||0),
+      status:r.status,
+      date:r.entry_date||r.created_at,
+      category:r.category
+    });
+  });
+
+  return rows;
+}
+
+function blankCurrencyTotals(){
+  return {BRL:0,PYG:0};
+}
+
+function addCurrencyValue(totals,currency,value){
+  const key=currency==="PYG"?"PYG":"BRL";
+  totals[key]=(totals[key]||0)+Number(value||0);
+  return totals;
+}
+
+function formatCurrencyTotals(totals){
+  const parts=[];
+  if(Number(totals.BRL||0)!==0) parts.push(money(totals.BRL,"BRL"));
+  if(Number(totals.PYG||0)!==0) parts.push(money(totals.PYG,"PYG"));
+  return parts.length?parts.join(" • "):money(0,"BRL");
+}
+
+function renderManagementDashboard(){
+  const root=$("#advisorManagementDashboard");
+  if(!root) return;
+
+  const now=Date.now();
+  const fiveDays=5*24*60*60*1000;
+  const active=properties.filter(p=>p.is_published && p.status==="available" && p.listing_expires_at && new Date(p.listing_expires_at).getTime()>now);
+  const expired=properties.filter(p=>!p.is_published || !p.listing_expires_at || new Date(p.listing_expires_at).getTime()<=now);
+  const expiring=active
+    .filter(p=>new Date(p.listing_expires_at).getTime()<=now+fiveDays)
+    .sort((a,b)=>new Date(a.listing_expires_at)-new Date(b.listing_expires_at));
+  const totalViews=properties.reduce((sum,p)=>sum+Number(p.view_count||0),0);
+  const whatsapp=properties.reduce((sum,p)=>sum+Number(p.whatsapp_click_count||0),0);
+  const topViewed=[...properties]
+    .sort((a,b)=>Number(b.view_count||0)-Number(a.view_count||0))
+    .slice(0,5);
+  const records=financialRecords();
+  const received=blankCurrencyTotals();
+  const pending=blankCurrencyTotals();
+  const expenses=blankCurrencyTotals();
+
+  records.forEach(r=>{
+    if(r.entry_type==="income" && r.status==="paid") addCurrencyValue(received,r.currency,r.amount);
+    if(r.entry_type==="income" && r.status==="pending") addCurrencyValue(pending,r.currency,r.amount);
+    if(r.entry_type==="expense" && r.status==="paid") addCurrencyValue(expenses,r.currency,r.amount);
+  });
+
+  const result={
+    BRL:Number(received.BRL||0)-Number(expenses.BRL||0),
+    PYG:Number(received.PYG||0)-Number(expenses.PYG||0)
+  };
+
+  root.innerHTML=`
+    <section class="advisor-management-hero">
+      <div class="advisor-management-title">
+        <div>
+          <p class="eyebrow">CENTRAL DE GESTÃO</p>
+          <h2>Visão geral da sua operação</h2>
+          <p>Acompanhe anúncios, desempenho, locações, proprietários e resultado financeiro sem sair do painel.</p>
+        </div>
+      </div>
+
+      <div class="advisor-kpi-grid">
+        <article><span>Anúncios ativos</span><strong>${active.length}</strong><small>${expired.length} expirado${expired.length===1?"":"s"}</small></article>
+        <article class="${expiring.length?"attention":""}"><span>Vencem em até 5 dias</span><strong>${expiring.length}</strong><small>renove antes de sair do ar</small></article>
+        <article><span>Imóveis alugados</span><strong>${rentalControls.length}</strong><small>registros de locação</small></article>
+        <article><span>Visualizações</span><strong>${totalViews.toLocaleString("pt-BR")}</strong><small>${whatsapp.toLocaleString("pt-BR")} cliques no WhatsApp</small></article>
+        <article><span>Proprietários</span><strong>${advisorOwners.length}</strong><small>na sua carteira</small></article>
+        <article class="money"><span>Receita recebida</span><strong>${formatCurrencyTotals(received)}</strong><small>A receber: ${formatCurrencyTotals(pending)}</small></article>
+        <article class="money"><span>Despesas pagas</span><strong>${formatCurrencyTotals(expenses)}</strong><small>lançamentos financeiros</small></article>
+        <article class="money result"><span>Resultado líquido</span><strong>${formatCurrencyTotals(result)}</strong><small>receitas recebidas − despesas</small></article>
+      </div>
+
+      <div class="advisor-dashboard-columns">
+        <section class="advisor-dashboard-box">
+          <div class="advisor-dashboard-box-head">
+            <div><p class="eyebrow">PRAZOS</p><h3>Próximos vencimentos</h3></div>
+          </div>
+          ${expiring.length?`
+            <div class="advisor-deadline-list">
+              ${expiring.map(p=>{
+                const ms=new Date(p.listing_expires_at).getTime()-now;
+                const days=Math.max(0,Math.ceil(ms/(24*60*60*1000)));
+                return `<div><span><strong>${escapeHTML(p.public_code||"—")} • ${escapeHTML(p.title)}</strong><small>${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</small></span><b>${days===0?"Hoje":days===1?"1 dia":`${days} dias`}</b></div>`;
+              }).join("")}
+            </div>
+          `:'<div class="advisor-empty-compact">Nenhum anúncio vence nos próximos 5 dias.</div>'}
+        </section>
+
+        <section class="advisor-dashboard-box">
+          <div class="advisor-dashboard-box-head">
+            <div><p class="eyebrow">DESEMPENHO</p><h3>Imóveis mais vistos</h3></div>
+          </div>
+          ${topViewed.length?`
+            <div class="advisor-performance-list">
+              ${topViewed.map((p,index)=>`
+                <div>
+                  <span class="rank">${index+1}</span>
+                  <span class="info"><strong>${escapeHTML(p.public_code||"—")} • ${escapeHTML(p.title)}</strong><small>💬 ${Number(p.whatsapp_click_count||0).toLocaleString("pt-BR")} contatos</small></span>
+                  <b>👁 ${Number(p.view_count||0).toLocaleString("pt-BR")}</b>
+                </div>
+              `).join("")}
+            </div>
+          `:'<div class="advisor-empty-compact">Os dados de visualização aparecerão aqui.</div>'}
+        </section>
+      </div>
+    </section>
+  `;
+}
+
+function renderOwners(){
+  const root=$("#advisorOwnersList");
+  if(!root) return;
+
+  if(!advisorOwners.length){
+    root.innerHTML='<div class="empty-state"><strong>Nenhum proprietário cadastrado.</strong><span>Cadastre o proprietário uma vez e vincule os imóveis assessorados a ele.</span></div>';
+    return;
+  }
+
+  root.innerHTML=`
+    <div class="advisor-owner-grid">
+      ${advisorOwners.map(owner=>{
+        const ownerProperties=properties.filter(p=>p.advisor_owner_id===owner.id);
+        const ownerRentals=rentalControls.filter(r=>ownerMatchesRental(owner,r));
+        const active=ownerProperties.filter(p=>p.is_published && p.listing_expires_at && new Date(p.listing_expires_at)>new Date()).length;
+        const expired=ownerProperties.length-active;
+        const phone=String(owner.whatsapp||owner.phone||"").replace(/\D/g,"");
+        return `
+          <article class="advisor-owner-card">
+            <div class="advisor-owner-card-head">
+              <div>
+                <p class="eyebrow">PROPRIETÁRIO</p>
+                <h3>${escapeHTML(owner.full_name)}</h3>
+                <span>${escapeHTML(owner.phone||owner.whatsapp||"Telefone não informado")}</span>
+              </div>
+              <div class="table-actions">
+                <button class="btn ghost compact" type="button" data-edit-owner="${owner.id}">Editar</button>
+                <button class="btn danger compact" type="button" data-delete-owner="${owner.id}">Excluir</button>
+              </div>
+            </div>
+            <div class="advisor-owner-stats">
+              <div><span>Imóveis</span><strong>${ownerProperties.length}</strong></div>
+              <div><span>Ativos</span><strong>${active}</strong></div>
+              <div><span>Expirados</span><strong>${expired}</strong></div>
+              <div><span>Alugados</span><strong>${ownerRentals.length}</strong></div>
+            </div>
+            <div class="advisor-owner-contact">
+              ${owner.email?`<span>✉ ${escapeHTML(owner.email)}</span>`:""}
+              ${owner.document?`<span>Documento: ${escapeHTML(owner.document)}</span>`:""}
+              ${phone?`<a class="btn whatsapp compact" href="https://wa.me/${phone}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}
+            </div>
+            ${owner.notes?`<p class="advisor-owner-notes">${escapeHTML(owner.notes)}</p>`:""}
+          </article>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function ownerModal(row=null){
+  showAdvisorModal(`
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">PROPRIETÁRIO</p>
+        <h2>${row?"Editar proprietário":"Cadastrar proprietário"}</h2>
+        <p class="muted">Esses dados ficam privados na área do assessor e não aparecem no catálogo público.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close>✕</button>
+    </div>
+    <form id="advisorOwnerForm" class="form-grid">
+      <input type="hidden" name="id" value="${row?.id||""}">
+      <label class="span-2">Nome completo
+        <input name="full_name" required value="${escapeHTML(row?.full_name||"")}" autocomplete="name">
+      </label>
+      <label>Telefone
+        <input name="phone" required inputmode="tel" value="${escapeHTML(row?.phone||"")}">
+      </label>
+      <label>WhatsApp
+        <input name="whatsapp" inputmode="tel" value="${escapeHTML(row?.whatsapp||row?.phone||"")}">
+      </label>
+      <label>E-mail
+        <input name="email" type="email" value="${escapeHTML(row?.email||"")}">
+      </label>
+      <label>CPF / CI / documento
+        <input name="document" value="${escapeHTML(row?.document||"")}">
+      </label>
+      <label class="span-2">Observações
+        <textarea name="notes" rows="3" placeholder="Informações internas opcionais">${escapeHTML(row?.notes||"")}</textarea>
+      </label>
+      <div id="advisorOwnerMessage" class="form-message span-2"></div>
+      <div class="form-actions span-2">
+        <button class="btn ghost" type="button" data-close>Cancelar</button>
+        <button class="btn primary" type="submit">Salvar proprietário</button>
+      </div>
+    </form>
+  `);
+}
+
+async function saveOwner(form){
+  const fd=new FormData(form);
+  const id=String(fd.get("id")||"").trim()||null;
+  const msg=form.querySelector("#advisorOwnerMessage");
+  const row={
+    advisor_id:currentUser.id,
+    full_name:String(fd.get("full_name")||"").trim(),
+    phone:String(fd.get("phone")||"").trim()||null,
+    whatsapp:String(fd.get("whatsapp")||"").trim()||null,
+    email:String(fd.get("email")||"").trim()||null,
+    document:String(fd.get("document")||"").trim()||null,
+    notes:String(fd.get("notes")||"").trim()||null,
+    updated_at:new Date().toISOString()
+  };
+
+  if(!row.full_name || !row.phone){
+    if(msg) msg.textContent="Informe nome e telefone do proprietário.";
+    return;
+  }
+
+  const result=id
+    ? await db.from("advisor_owners").update(row).eq("id",id).eq("advisor_id",currentUser.id).select("*").single()
+    : await db.from("advisor_owners").insert(row).select("*").single();
+
+  if(result.error){
+    if(msg) msg.textContent=result.error.message;
+    return;
+  }
+
+  await loadData();
+  closeAdvisorModal();
+  renderOwners();
+  renderManagementDashboard();
+
+  const select=$("#advisorPropertyForm")?.querySelector('[name="advisor_owner_id"]');
+  if(select){
+    select.innerHTML=ownerOptions(result.data?.id||id||"");
+    select.value=result.data?.id||id||"";
+  }
+}
+
+function renderFinance(){
+  const root=$("#advisorFinanceContent");
+  if(!root) return;
+
+  const records=financialRecords();
+  const received=blankCurrencyTotals();
+  const pending=blankCurrencyTotals();
+  const expenses=blankCurrencyTotals();
+  const pendingExpenses=blankCurrencyTotals();
+
+  records.forEach(r=>{
+    if(r.entry_type==="income" && r.status==="paid") addCurrencyValue(received,r.currency,r.amount);
+    if(r.entry_type==="income" && r.status==="pending") addCurrencyValue(pending,r.currency,r.amount);
+    if(r.entry_type==="expense" && r.status==="paid") addCurrencyValue(expenses,r.currency,r.amount);
+    if(r.entry_type==="expense" && r.status==="pending") addCurrencyValue(pendingExpenses,r.currency,r.amount);
+  });
+
+  const result={
+    BRL:Number(received.BRL||0)-Number(expenses.BRL||0),
+    PYG:Number(received.PYG||0)-Number(expenses.PYG||0)
+  };
+
+  const grouped=new Map();
+  records.forEach(r=>{
+    const key=r.property_id || `${r.property_code||""}|${r.property_title||"Sem imóvel"}`;
+    if(!grouped.has(key)){
+      grouped.set(key,{
+        code:r.property_code||"—",
+        title:r.property_title||"Sem imóvel vinculado",
+        received:blankCurrencyTotals(),
+        pending:blankCurrencyTotals(),
+        expenses:blankCurrencyTotals()
+      });
+    }
+    const g=grouped.get(key);
+    if(r.entry_type==="income" && r.status==="paid") addCurrencyValue(g.received,r.currency,r.amount);
+    if(r.entry_type==="income" && r.status==="pending") addCurrencyValue(g.pending,r.currency,r.amount);
+    if(r.entry_type==="expense" && r.status==="paid") addCurrencyValue(g.expenses,r.currency,r.amount);
+  });
+
+  root.innerHTML=`
+    <div class="advisor-finance-summary">
+      <article><span>Receita recebida</span><strong>${formatCurrencyTotals(received)}</strong><small>Comissões + assessorias + receitas lançadas</small></article>
+      <article><span>A receber</span><strong>${formatCurrencyTotals(pending)}</strong><small>Receitas pendentes</small></article>
+      <article><span>Despesas pagas</span><strong>${formatCurrencyTotals(expenses)}</strong><small>Pendentes: ${formatCurrencyTotals(pendingExpenses)}</small></article>
+      <article class="result"><span>Resultado líquido</span><strong>${formatCurrencyTotals(result)}</strong><small>Receitas recebidas − despesas pagas</small></article>
+    </div>
+
+    <div class="advisor-finance-columns">
+      <section class="advisor-dashboard-box">
+        <div class="advisor-dashboard-box-head"><div><p class="eyebrow">POR IMÓVEL</p><h3>Resultado consolidado</h3></div></div>
+        ${grouped.size?`
+          <div class="admin-table-wrap">
+            <table class="admin-table advisor-finance-property-table">
+              <thead><tr><th>Imóvel</th><th>Recebido</th><th>A receber</th><th>Despesas</th><th>Resultado</th></tr></thead>
+              <tbody>
+                ${[...grouped.values()].map(g=>{
+                  const net={BRL:g.received.BRL-g.expenses.BRL,PYG:g.received.PYG-g.expenses.PYG};
+                  return `<tr>
+                    <td><strong>${escapeHTML(g.code)}</strong><br><span class="muted">${escapeHTML(g.title)}</span></td>
+                    <td>${formatCurrencyTotals(g.received)}</td>
+                    <td>${formatCurrencyTotals(g.pending)}</td>
+                    <td>${formatCurrencyTotals(g.expenses)}</td>
+                    <td><strong>${formatCurrencyTotals(net)}</strong></td>
+                  </tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        `:'<div class="advisor-empty-compact">Ainda não há movimentação financeira vinculada a imóveis.</div>'}
+      </section>
+
+      <section class="advisor-dashboard-box">
+        <div class="advisor-dashboard-box-head"><div><p class="eyebrow">MOVIMENTAÇÕES</p><h3>Todos os lançamentos</h3></div></div>
+        ${records.length?`
+          <div class="admin-table-wrap">
+            <table class="admin-table advisor-finance-ledger">
+              <thead><tr><th>Data</th><th>Descrição</th><th>Imóvel</th><th>Tipo</th><th>Status</th><th>Valor</th><th></th></tr></thead>
+              <tbody>
+                ${records.sort((a,b)=>new Date(b.date||0)-new Date(a.date||0)).map(r=>`
+                  <tr>
+                    <td>${dateOnlyBR(r.date)}</td>
+                    <td><strong>${escapeHTML(r.description||"Lançamento")}</strong><br><span class="muted">${escapeHTML(r.source||"")}</span></td>
+                    <td>${escapeHTML(r.property_code||"—")}<br><span class="muted">${escapeHTML(r.property_title||"")}</span></td>
+                    <td><span class="pill ${r.entry_type==="expense"?"expense":"paid"}">${r.entry_type==="expense"?"Despesa":"Receita"}</span></td>
+                    <td><span class="pill ${r.status==="paid"?"paid":"pending"}">${r.status==="paid"?"Pago":"Pendente"}</span></td>
+                    <td><strong>${money(r.amount,r.currency)}</strong></td>
+                    <td>${r.raw_id?`<div class="table-actions"><button class="btn ghost compact" data-edit-financial-entry="${r.raw_id}">Editar</button><button class="btn danger compact" data-delete-financial-entry="${r.raw_id}">Excluir</button></div>`:""}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        `:'<div class="advisor-empty-compact">Nenhuma movimentação registrada.</div>'}
+      </section>
+    </div>
+  `;
+}
+
+function financialEntryModal(row=null){
+  const propertiesOptions=properties.map(p=>`<option value="${p.id}" ${row?.property_id===p.id?"selected":""}>${escapeHTML(p.public_code||"—")} • ${escapeHTML(p.title)}</option>`).join("");
+  showAdvisorModal(`
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">GESTÃO FINANCEIRA</p>
+        <h2>${row?"Editar lançamento":"Novo lançamento"}</h2>
+        <p class="muted">Use para despesas e receitas extras. Comissões e taxas registradas nas locações entram automaticamente.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close>✕</button>
+    </div>
+    <form id="advisorFinancialEntryForm" class="form-grid">
+      <input type="hidden" name="id" value="${row?.id||""}">
+      <label>Tipo
+        <select name="entry_type" required>
+          <option value="income" ${(row?.entry_type||"income")==="income"?"selected":""}>Receita</option>
+          <option value="expense" ${row?.entry_type==="expense"?"selected":""}>Despesa</option>
+        </select>
+      </label>
+      <label>Status
+        <select name="status" required>
+          <option value="paid" ${(row?.status||"paid")==="paid"?"selected":""}>Pago / recebido</option>
+          <option value="pending" ${row?.status==="pending"?"selected":""}>Pendente</option>
+        </select>
+      </label>
+      <label class="span-2">Imóvel vinculado
+        <select name="property_id"><option value="">Sem imóvel específico</option>${propertiesOptions}</select>
+      </label>
+      <label>Categoria
+        <select name="category">
+          <option value="other" ${(row?.category||"other")==="other"?"selected":""}>Outro</option>
+          <option value="advertising" ${row?.category==="advertising"?"selected":""}>Publicidade / anúncio</option>
+          <option value="transport" ${row?.category==="transport"?"selected":""}>Deslocamento</option>
+          <option value="documents" ${row?.category==="documents"?"selected":""}>Documentos</option>
+          <option value="commission" ${row?.category==="commission"?"selected":""}>Comissão</option>
+          <option value="advisory" ${row?.category==="advisory"?"selected":""}>Assessoria</option>
+        </select>
+      </label>
+      <label>Data
+        <input name="entry_date" type="date" required value="${String(row?.entry_date||new Date().toISOString().slice(0,10)).slice(0,10)}">
+      </label>
+      <label class="span-2">Descrição
+        <input name="description" required value="${escapeHTML(row?.description||"")}" placeholder="Ex.: combustível para visita / comissão extra">
+      </label>
+      <label>Moeda
+        <select name="currency">
+          <option value="BRL" ${(row?.currency||"BRL")==="BRL"?"selected":""}>Real brasileiro (R$)</option>
+          <option value="PYG" ${row?.currency==="PYG"?"selected":""}>Guarani paraguaio (₲)</option>
+        </select>
+      </label>
+      <label>Valor
+        <input name="amount" type="number" min="0" step="1" required value="${row?.amount??""}">
+      </label>
+      <label class="span-2">Observações
+        <textarea name="notes" rows="3">${escapeHTML(row?.notes||"")}</textarea>
+      </label>
+      <div id="advisorFinancialEntryMessage" class="form-message span-2"></div>
+      <div class="form-actions span-2">
+        <button class="btn ghost" type="button" data-close>Cancelar</button>
+        <button class="btn primary" type="submit">Salvar lançamento</button>
+      </div>
+    </form>
+  `);
+}
+
+async function saveFinancialEntry(form){
+  const fd=new FormData(form);
+  const id=String(fd.get("id")||"").trim()||null;
+  const msg=form.querySelector("#advisorFinancialEntryMessage");
+  const row={
+    advisor_id:currentUser.id,
+    property_id:String(fd.get("property_id")||"").trim()||null,
+    entry_type:fd.get("entry_type"),
+    category:fd.get("category")||"other",
+    description:String(fd.get("description")||"").trim(),
+    amount:Number(fd.get("amount")||0),
+    currency:fd.get("currency")||"BRL",
+    status:fd.get("status")||"paid",
+    entry_date:fd.get("entry_date"),
+    notes:String(fd.get("notes")||"").trim()||null,
+    updated_at:new Date().toISOString()
+  };
+
+  if(!row.description || row.amount<0){
+    if(msg) msg.textContent="Informe uma descrição e um valor válido.";
+    return;
+  }
+
+  const result=id
+    ? await db.from("advisor_financial_entries").update(row).eq("id",id).eq("advisor_id",currentUser.id)
+    : await db.from("advisor_financial_entries").insert(row);
+
+  if(result.error){
+    if(msg) msg.textContent=result.error.message;
+    return;
+  }
+
+  await loadData();
+  closeAdvisorModal();
+  renderFinance();
+  renderManagementDashboard();
+}
+
+function renderServiceReceipts(){
+  const root=$("#advisorServiceReceiptsList");
+  if(!root) return;
+
+  if(!serviceReceipts.length){
+    root.innerHTML='<div class="empty-state"><strong>Nenhum recibo de assessoria gerado.</strong><span>Use “Gerar recibo” quando quiser documentar um serviço ou pagamento sem encerrar o anúncio.</span></div>';
+    return;
+  }
+
+  root.innerHTML=`
+    <div class="admin-table-wrap">
+      <table class="admin-table advisor-service-receipt-table">
+        <thead><tr><th>Recibo</th><th>Imóvel</th><th>Proprietário</th><th>Cliente</th><th>Total</th><th>Pagamento</th><th>Ações</th></tr></thead>
+        <tbody>
+          ${serviceReceipts.map(r=>`
+            <tr>
+              <td><strong>${escapeHTML(r.receipt_code)}</strong><br><span class="muted">${dateOnlyBR(r.payment_date||r.issued_at)}</span></td>
+              <td><strong>${escapeHTML(r.property_code||"—")}</strong><br><span class="muted">${escapeHTML(r.property_title||"Sem imóvel vinculado")}</span></td>
+              <td><strong>${escapeHTML(r.owner_name||"—")}</strong><br><span class="muted">${escapeHTML(r.owner_phone||"")}</span></td>
+              <td><strong>${escapeHTML(r.client_name||"—")}</strong><br><span class="muted">${escapeHTML(r.client_phone||"")}</span></td>
+              <td><strong>${money(totalServiceReceipt(r),r.currency)}</strong></td>
+              <td><span class="pill ${r.paid?"paid":"pending"}">${r.paid?"Recebido":"Pendente"}</span><br><span class="muted">${escapeHTML(r.payment_method||"")}</span></td>
+              <td><div class="table-actions">
+                <button class="btn primary compact" type="button" data-generate-service-receipt="${r.id}">PDF</button>
+                <button class="btn ghost compact" type="button" data-edit-service-receipt="${r.id}">Editar</button>
+                <button class="btn danger compact" type="button" data-delete-service-receipt="${r.id}">Excluir</button>
+              </div></td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>
+    </div>
+    <p class="tiny-note">Recibos voluntários documentam os dados informados pelo assessor. Eles não encerram anúncios e não substituem contrato de locação, contrato de assessoria ou orientação jurídica.</p>
+  `;
+}
+
+function serviceReceiptModal(row=null){
+  const propertiesOptions=properties.map(p=>`<option value="${p.id}" ${row?.property_id===p.id?"selected":""}>${escapeHTML(p.public_code||"—")} • ${escapeHTML(p.title)}</option>`).join("");
+  const ownerId=row?.advisor_owner_id||properties.find(p=>p.id===row?.property_id)?.advisor_owner_id||"";
+
+  showAdvisorModal(`
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">RECIBO VOLUNTÁRIO</p>
+        <h2>${row?"Editar recibo":"Gerar recibo de assessoria"}</h2>
+        <p class="muted">Preencha os dados completos do serviço e do pagamento. O anúncio do imóvel permanece ativo.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close>✕</button>
+    </div>
+
+    <form id="advisorServiceReceiptForm" class="form-grid service-receipt-form">
+      <input type="hidden" name="id" value="${row?.id||""}">
+
+      <div class="form-section-title">Imóvel e proprietário</div>
+      <label class="span-2">Imóvel vinculado
+        <select name="property_id"><option value="">Recibo sem anúncio vinculado</option>${propertiesOptions}</select>
+      </label>
+      <label class="span-2">Proprietário cadastrado
+        <select name="advisor_owner_id">${ownerOptions(ownerId,true)}</select>
+      </label>
+      <label>Nome do proprietário
+        <input name="owner_name" required value="${escapeHTML(row?.owner_name||ownerById(ownerId)?.full_name||"")}">
+      </label>
+      <label>Telefone do proprietário
+        <input name="owner_phone" required inputmode="tel" value="${escapeHTML(row?.owner_phone||ownerById(ownerId)?.phone||"")}">
+      </label>
+      <label>Documento do proprietário
+        <input name="owner_document" value="${escapeHTML(row?.owner_document||ownerById(ownerId)?.document||"")}">
+      </label>
+      <label>E-mail do proprietário
+        <input name="owner_email" type="email" value="${escapeHTML(row?.owner_email||ownerById(ownerId)?.email||"")}">
+      </label>
+
+      <div class="form-section-title">Cliente / inquilino</div>
+      <label>Nome
+        <input name="client_name" value="${escapeHTML(row?.client_name||"")}">
+      </label>
+      <label>Telefone
+        <input name="client_phone" inputmode="tel" value="${escapeHTML(row?.client_phone||"")}">
+      </label>
+      <label>Documento
+        <input name="client_document" value="${escapeHTML(row?.client_document||"")}">
+      </label>
+      <label>E-mail
+        <input name="client_email" type="email" value="${escapeHTML(row?.client_email||"")}">
+      </label>
+
+      <div class="form-section-title">Serviço e valores</div>
+      <label class="span-2">Descrição do serviço
+        <textarea name="service_description" required rows="3">${escapeHTML(row?.service_description||"Serviço de assessoria imobiliária")}</textarea>
+      </label>
+      <label>Moeda
+        <select name="currency">
+          <option value="BRL" ${(row?.currency||"BRL")==="BRL"?"selected":""}>Real brasileiro (R$)</option>
+          <option value="PYG" ${row?.currency==="PYG"?"selected":""}>Guarani paraguaio (₲)</option>
+        </select>
+      </label>
+      <div></div>
+      <label>Comissão
+        <input name="commission_amount" type="number" min="0" step="1" value="${row?.commission_amount??0}">
+      </label>
+      <label>Taxa de assessoria
+        <input name="advisory_fee_amount" type="number" min="0" step="1" value="${row?.advisory_fee_amount??0}">
+      </label>
+      <label>Contrato / documentação
+        <input name="contract_amount" type="number" min="0" step="1" value="${row?.contract_amount??0}">
+      </label>
+      <label>Outros valores
+        <input name="other_amount" type="number" min="0" step="1" value="${row?.other_amount??0}">
+      </label>
+      <div class="span-2 receipt-total-preview">Total do recibo: <strong id="serviceReceiptTotalPreview">—</strong></div>
+
+      <div class="form-section-title">Pagamento</div>
+      <label>Pagamento recebido?
+        <select name="paid">
+          <option value="true" ${row?.paid!==false?"selected":""}>Sim</option>
+          <option value="false" ${row?.paid===false?"selected":""}>Ainda não</option>
+        </select>
+      </label>
+      <label>Data do pagamento
+        <input name="payment_date" type="date" value="${String(row?.payment_date||new Date().toISOString().slice(0,10)).slice(0,10)}">
+      </label>
+      <label>Forma de pagamento
+        <select name="payment_method">
+          <option value="">Selecione</option>
+          <option value="PIX" ${row?.payment_method==="PIX"?"selected":""}>PIX</option>
+          <option value="Dinheiro" ${row?.payment_method==="Dinheiro"?"selected":""}>Dinheiro</option>
+          <option value="Transferência" ${row?.payment_method==="Transferência"?"selected":""}>Transferência bancária</option>
+          <option value="Cartão" ${row?.payment_method==="Cartão"?"selected":""}>Cartão</option>
+          <option value="Outro" ${row?.payment_method==="Outro"?"selected":""}>Outro</option>
+        </select>
+      </label>
+      <label>Referência / comprovante
+        <input name="payment_reference" value="${escapeHTML(row?.payment_reference||"")}" placeholder="Opcional">
+      </label>
+      <label class="span-2">Incluir nos totais financeiros?
+        <select name="include_in_financials">
+          <option value="false" ${!row?.include_in_financials?"selected":""}>Não — apenas documento</option>
+          <option value="true" ${row?.include_in_financials?"selected":""}>Sim — contabilizar como receita</option>
+        </select>
+        <small>Use “Sim” apenas se este valor ainda não estiver registrado na locação ou em outro lançamento, para evitar duplicidade.</small>
+      </label>
+      <label class="span-2">Observações
+        <textarea name="notes" rows="3">${escapeHTML(row?.notes||"")}</textarea>
+      </label>
+
+      <div id="advisorServiceReceiptMessage" class="form-message span-2"></div>
+      <div class="form-actions span-2">
+        <button class="btn ghost" type="button" data-close>Cancelar</button>
+        <button class="btn primary" type="submit">Salvar e gerar recibo</button>
+      </div>
+    </form>
+  `);
+
+  wireServiceReceiptForm($("#advisorServiceReceiptForm"));
+}
+
+function wireServiceReceiptForm(form){
+  if(!form) return;
+
+  const propertySelect=form.querySelector('[name="property_id"]');
+  const ownerSelect=form.querySelector('[name="advisor_owner_id"]');
+  const currency=form.querySelector('[name="currency"]');
+  const paid=form.querySelector('[name="paid"]');
+  const paymentDate=form.querySelector('[name="payment_date"]');
+  const amountNames=["commission_amount","advisory_fee_amount","contract_amount","other_amount"];
+
+  const fillOwner=(owner)=>{
+    if(!owner) return;
+    form.querySelector('[name="owner_name"]').value=owner.full_name||"";
+    form.querySelector('[name="owner_phone"]').value=owner.phone||owner.whatsapp||"";
+    form.querySelector('[name="owner_document"]').value=owner.document||"";
+    form.querySelector('[name="owner_email"]').value=owner.email||"";
+  };
+
+  propertySelect?.addEventListener("change",()=>{
+    const property=properties.find(p=>p.id===propertySelect.value);
+    if(!property) return;
+    if(ownerSelect && property.advisor_owner_id){
+      ownerSelect.value=property.advisor_owner_id;
+      fillOwner(ownerById(property.advisor_owner_id));
+    }
+  });
+
+  ownerSelect?.addEventListener("change",()=>fillOwner(ownerById(ownerSelect.value)));
+
+  const updateTotal=()=>{
+    const total=amountNames.reduce((sum,name)=>sum+Number(form.querySelector(`[name="${name}"]`)?.value||0),0);
+    const preview=form.querySelector("#serviceReceiptTotalPreview");
+    if(preview) preview.textContent=money(total,currency?.value||"BRL");
+  };
+  amountNames.forEach(name=>form.querySelector(`[name="${name}"]`)?.addEventListener("input",updateTotal));
+  currency?.addEventListener("change",updateTotal);
+
+  const updatePaid=()=>{
+    const isPaid=paid?.value==="true";
+    if(paymentDate) paymentDate.required=isPaid;
+  };
+  paid?.addEventListener("change",updatePaid);
+  updatePaid();
+  updateTotal();
+}
+
+async function saveServiceReceipt(form){
+  const fd=new FormData(form);
+  const id=String(fd.get("id")||"").trim()||null;
+  const property=properties.find(p=>p.id===String(fd.get("property_id")||""));
+  const owner=ownerById(String(fd.get("advisor_owner_id")||""));
+  const msg=form.querySelector("#advisorServiceReceiptMessage");
+
+  const row={
+    advisor_id:currentUser.id,
+    property_id:property?.id||null,
+    advisor_owner_id:owner?.id||null,
+    property_code:property?.public_code||null,
+    property_title:property?.title||null,
+    property_address:property?[property.address,property.neighborhood,property.city].filter(Boolean).join(" • "):null,
+    owner_name:String(fd.get("owner_name")||"").trim(),
+    owner_phone:String(fd.get("owner_phone")||"").trim()||null,
+    owner_document:String(fd.get("owner_document")||"").trim()||null,
+    owner_email:String(fd.get("owner_email")||"").trim()||null,
+    client_name:String(fd.get("client_name")||"").trim()||null,
+    client_phone:String(fd.get("client_phone")||"").trim()||null,
+    client_document:String(fd.get("client_document")||"").trim()||null,
+    client_email:String(fd.get("client_email")||"").trim()||null,
+    service_description:String(fd.get("service_description")||"").trim(),
+    currency:fd.get("currency")||"BRL",
+    commission_amount:Number(fd.get("commission_amount")||0),
+    advisory_fee_amount:Number(fd.get("advisory_fee_amount")||0),
+    contract_amount:Number(fd.get("contract_amount")||0),
+    other_amount:Number(fd.get("other_amount")||0),
+    paid:fd.get("paid")==="true",
+    payment_date:fd.get("paid")==="true"?(fd.get("payment_date")||null):null,
+    payment_method:String(fd.get("payment_method")||"").trim()||null,
+    payment_reference:String(fd.get("payment_reference")||"").trim()||null,
+    include_in_financials:fd.get("include_in_financials")==="true",
+    notes:String(fd.get("notes")||"").trim()||null,
+    updated_at:new Date().toISOString()
+  };
+
+  if(!row.owner_name || !row.owner_phone || !row.service_description){
+    if(msg) msg.textContent="Informe proprietário, telefone e a descrição do serviço.";
+    return;
+  }
+  if(totalServiceReceipt(row)<=0){
+    if(msg) msg.textContent="Informe pelo menos um valor maior que zero.";
+    return;
+  }
+  if(row.paid && !row.payment_date){
+    if(msg) msg.textContent="Informe a data do pagamento.";
+    return;
+  }
+
+  const result=id
+    ? await db.from("advisor_service_receipts").update(row).eq("id",id).eq("advisor_id",currentUser.id).select("*").single()
+    : await db.from("advisor_service_receipts").insert(row).select("*").single();
+
+  if(result.error){
+    if(msg) msg.textContent=result.error.message;
+    return;
+  }
+
+  await loadData();
+  closeAdvisorModal();
+  renderServiceReceipts();
+  renderFinance();
+  renderManagementDashboard();
+
+  const saved=serviceReceipts.find(r=>r.id===result.data?.id) || result.data;
+  if(saved) generateServiceReceiptPdf(saved);
+}
+
+
 function renderRentalControl(){
   const root=$("#advisorRentalControlList");
   if(!root) return;
