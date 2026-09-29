@@ -3080,8 +3080,8 @@ function collaborationFormHTML(property=null){
     <div class="span-2 advisor-collaboration-form-card">
       <div class="collaboration-form-intro">
         <div>
-          <strong>Outros assessores participam deste negócio?</strong>
-          <span>Vincule somente assessores cadastrados na plataforma. Eles receberão atualizações do imóvel e verão o valor pré-acordado da própria participação.</span>
+          <strong>Caso mais de um assessor participe desta assessoria, adicione-o aqui.</strong>
+          <span>Escolha os assessores cadastrados que participam do negócio. Cada um receberá atualizações do status do imóvel e verá somente a parte pré-acordada que lhe corresponde.</span>
         </div>
         <label>
           <span>Coassessoria</span>
