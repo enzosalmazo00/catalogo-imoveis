@@ -424,7 +424,6 @@ function renderAds(){
               <span>${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</span>
               <small>${expired?"Expirado":"Ativo"} • publicado em: ${fmtDate(p.listing_started_at||p.created_at)} • válido até: ${fmtDate(p.listing_expires_at)}</small>
               <small class="listing-code">Código do imóvel: ${escapeHTML(p.public_code||"—")}</small>
-              ${p.advisor_owner_id?`<small>👤 Proprietário: <strong>${escapeHTML(ownerById(p.advisor_owner_id)?.full_name||"Cadastro não localizado")}</strong></small>`:""}
               <small><strong>👁 ${Number(p.view_count||0).toLocaleString("pt-BR")}</strong> visualizações • <strong>💬 ${Number(p.whatsapp_click_count||0).toLocaleString("pt-BR")}</strong> contatos pelo WhatsApp</small>
             </div>
             <div class="advisor-ad-actions">
@@ -1756,7 +1755,6 @@ async function saveRentalControl(form){
     property_city:property?.city||existing?.property_city||null,
     closing_mode:closingMode,
     had_advisory_fee:hadAdvisory,
-    advisor_owner_id:String(fd.get("advisor_owner_id")||"").trim()||null,
     owner_name:String(fd.get("owner_name")||"").trim()||null,
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
     tenant_name:String(fd.get("tenant_name")||"").trim(),
@@ -3158,16 +3156,6 @@ function propertyModal(property=null){
         <input name="contact_whatsapp" inputmode="tel" required value="${escapeHTML(property?.contact_whatsapp||profile?.whatsapp||"")}" placeholder="Ex.: 595981123456">
       </label>
 
-      <div class="span-2 property-owner-link-box">
-        <label>Proprietário responsável pelo imóvel
-          <select name="advisor_owner_id">
-            ${ownerOptions(property?.advisor_owner_id||"",true)}
-          </select>
-          <small>Quando você anuncia como assessor/corretor, vincule o proprietário para manter a gestão e os recibos organizados.</small>
-        </label>
-        <button class="btn ghost compact" type="button" data-new-owner-from-property>+ Cadastrar proprietário</button>
-      </div>
-
       <div class="form-section-title property-section-title">2. Valores e condições</div>
 
       <label>Moeda
@@ -3593,12 +3581,6 @@ async function saveProperty(form){
     status:"available"
   };
 
-  if(row.advertiser_role==="broker" && !row.advisor_owner_id){
-    msg.textContent="Selecione ou cadastre o proprietário deste imóvel antes de publicar.";
-    form.querySelector('[name="advisor_owner_id"]')?.scrollIntoView({behavior:"smooth",block:"center"});
-    return false;
-  }
-
   const selectedFeatureIds=[...form.querySelectorAll('input[name="features"]:checked')].map(el=>el.value);
   const selectedReferencePointIds=[...form.querySelectorAll('input[name="reference_points"]:checked')].map(el=>el.value);
 
@@ -3620,7 +3602,6 @@ async function saveProperty(form){
       contract_payer:row.contract_payer,
       closing_mode:row.closing_mode,
       advertiser_role:row.advertiser_role,
-      advisor_owner_id:row.advisor_owner_id,
       has_advisory_fee:row.has_advisory_fee,
       advisory_fee:row.advisory_fee,
       contact_whatsapp:row.contact_whatsapp,
@@ -3726,16 +3707,6 @@ async function saveProperty(form){
     );
 
     if(published.error) throw new Error(published.error.message);
-
-    if(row.advisor_owner_id){
-      const ownerLink=await db.from("properties")
-        .update({advisor_owner_id:row.advisor_owner_id})
-        .eq("id",propertyId)
-        .eq("advisor_id",currentUser.id);
-      if(ownerLink.error){
-        console.warn("Imóvel publicado, mas o proprietário não foi vinculado:",ownerLink.error);
-      }
-    }
 
     if(selectedReferencePointIds.length){
       const referenceInsert=await db.from("property_reference_points").insert(
@@ -4226,10 +4197,6 @@ document.addEventListener("click",async e=>{
   const openCreditStore=e.target.closest("[data-open-credit-store]");
   if(openCreditStore){
     $("#advisorDashboardView")?.classList.add("hidden");
-    $("#advisorOwnersView")?.classList.add("hidden");
-    $("#advisorFinanceView")?.classList.add("hidden");
-    $("#advisorServiceReceiptsView")?.classList.add("hidden");
-    $("#advisorRentalControl")?.classList.add("hidden");
     $("#advisorHowItWorks")?.classList.add("hidden");
     $(".advisor-panel-tabs")?.classList.add("hidden");
     $("#advisorCreditStore")?.classList.remove("hidden");
@@ -4243,10 +4210,6 @@ document.addEventListener("click",async e=>{
     $(".advisor-panel-tabs")?.classList.remove("hidden");
     document.querySelectorAll("[data-advisor-view]").forEach(btn=>btn.classList.toggle("active",btn.dataset.advisorView==="dashboard"));
     $("#advisorDashboardView")?.classList.remove("hidden");
-    $("#advisorOwnersView")?.classList.add("hidden");
-    $("#advisorFinanceView")?.classList.add("hidden");
-    $("#advisorServiceReceiptsView")?.classList.add("hidden");
-    $("#advisorRentalControl")?.classList.add("hidden");
     $("#advisorHowItWorks")?.classList.add("hidden");
     window.scrollTo({top:0,behavior:"smooth"});
     return;
@@ -4270,10 +4233,6 @@ document.addEventListener("click",async e=>{
     const view=viewBtn.dataset.advisorView;
     document.querySelectorAll("[data-advisor-view]").forEach(btn=>btn.classList.toggle("active",btn===viewBtn));
     $("#advisorDashboardView")?.classList.toggle("hidden",view!=="dashboard");
-    $("#advisorOwnersView")?.classList.toggle("hidden",view!=="owners");
-    $("#advisorFinanceView")?.classList.toggle("hidden",view!=="finance");
-    $("#advisorServiceReceiptsView")?.classList.toggle("hidden",view!=="receipts");
-    $("#advisorRentalControl")?.classList.toggle("hidden",view!=="rentals");
     $("#advisorHowItWorks")?.classList.toggle("hidden",view!=="how");
     window.scrollTo({top:0,behavior:"smooth"});
   }
