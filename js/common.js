@@ -1,7 +1,71 @@
 import { db, publicImageUrl } from "./config.js";
 
 export const $ = (selector, root = document) => root.querySelector(selector);
-export const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+export const $ = (selector, root = document) => [...root.querySelectorAll(selector)];
+
+
+export async function sanitizeImageForUpload(file,{
+  maxBytes=10*1024*1024,
+  maxDimension=2400,
+  quality=0.86
+}={}){
+  const allowedTypes=new Set(["image/jpeg","image/png","image/webp","image/avif"]);
+
+  if(!file || !allowedTypes.has(String(file.type||"").toLowerCase())){
+    throw new Error("Use uma imagem JPG, PNG, WEBP ou AVIF.");
+  }
+
+  if(Number(file.size||0)>maxBytes){
+    const limitMB=Math.round(maxBytes/1024/1024);
+    throw new Error(`A imagem deve ter no máximo ${limitMB} MB.`);
+  }
+
+  const objectUrl=URL.createObjectURL(file);
+  try{
+    const image=new Image();
+    image.decoding="async";
+
+    await new Promise((resolve,reject)=>{
+      image.onload=resolve;
+      image.onerror=()=>reject(new Error("Não foi possível processar esta imagem. Escolha outra foto."));
+      image.src=objectUrl;
+    });
+
+    const sourceWidth=Number(image.naturalWidth||0);
+    const sourceHeight=Number(image.naturalHeight||0);
+    if(!sourceWidth || !sourceHeight){
+      throw new Error("A imagem selecionada é inválida.");
+    }
+
+    const scale=Math.min(1,maxDimension/Math.max(sourceWidth,sourceHeight));
+    const width=Math.max(1,Math.round(sourceWidth*scale));
+    const height=Math.max(1,Math.round(sourceHeight*scale));
+
+    const canvas=document.createElement("canvas");
+    canvas.width=width;
+    canvas.height=height;
+
+    const context=canvas.getContext("2d",{alpha:true});
+    if(!context) throw new Error("Seu navegador não conseguiu preparar a imagem com segurança.");
+
+    context.drawImage(image,0,0,width,height);
+
+    const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/webp",quality));
+    if(!blob){
+      throw new Error("Seu navegador não conseguiu converter a imagem. Atualize o navegador e tente novamente.");
+    }
+
+    return {
+      blob,
+      contentType:"image/webp",
+      extension:"webp",
+      width,
+      height
+    };
+  }finally{
+    URL.revokeObjectURL(objectUrl);
+  }
+}
 
 export function escapeHTML(value = "") {
   return String(value ?? "").replace(/[&<>"']/g, ch => ({
