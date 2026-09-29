@@ -260,51 +260,51 @@ async function loadData(){
   return failures.length===0;
 }
 
-function renderPlans(){
-  const premium=plans.find(plan=>plan.code==="premium_monthly_30");
 
-  const premiumHtml=premium?(()=>{
-    const avulso=Number(premium.ad_limit)*15;
-    const unit=Number(premium.price)/Number(premium.ad_limit);
-    const saving=avulso-Number(premium.price);
+function renderPlans(){
+  const superPlan=plans.find(plan=>plan.code==="super_20");
+
+  const superHtml=superPlan?(()=>{
+    const unit=Number(superPlan.price)/Math.max(1,Number(superPlan.ad_limit||1));
+    const avulso=Number(superPlan.ad_limit||0)*9.99;
+    const saving=Math.max(0,avulso-Number(superPlan.price));
 
     return `
       <article class="advisor-premium-plan-card">
         <div class="premium-plan-shine"></div>
         <div class="premium-plan-topline">
-          <span class="premium-plan-badge">⭐ PREMIUM</span>
-          <span class="premium-plan-value-badge">MELHOR CUSTO POR CRÉDITO</span>
+          <span class="premium-plan-badge">🔥 SUPER PACOTE</span>
+          <span class="premium-plan-value-badge">MAIOR DESCONTO</span>
         </div>
 
         <div class="premium-plan-content">
           <div class="premium-plan-copy">
             <p class="eyebrow">PARA QUEM ANUNCIA COM FREQUÊNCIA</p>
-            <h3>Premium</h3>
-            <p class="premium-plan-lead">30 créditos liberados de uma vez para você manter um catálogo sempre ativo.</p>
+            <h3>20 créditos por R$ 99,90</h3>
+            <p class="premium-plan-lead">O melhor custo por anúncio para manter vários imóveis ativos.</p>
 
             <div class="premium-plan-features">
-              <span>✓ 30 créditos de anúncio</span>
-              <span>✓ ${money(unit,"BRL")} por crédito</span>
-              <span>✓ Créditos liberados após confirmação do PIX</span>
-              <span>✓ Cada imóvel publicado fica ativo por 30 dias</span>
-              <span>✓ Créditos não utilizados válidos por 120 dias</span>
+              <span>✓ 20 créditos de anúncio</span>
+              <span>✓ Só ${money(unit,"BRL")} por crédito</span>
+              <span>✓ Cada crédito publica 1 imóvel por 30 dias</span>
+              <span>✓ Créditos não usados válidos por ${Number(superPlan.validity_days||120)} dias</span>
             </div>
           </div>
 
           <div class="premium-plan-price-box">
-            <small>30 créditos</small>
-            <strong>${money(premium.price,"BRL")}</strong>
+            <small>20 créditos</small>
+            <strong>${money(superPlan.price,"BRL")}</strong>
 
             <div class="premium-plan-comparison">
-              <span>Valor avulso: <s>${money(avulso,"BRL")}</s></span>
+              <span>Avulso equivalente: <s>${money(avulso,"BRL")}</s></span>
               <strong>Economize ${money(saving,"BRL")}</strong>
             </div>
 
             <div class="premium-plan-unit-price">
-              Só <strong>${money(unit,"BRL")}</strong> por crédito
+              Só <strong>${money(unit,"BRL")}</strong> por anúncio
             </div>
 
-            <button class="btn premium-plan-button full" data-buy="${premium.id}">Comprar Premium</button>
+            <button class="btn premium-plan-button full" data-buy="${superPlan.id}">Comprar 20 créditos</button>
             <small class="premium-plan-payment-note">Pagamento via PIX</small>
           </div>
         </div>
@@ -313,16 +313,16 @@ function renderPlans(){
   })():"";
 
   $("#advisorPlans").innerHTML=`
-    ${premiumHtml}
+    ${superHtml}
     <div class="credit-store-entry">
-      <span>Prefere comprar uma quantidade menor de créditos?</span>
-      <button class="btn ghost" type="button" data-open-credit-store>Outras opções de compra de créditos</button>
+      <span>Quer menos créditos?</span>
+      <button class="btn ghost" type="button" data-open-credit-store>Ver pacotes a partir de R$ 9,99</button>
     </div>
   `;
 }
 
 function renderCreditStore(){
-  const standardPlans=plans.filter(plan=>plan.code!=="premium_monthly_30");
+  const standardPlans=plans.filter(plan=>plan.code!=="super_20");
   const root=$("#advisorCreditStorePlans");
   if(!root) return;
 
@@ -334,8 +334,8 @@ function renderCreditStore(){
         <h3>${escapeHTML(plan.name)}</h3>
         <div class="advisor-plan-price">${money(plan.price,"BRL")}</div>
         <div class="advisor-plan-unit">${money(unit,"BRL")} por crédito</div>
-        <p>Créditos não usados válidos por <strong>90 dias</strong> após a compra.</p>
-        <small>Cada crédito publicado ativa 1 imóvel por 30 dias.</small>
+        <p>Créditos não usados válidos por <strong>${Number(plan.validity_days||90)} dias</strong>.</p>
+        <small>Cada crédito publica 1 imóvel por 30 dias.</small>
         <button class="btn primary full" data-buy="${plan.id}">Comprar via PIX</button>
       </article>`;
   }).join("");
