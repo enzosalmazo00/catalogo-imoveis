@@ -902,6 +902,139 @@ async function setCommissionPaid(id,paid){
   switchView("finance");
 }
 
+
+function tenantAdvisoryModal(rental=null){
+  showModal(`
+    <div class="modal-head">
+      <div>
+        <p class="eyebrow">ASSESSORIA DO INQUILINO</p>
+        <h2>${rental?.had_advisory_fee?"Editar assessoria":"Nova assessoria"}</h2>
+        <p class="muted">Controle somente a taxa de assessoria paga pelo inquilino. Ela fica separada da comissão do proprietário.</p>
+      </div>
+      <button class="icon-btn" type="button" data-close-modal>✕</button>
+    </div>
+
+    <form id="managementTenantAdvisoryForm" class="form-grid">
+      <label class="span-2">Locação / imóvel
+        <select name="rental_control_id" required>
+          ${rentalOptions(rental?.id||"")}
+        </select>
+      </label>
+
+      <label>Inquilino
+        <input name="tenant_name" value="${escapeHTML(rental?.tenant_name||"")}" readonly>
+      </label>
+      <label>WhatsApp
+        <input name="tenant_phone" value="${escapeHTML(rental?.tenant_phone||"")}" readonly>
+      </label>
+
+      <label class="span-2">Imóvel
+        <input name="property_label" value="${escapeHTML(rental?`${rental.property_code||"—"} • ${rental.property_title||"Imóvel"}`:"")}" readonly>
+      </label>
+
+      <label>Valor da assessoria
+        <input name="advisory_fee_amount" type="number" min="0.01" step="0.01" required value="${rental?.advisory_fee_amount??""}">
+      </label>
+      <label>Vencimento
+        <input name="advisory_fee_due_date" type="date" value="${safeDate(rental?.advisory_fee_due_date)}">
+      </label>
+
+      <label>Status
+        <select name="advisory_fee_paid">
+          <option value="false" ${!rental?.advisory_fee_paid?"selected":""}>A receber</option>
+          <option value="true" ${rental?.advisory_fee_paid?"selected":""}>Recebida</option>
+        </select>
+      </label>
+      <label>Data do recebimento
+        <input name="advisory_fee_payment_date" type="date" value="${safeDate(rental?.advisory_fee_payment_date)}">
+      </label>
+
+      <div id="managementTenantAdvisoryMessage" class="form-message span-2"></div>
+      <div class="form-actions span-2">
+        <button class="btn ghost" type="button" data-close-modal>Cancelar</button>
+        <button class="btn primary" type="submit">Salvar assessoria</button>
+      </div>
+    </form>
+  `);
+
+  const form=$("#managementTenantAdvisoryForm");
+  const select=form?.querySelector('[name="rental_control_id"]');
+
+  const fill=(row)=>{
+    if(!form || !row) return;
+    form.querySelector('[name="tenant_name"]').value=row.tenant_name||"";
+    form.querySelector('[name="tenant_phone"]').value=row.tenant_phone||"";
+    form.querySelector('[name="property_label"]').value=`${row.property_code||"—"} • ${row.property_title||"Imóvel"}`;
+    if(row.advisory_fee_amount!=null) form.querySelector('[name="advisory_fee_amount"]').value=row.advisory_fee_amount;
+    form.querySelector('[name="advisory_fee_due_date"]').value=safeDate(row.advisory_fee_due_date);
+    form.querySelector('[name="advisory_fee_paid"]').value=row.advisory_fee_paid?"true":"false";
+    form.querySelector('[name="advisory_fee_payment_date"]').value=safeDate(row.advisory_fee_payment_date);
+  };
+
+  select?.addEventListener("change",()=>{
+    fill(rentals.find(item=>item.id===select.value));
+  });
+}
+
+async function saveTenantAdvisory(form){
+  const fd=new FormData(form);
+  const rentalId=String(fd.get("rental_control_id")||"");
+  const rental=rentals.find(item=>item.id===rentalId);
+  const msg=form.querySelector("#managementTenantAdvisoryMessage");
+  const amount=Number(fd.get("advisory_fee_amount")||0);
+  const paid=fd.get("advisory_fee_paid")==="true";
+
+  if(!rental){
+    msg.textContent="Selecione uma locação.";
+    return;
+  }
+  if(!(amount>0)){
+    msg.textContent="Informe um valor de assessoria maior que zero.";
+    return;
+  }
+
+  const {error}=await db.from("advisor_rental_control")
+    .update({
+      had_advisory_fee:true,
+      advisory_fee_amount:amount,
+      advisory_fee_due_date:fd.get("advisory_fee_due_date")||null,
+      advisory_fee_paid:paid,
+      advisory_fee_payment_date:paid?(fd.get("advisory_fee_payment_date")||nowDateInput()):null,
+      updated_at:new Date().toISOString()
+    })
+    .eq("id",rental.id)
+    .eq("advisor_id",currentUser.id);
+
+  if(error){
+    msg.textContent=error.message;
+    return;
+  }
+
+  await refreshAndRender();
+  closeModal();
+  switchView("finance");
+}
+
+async function setTenantAdvisoryPaid(id,paid){
+  const {error}=await db.from("advisor_rental_control")
+    .update({
+      advisory_fee_paid:paid,
+      advisory_fee_payment_date:paid?nowDateInput():null,
+      updated_at:new Date().toISOString()
+    })
+    .eq("id",id)
+    .eq("advisor_id",currentUser.id);
+
+  if(error){
+    alert(error.message);
+    return;
+  }
+
+  await refreshAndRender();
+  switchView("finance");
+}
+
+
 function renderReceipts(){
   const root=$("#managementReceiptsList");
   if(!root) return;
