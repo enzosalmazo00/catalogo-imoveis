@@ -30,12 +30,28 @@ function removeLocationMessages(){
   });
 }
 
+function findPropertyInfoAnchor(){
+  const titles=[
+    "Incluso no aluguel",
+    "O imóvel possui",
+    "Recursos de segurança",
+    "Cômodos do imóvel",
+    "Configuração e acesso",
+    "Sobre o imóvel"
+  ];
+  for(const title of titles){
+    const section=findSectionByTitle(title);
+    if(section) return section;
+  }
+  return null;
+}
+
 function moveUniversitySectionToCorrectPlace(){
-  const config = findSectionByTitle("Configuração e acesso");
+  const anchor = findPropertyInfoAnchor();
   const university = findSectionByTitle("Faculdades próximas");
-  if(!config || !university) return false;
-  if(config.nextElementSibling !== university){
-    config.insertAdjacentElement("afterend", university);
+  if(!anchor || !university) return false;
+  if(anchor.nextElementSibling !== university){
+    anchor.insertAdjacentElement("afterend", university);
   }
   return true;
 }
@@ -108,8 +124,8 @@ async function ensureUniversities(){
   if(moveUniversitySectionToCorrectPlace()) return;
   if(!propertyId || loading) return;
 
-  const config = findSectionByTitle("Configuração e acesso");
-  if(!config) return;
+  const anchor = findPropertyInfoAnchor();
+  if(!anchor) return;
 
   loading = true;
   try{
@@ -122,7 +138,7 @@ async function ensureUniversities(){
     if(old) old.remove();
 
     const section = buildUniversitySection(data);
-    config.insertAdjacentElement("afterend", section);
+    anchor.insertAdjacentElement("afterend", section);
   }catch(err){
     console.warn("Não foi possível restaurar a seção de faculdades:", err);
   }finally{
