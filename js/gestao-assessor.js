@@ -1454,10 +1454,10 @@ function renderRentals(){
 
 
 function collaborationStatusInfo(row){
-  if(row.deal_status==="rented") return {label:"ALUGADO",className:"paid"};
+  if(row.deal_status==="rented" || row.property_status==="rented") return {label:"ALUGADO",className:"paid"};
   if(row.deal_status==="closed" || row.deal_status==="cancelled") return {label:"ENCERRADO",className:"expense"};
   if(row.listing_expires_at && new Date(row.listing_expires_at).getTime()<=Date.now()) return {label:"EXPIRADO",className:"expense"};
-  if(row.is_published===false) return {label:"FORA DO AR",className:"pending"};
+  if(row.is_published===false || row.property_status==="hidden") return {label:"FORA DO AR",className:"pending"};
   return {label:"ATIVO",className:"paid"};
 }
 
@@ -1505,9 +1505,9 @@ function renderCollaborations(){
               <div class="collaboration-payment-state">
                 <span class="pill ${part.payout_status==="paid"?"paid":"pending"}">${part.payout_status==="paid"?"PAGA":"A PAGAR"}</span>
                 ${part.confirmed_received_at
-                  ? '<small class="collaboration-confirmed">✓ recebimento confirmado</small>'
+                  ? `<small class="collaboration-confirmed">✓ confirmado em ${dateBR(part.confirmed_received_at)}</small>`
                   : part.payout_status==="paid"
-                    ? '<small>aguardando confirmação</small>'
+                    ? `<small>pago em ${dateOnlyBR(part.paid_at)} • aguardando confirmação</small>`
                     : ""
                 }
               </div>
