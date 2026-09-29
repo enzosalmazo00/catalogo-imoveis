@@ -3783,6 +3783,13 @@ async function saveProperty(form){
   const selectedFeatureIds=[...form.querySelectorAll('input[name="features"]:checked')].map(el=>el.value);
   const selectedReferencePointIds=[...form.querySelectorAll('input[name="reference_points"]:checked')].map(el=>el.value);
 
+  try{
+    collectCollaborationData(form);
+  }catch(err){
+    msg.textContent=err?.message||"Confira a divisão da coassessoria.";
+    return false;
+  }
+
   // EDITAR: mantém identidade e prazo do anúncio original.
   if(existing){
     msg.textContent="2/4 • Salvando alterações...";
@@ -3842,6 +3849,13 @@ async function saveProperty(form){
       if(referenceInsert.error){
         console.warn("Não foi possível atualizar os pontos de referência:",referenceInsert.error);
       }
+    }
+
+    msg.textContent="3/4 • Atualizando coassessoria...";
+    const collaborationSave=await savePropertyCollaboration(existing.id,form,row.currency);
+    if(collaborationSave.error){
+      msg.textContent="As alterações do imóvel foram salvas, mas a coassessoria não foi atualizada: "+(collaborationSave.error.message||"erro desconhecido");
+      return false;
     }
 
     msg.textContent="3/4 • Mantendo mídia e identidade original do imóvel...";
@@ -3916,7 +3930,13 @@ async function saveProperty(form){
       }
     }
 
-    msg.textContent="4/4 • Imóvel publicado com sucesso.";
+    const collaborationSave=await savePropertyCollaboration(propertyId,form,row.currency);
+    if(collaborationSave.error){
+      console.warn("Imóvel publicado, mas a coassessoria não foi salva:",collaborationSave.error);
+      msg.textContent="Imóvel publicado. A coassessoria não foi salva: "+(collaborationSave.error.message||"erro desconhecido")+". Você pode editar o anúncio e tentar novamente.";
+    }else{
+      msg.textContent="4/4 • Imóvel publicado com sucesso.";
+    }
     await deletePropertyDraft(form,{silent:true});
     await loadData();
     renderPanel();
