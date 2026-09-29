@@ -7,7 +7,6 @@ let properties=[];
 let owners=[];
 let rentals=[];
 let receipts=[];
-let entries=[];
 
 function dateBR(value){
   if(!value) return "—";
@@ -88,8 +87,7 @@ async function loadData(){
     propertiesRes,
     ownersRes,
     rentalsRes,
-    receiptsRes,
-    entriesRes
+    receiptsRes
   ]=await Promise.all([
     db.from("advisor_profiles").select("*").eq("user_id",currentUser.id).maybeSingle(),
     db.from("properties")
@@ -107,12 +105,7 @@ async function loadData(){
     db.from("advisor_service_receipts")
       .select("*")
       .eq("advisor_id",currentUser.id)
-      .order("issued_at",{ascending:false}),
-    db.from("advisor_financial_entries")
-      .select("*")
-      .eq("advisor_id",currentUser.id)
-      .order("entry_date",{ascending:false})
-      .order("created_at",{ascending:false})
+      .order("issued_at",{ascending:false})
   ]);
 
   const firstError=[
@@ -120,8 +113,7 @@ async function loadData(){
     propertiesRes.error,
     ownersRes.error,
     rentalsRes.error,
-    receiptsRes.error,
-    entriesRes.error
+    receiptsRes.error
   ].find(Boolean);
   if(firstError) throw firstError;
 
@@ -130,125 +122,46 @@ async function loadData(){
   owners=ownersRes.data||[];
   rentals=rentalsRes.data||[];
   receipts=receiptsRes.data||[];
-  entries=entriesRes.data||[];
 }
 
-function financeRows(){
-  const rows=[];
 
-  rentals.forEach(r=>{
-    const base={
-      property_id:r.property_id||null,
-      property_code:r.property_code||null,
-      property_title:r.property_title||"Imóvel alugado",
-      currency:r.currency||"BRL",
-      source:"Locação",
-      date:r.start_date||r.created_at
-    };
-
-    if(Number(r.commission_amount||0)>0){
-      rows.push({
-        ...base,
-        id:`rental-commission-${r.id}`,
-        description:"Comissão do assessor",
-        category:"commission",
-        entry_type:"income",
+function commissionRows(){
+  return rentals
+    .filter(r=>r.advisor_commission_charged && Number(r.commission_amount||0)>0)
+    .map(r=>{
+      const owner=ownerById(r.advisor_owner_id);
+      return {
+        id:r.id,
+        owner_id:r.advisor_owner_id||null,
+        owner_name:owner?.full_name||r.owner_name||"Proprietário não informado",
+        owner_whatsapp:owner?.whatsapp||r.owner_phone||"",
+        property_code:r.property_code||"—",
+        property_title:r.property_title||"Imóvel",
         amount:Number(r.commission_amount||0),
-        status:r.commission_paid?"paid":"pending",
-        date:r.advisor_commission_payment_date||base.date
-      });
-    }
-
-    if(Number(r.advisory_fee_amount||0)>0){
-      rows.push({
-        ...base,
-        id:`rental-advisory-${r.id}`,
-        description:"Taxa de assessoria",
-        category:"advisory",
-        entry_type:"income",
-        amount:Number(r.advisory_fee_amount||0),
-        status:r.advisory_fee_paid?"paid":"pending",
-        date:r.advisory_fee_payment_date||base.date
-      });
-    }
-  });
-
-  receipts.filter(r=>r.include_in_financials).forEach(r=>{
-    const base={
-      property_id:r.property_id||null,
-      property_code:r.property_code||null,
-      property_title:r.property_title||"Serviço de assessoria",
-      currency:r.currency||"BRL",
-      source:"Recibo",
-      entry_type:"income",
-      status:r.paid?"paid":"pending",
-      date:r.payment_date||r.issued_at
-    };
-
-    [
-      ["commission_amount","Comissão","commission"],
-      ["advisory_fee_amount","Taxa de assessoria","advisory"],
-      ["contract_amount","Contrato / documentação","documents"],
-      ["other_amount","Outros valores","other"]
-    ].forEach(([field,label,category])=>{
-      const amount=Number(r[field]||0);
-      if(amount<=0) return;
-      rows.push({
-        ...base,
-        id:`receipt-${category}-${r.id}`,
-        description:`${label} • ${r.service_description||"Assessoria"}`,
-        category,
-        amount
-      });
+        currency:r.currency||"BRL",
+        paid:Boolean(r.commission_paid),
+        due_date:r.commission_due_date||null,
+        payment_date:r.advisor_commission_payment_date||null,
+        start_date:r.start_date||r.created_at
+      };
     });
-  });
-
-  entries.forEach(r=>{
-    const property=propertyById(r.property_id);
-    rows.push({
-      id:`entry-${r.id}`,
-      raw_id:r.id,
-      property_id:r.property_id||null,
-      property_code:r.property_code||property?.public_code||null,
-      property_title:r.property_title||property?.title||"Sem imóvel vinculado",
-      currency:r.currency||"BRL",
-      source:"Lançamento",
-      description:r.description||"Lançamento",
-      category:r.category||"other",
-      entry_type:r.entry_type,
-      amount:Number(r.amount||0),
-      status:r.status,
-      date:r.entry_date||r.created_at
-    });
-  });
-
-  return rows;
 }
 
-function financeTotals(){
-  const totals={
-    received:blankTotals(),
-    pending:blankTotals(),
-    expenses:blankTotals(),
-    pendingExpenses:blankTotals(),
-    commissions:blankTotals(),
-    advisory:blankTotals()
-  };
+function commissionTotals(){
+  const received=blankTotals();
+  const pending=blankTotals();
+  let overdue=0;
+  const today=nowDateInput();
 
-  financeRows().forEach(r=>{
-    if(r.entry_type==="income" && r.status==="paid") addTotal(totals.received,r.currency,r.amount);
-    if(r.entry_type==="income" && r.status==="pending") addTotal(totals.pending,r.currency,r.amount);
-    if(r.entry_type==="expense" && r.status==="paid") addTotal(totals.expenses,r.currency,r.amount);
-    if(r.entry_type==="expense" && r.status==="pending") addTotal(totals.pendingExpenses,r.currency,r.amount);
-    if(r.entry_type==="income" && r.status==="paid" && r.category==="commission") addTotal(totals.commissions,r.currency,r.amount);
-    if(r.entry_type==="income" && r.status==="paid" && r.category==="advisory") addTotal(totals.advisory,r.currency,r.amount);
+  commissionRows().forEach(row=>{
+    if(row.paid) addTotal(received,row.currency,row.amount);
+    else{
+      addTotal(pending,row.currency,row.amount);
+      if(row.due_date && row.due_date<today) overdue++;
+    }
   });
 
-  totals.net={
-    BRL:Number(totals.received.BRL||0)-Number(totals.expenses.BRL||0),
-    PYG:Number(totals.received.PYG||0)-Number(totals.expenses.PYG||0)
-  };
-  return totals;
+  return {received,pending,overdue};
 }
 
 function renderOverview(){
@@ -275,7 +188,7 @@ function renderOverview(){
   const topViewed=[...properties]
     .sort((a,b)=>Number(b.view_count||0)-Number(a.view_count||0))
     .slice(0,5);
-  const totals=financeTotals();
+  const commissions=commissionTotals();
 
   root.innerHTML=`
     <section class="advisor-management-hero">
@@ -290,10 +203,9 @@ function renderOverview(){
         <article class="${expiring.length?"attention":""}"><span>Vencem em até 5 dias</span><strong>${expiring.length}</strong><small>anúncios que exigem atenção</small></article>
         <article><span>Imóveis alugados</span><strong>${rentals.length}</strong><small>locações registradas</small></article>
         <article><span>Visualizações</span><strong>${totalViews.toLocaleString("pt-BR")}</strong><small>${totalWhatsapp.toLocaleString("pt-BR")} contatos no WhatsApp</small></article>
-        <article><span>Proprietários</span><strong>${owners.length}</strong><small>cadastros na carteira</small></article>
-        <article class="money"><span>Comissões recebidas</span><strong>${formatTotals(totals.commissions)}</strong><small>somente valores pagos</small></article>
-        <article class="money"><span>A receber</span><strong>${formatTotals(totals.pending)}</strong><small>receitas pendentes</small></article>
-        <article class="money result"><span>Resultado líquido</span><strong>${formatTotals(totals.net)}</strong><small>receitas recebidas − despesas pagas</small></article>
+        <article><span>Proprietários</span><strong>${owners.length}</strong><small>na sua carteira</small></article>
+        <article class="money attention"><span>Comissões a receber</span><strong>${formatTotals(commissions.pending)}</strong><small>${commissions.overdue} vencida${commissions.overdue===1?"":"s"}</small></article>
+        <article class="money result"><span>Comissões recebidas</span><strong>${formatTotals(commissions.received)}</strong><small>valores confirmados</small></article>
       </div>
 
       <div class="advisor-dashboard-columns">
