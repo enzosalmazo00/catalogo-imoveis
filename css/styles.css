@@ -1316,3 +1316,38 @@ button,input,select,textarea{font-size:16px}
   .management-page-head .advisor-head-actions{width:100%}
   .management-page-head .advisor-head-actions .btn{flex:1 1 160px}
 }
+
+.owner-privacy-notice{
+  display:flex;
+  gap:12px;
+  align-items:flex-start;
+  margin:0 0 18px;
+  padding:14px 16px;
+  border:1px solid #b9ddcf;
+  border-radius:14px;
+  background:#f1faf6;
+}
+.owner-privacy-icon{
+  flex:0 0 auto;
+  width:34px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:#fff;
+  font-size:18px;
+  box-shadow:0 2px 8px rgba(19,35,59,.06);
+}
+.owner-privacy-notice strong{
+  display:block;
+  margin-bottom:4px;
+  color:var(--green-dark);
+  font-size:13px;
+}
+.owner-privacy-notice p{
+  margin:0;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.5;
+}
+.owner-privacy-notice b{color:var(--navy)}
