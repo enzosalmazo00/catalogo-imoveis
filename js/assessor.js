@@ -17,6 +17,7 @@ let advisorDirectory=[];
 let listingCollaborations=[];
 let unreadCollaborationNotifications=0;
 let paymentWatcher=null;
+let notificationBadgeWatcher=null;
 let paymentRequestInFlight=false;
 let pendingPropertyFiles=[];
 let pendingPropertyCoverExplicit=false;
@@ -2601,6 +2602,32 @@ async function shareAdvisorCatalog(){
   await copyAdvisorCatalogLink($("#shareAdvisorCatalogMain")||$("#shareAdvisorCatalog"));
 }
 
+
+async function refreshAdvisorNotificationBadge(){
+  if(!currentUser) return;
+  try{
+    const {count,error}=await db.from("advisor_notifications")
+      .select("id",{count:"exact",head:true})
+      .eq("advisor_id",currentUser.id)
+      .is("read_at",null);
+    if(error) throw error;
+
+    unreadCollaborationNotifications=Number(count||0);
+    const badge=$("#advisorNotificationBadge");
+    if(badge){
+      badge.textContent=String(unreadCollaborationNotifications);
+      badge.classList.toggle("hidden",unreadCollaborationNotifications<=0);
+    }
+  }catch(err){
+    console.warn("Não foi possível atualizar o contador de notificações:",err);
+  }
+}
+
+function startAdvisorNotificationBadgeWatcher(){
+  if(notificationBadgeWatcher) clearInterval(notificationBadgeWatcher);
+  notificationBadgeWatcher=setInterval(()=>void refreshAdvisorNotificationBadge(),30000);
+}
+
 function renderPanel(){
   $("#advisorWelcome").textContent=profile?.company_name || profile?.full_name || "Meus anúncios";
   renderAdvisorAvatar();
@@ -4443,6 +4470,7 @@ async function enterAdvisorPanel(user){
     await ensureProfile(user);
     const fullyLoaded=await loadData();
     renderPanel();
+    startAdvisorNotificationBadgeWatcher();
 
     const searchParams=new URLSearchParams(location.search);
     if(!advisorHasCurrentTerms() || searchParams.get("terms")==="1"){
@@ -4527,7 +4555,7 @@ document.addEventListener("click",async e=>{
   const openLegacyTerms=e.target.closest("#openLegacyTermsAcceptance,[data-open-legacy-terms]");
   if(openLegacyTerms){
     e.preventDefault();
-    showLegacyTermsAcceptanceModal();
+    showAdvisorTermsAcceptanceModal();
     return;
   }
 
@@ -5080,6 +5108,10 @@ function registerAuthObserver(){
 
     if(event==="SIGNED_OUT"){
       currentUser=null;
+      if(notificationBadgeWatcher){
+        clearInterval(notificationBadgeWatcher);
+        notificationBadgeWatcher=null;
+      }
     }
   });
 }
