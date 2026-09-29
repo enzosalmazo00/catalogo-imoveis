@@ -1585,3 +1585,98 @@ button,input,select,textarea{font-size:16px}
   line-height:1.25;
   color:#6d571b
 }
+
+
+/* Correção definitiva dos modais da Gestão no tablet */
+#managementModal{
+  position:fixed;
+  inset:0;
+  z-index:90;
+  overflow-y:auto;
+  overflow-x:hidden;
+  padding:24px;
+  background:rgba(7,16,28,.62);
+  box-sizing:border-box
+}
+#managementModal.hidden{display:none!important}
+#managementModal .modal-card{
+  width:min(820px,calc(100vw - 48px));
+  max-width:100%;
+  margin:18px auto;
+  padding:24px;
+  box-sizing:border-box;
+  overflow:hidden
+}
+#managementModal .form-grid{
+  width:100%;
+  max-width:100%;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  box-sizing:border-box
+}
+#managementModal .form-grid>*,
+#managementModal .form-grid label{
+  min-width:0;
+  max-width:100%;
+  box-sizing:border-box
+}
+#managementModal input,
+#managementModal select,
+#managementModal textarea{
+  display:block;
+  width:100%;
+  min-width:0!important;
+  max-width:100%!important;
+  box-sizing:border-box!important
+}
+#managementModal .form-actions{
+  max-width:100%;
+  flex-wrap:wrap
+}
+#managementModal .form-actions .btn{
+  min-width:0
+}
+
+@media(max-width:1100px){
+  #managementModal{
+    padding:18px
+  }
+  #managementModal .modal-card{
+    width:min(760px,calc(100vw - 36px));
+    padding:22px
+  }
+  #managementModal .form-grid{
+    grid-template-columns:1fr!important
+  }
+  #managementModal .form-grid .span-2,
+  #managementModal .form-section-title,
+  #managementModal .form-actions{
+    grid-column:1!important
+  }
+}
+
+@media(max-width:600px){
+  #managementModal{
+    padding:0
+  }
+  #managementModal .modal-card{
+    width:100%;
+    min-height:100%;
+    margin:0;
+    padding:18px 16px;
+    border-radius:0;
+    overflow:visible
+  }
+  #managementModal .modal-head{
+    position:sticky;
+    top:0;
+    z-index:4;
+    background:#fff;
+    padding:8px 0 12px
+  }
+  #managementModal .form-actions{
+    flex-direction:column
+  }
+  #managementModal .form-actions .btn{
+    width:100%
+  }
+}
