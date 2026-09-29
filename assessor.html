@@ -3,8 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.supabase.co; connect-src 'self' https://*.supabase.co wss://*.supabase.co; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' blob: https://*.supabase.co; font-src 'self' data:; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
   <title>Área do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609290330">
+  <link rel="stylesheet" href="css/styles.css?v=202609290410">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 </head>
 <body class="advisor-page">
@@ -73,7 +75,7 @@
         <label>WhatsApp<input id="advisorSignupWhatsapp" inputmode="tel" required placeholder="5517999999999"></label>
         <label>Cidade<input id="advisorSignupCity"></label>
         <label>E-mail<input id="advisorSignupEmail" type="email" required></label>
-        <label>Senha<input id="advisorSignupPassword" type="password" required minlength="6"></label>
+        <label>Senha<input id="advisorSignupPassword" type="password" required minlength="8"></label>
 
         <div class="advisor-terms-consent">
           <div class="advisor-terms-consent-head">
@@ -286,62 +288,10 @@
 
 <div id="advisorModal" class="modal-layer hidden"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>\n<script type="module" src="js/assessor.js?v=202609290330"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>\n<script type="module" src="js/assessor.js?v=202609290410"></script>
 <script type="module" src="js/assessor-location-repair.js?v=202609282020"></script>
+<script src="js/assessor-boot.js?v=202609290410"></script>
 
-<script>
-(function(){
-  var FORCE_KEY="sb-jljkpeoxisljrseqjhgm-auth-token";
-
-  function byId(id){ return document.getElementById(id); }
-
-  window.forceAdvisorLogin=function(){
-    try{
-      localStorage.removeItem(FORCE_KEY);
-      sessionStorage.removeItem(FORCE_KEY);
-      Object.keys(localStorage).forEach(function(k){
-        if(k.indexOf("sb-jljkpeoxisljrseqjhgm-auth-token")!==-1) localStorage.removeItem(k);
-      });
-    }catch(e){}
-
-    var loader=byId("advisorBootLoader");
-    var auth=byId("advisorAuth");
-    var panel=byId("advisorPanel");
-    var reset=byId("advisorResetPassword");
-
-    if(loader) loader.classList.add("hidden");
-    if(panel) panel.classList.add("hidden");
-    if(reset) reset.classList.add("hidden");
-    if(auth) auth.classList.remove("hidden");
-
-    var msg=byId("advisorAuthMessage");
-    if(msg) msg.textContent="Sessão deste aparelho limpa. Entre novamente.";
-  };
-
-  window.addEventListener("DOMContentLoaded",function(){
-    setTimeout(function(){
-      var loader=byId("advisorBootLoader");
-      if(!loader || loader.classList.contains("hidden")) return;
-
-      var spinner=byId("advisorBootSpinner");
-      var title=byId("advisorBootTitle");
-      var text=byId("advisorBootText");
-      var actions=byId("advisorBootActions");
-
-      if(spinner) spinner.classList.add("hidden");
-      if(title) title.textContent="Este navegador não respondeu.";
-      if(text) text.textContent="Limpe apenas a sessão deste site e entre novamente. Sua conta e seus anúncios não serão apagados.";
-      if(actions) actions.classList.remove("hidden");
-
-      var retry=byId("advisorBootRetry");
-      var login=byId("advisorBootLogin");
-
-      if(retry) retry.onclick=function(){ location.reload(); };
-      if(login) login.onclick=function(){ window.forceAdvisorLogin(); };
-    },6000);
-  });
-})();
-</script>
 
 </body>
 </html>
