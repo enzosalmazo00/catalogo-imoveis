@@ -424,6 +424,7 @@ function renderAds(){
               <span>${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</span>
               <small>${expired?"Expirado":"Ativo"} • publicado em: ${fmtDate(p.listing_started_at||p.created_at)} • válido até: ${fmtDate(p.listing_expires_at)}</small>
               <small class="listing-code">Código do imóvel: ${escapeHTML(p.public_code||"—")}</small>
+              ${p.advisor_owner_id?`<small>👤 Proprietário: <strong>${escapeHTML(ownerById(p.advisor_owner_id)?.full_name||"Cadastro não localizado")}</strong></small>`:""}
               <small><strong>👁 ${Number(p.view_count||0).toLocaleString("pt-BR")}</strong> visualizações • <strong>💬 ${Number(p.whatsapp_click_count||0).toLocaleString("pt-BR")}</strong> contatos pelo WhatsApp</small>
             </div>
             <div class="advisor-ad-actions">
@@ -705,6 +706,8 @@ function renderOwners(){
         const ownerRentals=rentalControls.filter(r=>ownerMatchesRental(owner,r));
         const active=ownerProperties.filter(p=>p.is_published && p.listing_expires_at && new Date(p.listing_expires_at)>new Date()).length;
         const expired=ownerProperties.length-active;
+        const ownerViews=ownerProperties.reduce((sum,p)=>sum+Number(p.view_count||0),0);
+        const ownerWhatsapp=ownerProperties.reduce((sum,p)=>sum+Number(p.whatsapp_click_count||0),0);
         const phone=String(owner.whatsapp||owner.phone||"").replace(/\D/g,"");
         return `
           <article class="advisor-owner-card">
@@ -724,6 +727,8 @@ function renderOwners(){
               <div><span>Ativos</span><strong>${active}</strong></div>
               <div><span>Expirados</span><strong>${expired}</strong></div>
               <div><span>Alugados</span><strong>${ownerRentals.length}</strong></div>
+              <div><span>Visualizações</span><strong>${ownerViews.toLocaleString("pt-BR")}</strong></div>
+              <div><span>WhatsApp</span><strong>${ownerWhatsapp.toLocaleString("pt-BR")}</strong></div>
             </div>
             <div class="advisor-owner-contact">
               ${owner.email?`<span>✉ ${escapeHTML(owner.email)}</span>`:""}
