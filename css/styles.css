@@ -2345,3 +2345,114 @@ button,input,select,textarea{font-size:16px}
   .terms-document h2{font-size:18px}
   .terms-document p{font-size:13px}
 }
+
+
+/* ===== SEGURANÇA PÚBLICA REFORÇADA ===== */
+.safety-card-enhanced{
+  position:relative;
+  overflow:hidden;
+}
+.safety-card-enhanced .safety-content{
+  min-width:0;
+}
+.safety-critical{
+  margin:18px 0 16px;
+  padding:18px 20px;
+  border:1px solid #f0c8c8;
+  border-left:5px solid #b42318;
+  border-radius:14px;
+  background:#fff7f7;
+}
+.safety-critical strong{
+  display:block;
+  margin-bottom:6px;
+  color:#8f1d18;
+  font-size:16px;
+}
+.safety-critical p{
+  margin:0!important;
+  color:#5f3431!important;
+  line-height:1.6;
+}
+.safety-responsibility-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:12px;
+  margin:20px 0;
+}
+.safety-responsibility-grid article{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding:16px;
+  border:1px solid #e2e8ee;
+  border-radius:14px;
+  background:#fbfcfd;
+}
+.safety-responsibility-grid article>span{
+  width:42px;
+  height:42px;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border-radius:12px;
+  background:#eef4f8;
+  font-size:21px;
+}
+.safety-responsibility-grid article strong{
+  display:block;
+  margin-bottom:4px;
+  color:var(--navy);
+  font-size:14px;
+}
+.safety-responsibility-grid article p{
+  margin:0!important;
+  color:#5e6a78!important;
+  font-size:12px;
+  line-height:1.55;
+}
+.safety-agreement{
+  margin-top:18px;
+  padding:18px 20px;
+  border:1px solid #cfe0d7;
+  border-radius:14px;
+  background:#f3faf6;
+}
+.safety-agreement strong{
+  display:block;
+  margin-bottom:6px;
+  color:var(--green-dark);
+  font-size:15px;
+}
+.safety-agreement p{
+  margin:0 0 10px!important;
+  color:#455b50!important;
+  line-height:1.65;
+}
+.safety-agreement a{
+  display:inline-flex;
+  color:var(--green-dark);
+  font-weight:900;
+  font-size:12px;
+  text-underline-offset:3px;
+}
+.safety-card-enhanced .safety-note{
+  margin-top:16px;
+  padding:14px 16px;
+  border-radius:12px;
+  background:#0f2239;
+  color:#f2f6fa!important;
+  line-height:1.6;
+}
+.safety-card-enhanced .safety-note strong{
+  color:#fff;
+}
+@media(max-width:760px){
+  .safety-responsibility-grid{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .safety-critical,
+  .safety-agreement{padding:15px}
+  .safety-responsibility-grid article{padding:14px}
+  .safety-card-enhanced .safety-note{padding:13px 14px}
+}
