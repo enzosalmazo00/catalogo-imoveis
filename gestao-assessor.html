@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Gestão do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609290030">
+  <link rel="stylesheet" href="css/styles.css?v=202609290045">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>
 </head>
@@ -70,10 +70,19 @@
         <div>
           <p class="eyebrow">PROPRIETÁRIOS</p>
           <h2>Carteira de proprietários</h2>
-          <p class="muted">Cadastre o proprietário e vincule os imóveis dele aqui, sem ocupar espaço no cadastro do anúncio.</p>
+          <p class="muted">Cadastre o proprietário e vincule os imóveis dele aqui para facilitar sua própria organização.</p>
         </div>
         <button class="btn primary" type="button" data-new-owner>+ Cadastrar proprietário</button>
       </div>
+
+      <div class="owner-privacy-notice">
+        <span class="owner-privacy-icon">🔒</span>
+        <div>
+          <strong>Fique tranquilo: esses dados são somente para o seu controle.</strong>
+          <p>O nome, telefone, documento, e-mail e demais informações do proprietário <b>não são exibidos publicamente nos anúncios</b> nem no catálogo. Esses dados ficam disponíveis apenas na sua Área de Gestão do Assessor.</p>
+        </div>
+      </div>
+
       <div id="managementOwnersList"></div>
     </section>
 
