@@ -2056,3 +2056,80 @@ button,input,select,textarea{font-size:16px}
     box-shadow:0 14px 32px rgba(0,0,0,.24);
   }
 }
+
+
+/* Condições e valores unificados na página pública do imóvel */
+.conditions-values-section{overflow:hidden}
+.conditions-values-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(0,1fr));
+  gap:10px;
+  margin-top:18px
+}
+.condition-value-row{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:18px;
+  padding:14px 15px;
+  border:1px solid #e8ecef;
+  border-radius:12px;
+  background:#fafbfc
+}
+.condition-value-row span{
+  color:var(--muted);
+  font-size:12px
+}
+.condition-value-row strong{
+  color:var(--navy);
+  font-size:13px;
+  text-align:right;
+  overflow-wrap:anywhere
+}
+.initial-total-box{
+  margin-top:16px;
+  padding:18px 20px;
+  border:1px solid #c9ddcf;
+  border-radius:14px;
+  background:#f0f8f4;
+  display:grid;
+  grid-template-columns:1fr auto;
+  grid-template-areas:"label value" "note value";
+  gap:3px 18px;
+  align-items:center
+}
+.initial-total-box span{
+  grid-area:label;
+  color:var(--navy);
+  font-size:15px;
+  font-weight:900
+}
+.initial-total-box small{
+  grid-area:note;
+  color:var(--muted);
+  font-size:11px
+}
+.initial-total-box strong{
+  grid-area:value;
+  color:var(--green-dark);
+  font-size:25px;
+  text-align:right
+}
+.conditions-whatsapp{margin-top:16px}
+@media(max-width:700px){
+  .conditions-values-grid{grid-template-columns:1fr}
+  .condition-value-row{gap:12px}
+}
+@media(max-width:460px){
+  .condition-value-row{flex-direction:column;gap:5px}
+  .condition-value-row strong{text-align:left}
+  .initial-total-box{
+    grid-template-columns:1fr;
+    grid-template-areas:"label" "note" "value"
+  }
+  .initial-total-box strong{
+    margin-top:6px;
+    text-align:left;
+    font-size:24px
+  }
+}
