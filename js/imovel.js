@@ -16,6 +16,27 @@ const params = new URLSearchParams(location.search);
 const id = params.get("id");
 const advisorCatalogCode=String(params.get("catalogo")||"").trim();
 
+function metricStorageKey(metric,propertyId){
+  return `catalogo-imoveis:${metric}:${propertyId}`;
+}
+
+async function recordPropertyMetricOnce(metric,propertyId){
+  const rpcName=metric==="whatsapp"
+    ? "record_property_whatsapp_click"
+    : "record_property_view";
+  const key=metricStorageKey(metric,propertyId);
+
+  try{
+    if(localStorage.getItem(key)==="1") return;
+  }catch{}
+
+  try{
+    const { error }=await db.rpc(rpcName,{p_property_id:propertyId});
+    if(error) return;
+    try{ localStorage.setItem(key,"1"); }catch{}
+  }catch{}
+}
+
 function catalogIndexUrl(){
   return advisorCatalogCode ? `index.html?catalogo=${encodeURIComponent(advisorCatalogCode)}` : "index.html";
 }
@@ -350,7 +371,7 @@ async function load() {
           ${property.status === "rented"
             ? '<div class="rented-notice">Este imóvel está alugado.</div>'
             : waEnabled
-              ? `<a class="btn whatsapp full" href="${escapeHTML(wa)}" target="_blank" rel="noopener">💬 Tenho interesse</a>`
+              ? `<a id="propertyWhatsappCta" class="btn whatsapp full" href="${escapeHTML(wa)}" target="_blank" rel="noopener">💬 Tenho interesse</a>`
               : '<div class="muted center">WhatsApp ainda não configurado.</div>'
           }
         </div>
@@ -378,6 +399,15 @@ async function load() {
   `;
 
   wireGallery();
+
+  void recordPropertyMetricOnce("view",property.id);
+
+  const whatsappCta=$("#propertyWhatsappCta");
+  if(whatsappCta){
+    whatsappCta.addEventListener("click",()=>{
+      void recordPropertyMetricOnce("whatsapp",property.id);
+    });
+  }
 }
 
 load();
