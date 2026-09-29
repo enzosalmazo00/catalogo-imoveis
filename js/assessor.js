@@ -1724,6 +1724,7 @@ async function saveRentalControl(form){
 
 function rentalReceiptModal(property){
   if(!property) return;
+  const linkedOwner=ownerById(property.advisor_owner_id);
   const showAdvisory=property.closing_mode!=="direct_owner" && property.has_advisory_fee;
   const usesDeposit=(property.guarantee_type||"deposit")==="deposit";
   const depositCount=Number(property.security_deposit_count||1);
@@ -1755,10 +1756,10 @@ function rentalReceiptModal(property){
       </div>
 
       <label>Nome do proprietário
-        <input name="owner_name" required autocomplete="name">
+        <input name="owner_name" required autocomplete="name" value="${escapeHTML(linkedOwner?.full_name||"")}">
       </label>
       <label>Telefone do proprietário
-        <input name="owner_phone" inputmode="tel">
+        <input name="owner_phone" inputmode="tel" value="${escapeHTML(linkedOwner?.phone||linkedOwner?.whatsapp||"")}">
       </label>
       <label>Nome do inquilino
         <input name="tenant_name" required autocomplete="name">
@@ -1944,6 +1945,14 @@ async function markPropertyRented(form){
     if(msg) msg.textContent=result.error.message;
     if(submit){submit.disabled=false;submit.textContent="Confirmar aluguel e excluir anúncio";}
     return;
+  }
+
+  if(result.data?.receipt_id && property.advisor_owner_id){
+    const ownerLink=await db.from("advisor_rental_control")
+      .update({advisor_owner_id:property.advisor_owner_id})
+      .eq("id",result.data.receipt_id)
+      .eq("advisor_id",currentUser.id);
+    if(ownerLink.error) console.warn("Locação salva, mas o proprietário não foi vinculado ao histórico:",ownerLink.error);
   }
 
   const paths=Array.isArray(result.data?.storage_paths)?result.data.storage_paths:[];
