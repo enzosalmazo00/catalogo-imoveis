@@ -1085,6 +1085,15 @@ function serviceReceiptModal(row=null){
       <label class="span-2">Imóvel vinculado
         <select name="property_id"><option value="">Recibo sem anúncio vinculado</option>${propertiesOptions}</select>
       </label>
+      <label>Código / identificação do imóvel
+        <input name="property_code" value="${escapeHTML(row?.property_code||"")}" placeholder="Ex.: IMV-000123 ou referência interna">
+      </label>
+      <label>Nome / descrição do imóvel
+        <input name="property_title" value="${escapeHTML(row?.property_title||"")}" placeholder="Ex.: Apartamento 2 quartos">
+      </label>
+      <label class="span-2">Endereço do imóvel
+        <input name="property_address" value="${escapeHTML(row?.property_address||"")}" placeholder="Rua, número, bairro e cidade">
+      </label>
       <label class="span-2">Proprietário cadastrado
         <select name="advisor_owner_id">${ownerOptions(ownerId,true)}</select>
       </label>
@@ -1206,6 +1215,12 @@ function wireServiceReceiptForm(form){
   propertySelect?.addEventListener("change",()=>{
     const property=properties.find(p=>p.id===propertySelect.value);
     if(!property) return;
+    const propertyCode=form.querySelector('[name="property_code"]');
+    const propertyTitle=form.querySelector('[name="property_title"]');
+    const propertyAddress=form.querySelector('[name="property_address"]');
+    if(propertyCode) propertyCode.value=property.public_code||"";
+    if(propertyTitle) propertyTitle.value=property.title||"";
+    if(propertyAddress) propertyAddress.value=[property.address,property.neighborhood,property.city].filter(Boolean).join(" • ");
     if(ownerSelect && property.advisor_owner_id){
       ownerSelect.value=property.advisor_owner_id;
       fillOwner(ownerById(property.advisor_owner_id));
@@ -1242,9 +1257,9 @@ async function saveServiceReceipt(form){
     advisor_id:currentUser.id,
     property_id:property?.id||null,
     advisor_owner_id:owner?.id||null,
-    property_code:property?.public_code||null,
-    property_title:property?.title||null,
-    property_address:property?[property.address,property.neighborhood,property.city].filter(Boolean).join(" • "):null,
+    property_code:String(fd.get("property_code")||property?.public_code||"").trim()||null,
+    property_title:String(fd.get("property_title")||property?.title||"").trim()||null,
+    property_address:String(fd.get("property_address")||(property?[property.address,property.neighborhood,property.city].filter(Boolean).join(" • "):"")).trim()||null,
     owner_name:String(fd.get("owner_name")||"").trim(),
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
     owner_document:String(fd.get("owner_document")||"").trim()||null,
@@ -1278,6 +1293,10 @@ async function saveServiceReceipt(form){
   }
   if(row.paid && !row.payment_date){
     if(msg) msg.textContent="Informe a data do pagamento.";
+    return;
+  }
+  if(row.paid && !row.payment_method){
+    if(msg) msg.textContent="Informe a forma de pagamento para um recibo de valor recebido.";
     return;
   }
 
