@@ -1054,7 +1054,7 @@ function renderOwners() {
     <section class="admin-panel">
       <div class="admin-panel-head"><div><p class="eyebrow">CADASTROS</p><h2>Proprietários</h2></div><button class="btn primary" data-action="new-owner">+ Novo proprietário</button></div>
       ${simpleTable("owner",state.owners,[
-        {label:"Nome",key:"name"},{label:"Telefone",key:"phone"},{label:"E-mail",key:"email"}
+        {label:"Nome",key:"name"},{label:"WhatsApp",key:"phone"}
       ])}
     </section>
   `;
