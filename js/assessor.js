@@ -273,15 +273,15 @@ function renderPlans(){
       <article class="advisor-premium-plan-card">
         <div class="premium-plan-shine"></div>
         <div class="premium-plan-topline">
-          <span class="premium-plan-badge">🔥 SUPER PACOTE</span>
+          <span class="premium-plan-badge">⭐ PREMIUM</span>
           <span class="premium-plan-value-badge">MAIOR DESCONTO</span>
         </div>
 
         <div class="premium-plan-content">
           <div class="premium-plan-copy">
             <p class="eyebrow">PARA QUEM ANUNCIA COM FREQUÊNCIA</p>
-            <h3>20 créditos por R$ 99,90</h3>
-            <p class="premium-plan-lead">O melhor custo por anúncio para manter vários imóveis ativos.</p>
+            <h3>Premium 20 créditos</h3>
+            <p class="premium-plan-lead">20 anúncios por R$ 99,90 — aproximadamente R$ 5,00 por anúncio.</p>
 
             <div class="premium-plan-features">
               <span>✓ 20 créditos de anúncio</span>
@@ -304,7 +304,7 @@ function renderPlans(){
               Só <strong>${money(unit,"BRL")}</strong> por anúncio
             </div>
 
-            <button class="btn premium-plan-button full" data-buy="${superPlan.id}">Comprar 20 créditos</button>
+            <button class="btn premium-plan-button full" data-buy="${superPlan.id}">Comprar Premium</button>
             <small class="premium-plan-payment-note">Pagamento via PIX</small>
           </div>
         </div>
