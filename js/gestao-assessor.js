@@ -402,7 +402,6 @@ function renderOwners(){
 
             <div class="advisor-owner-contact">
               ${owner.email?`<span>✉ ${escapeHTML(owner.email)}</span>`:""}
-              ${owner.document?`<span>Documento: ${escapeHTML(owner.document)}</span>`:""}
               ${phone?`<a class="btn whatsapp compact" href="https://wa.me/${phone}" target="_blank" rel="noopener">💬 WhatsApp</a>`:""}
             </div>
 
@@ -439,9 +438,6 @@ function ownerModal(row=null){
       <label>E-mail
         <input name="email" type="email" value="${escapeHTML(row?.email||"")}">
       </label>
-      <label>CPF / CI / documento
-        <input name="document" value="${escapeHTML(row?.document||"")}">
-      </label>
       <label class="span-2">Observações internas
         <textarea name="notes" rows="3">${escapeHTML(row?.notes||"")}</textarea>
       </label>
@@ -465,7 +461,6 @@ async function saveOwner(form){
     phone:String(fd.get("phone")||"").trim()||null,
     whatsapp:String(fd.get("whatsapp")||"").trim()||null,
     email:String(fd.get("email")||"").trim()||null,
-    document:String(fd.get("document")||"").trim()||null,
     notes:String(fd.get("notes")||"").trim()||null,
     updated_at:new Date().toISOString()
   };
@@ -840,9 +835,6 @@ function receiptModal(row=null){
       <label>Telefone
         <input name="owner_phone" required inputmode="tel" value="${escapeHTML(row?.owner_phone||linkedOwner?.phone||linkedOwner?.whatsapp||"")}">
       </label>
-      <label>Documento
-        <input name="owner_document" value="${escapeHTML(row?.owner_document||linkedOwner?.document||"")}">
-      </label>
       <label>E-mail
         <input name="owner_email" type="email" value="${escapeHTML(row?.owner_email||linkedOwner?.email||"")}">
       </label>
@@ -853,9 +845,6 @@ function receiptModal(row=null){
       </label>
       <label>Telefone
         <input name="client_phone" inputmode="tel" value="${escapeHTML(row?.client_phone||"")}">
-      </label>
-      <label>Documento
-        <input name="client_document" value="${escapeHTML(row?.client_document||"")}">
       </label>
       <label>E-mail
         <input name="client_email" type="email" value="${escapeHTML(row?.client_email||"")}">
@@ -941,7 +930,6 @@ function wireReceiptForm(form){
     if(!owner) return;
     form.querySelector('[name="owner_name"]').value=owner.full_name||"";
     form.querySelector('[name="owner_phone"]').value=owner.phone||owner.whatsapp||"";
-    form.querySelector('[name="owner_document"]').value=owner.document||"";
     form.querySelector('[name="owner_email"]').value=owner.email||"";
   };
 
@@ -984,11 +972,9 @@ async function saveReceipt(form){
     property_address:String(fd.get("property_address")||(property?[property.address,property.neighborhood,property.city].filter(Boolean).join(" • "):"")).trim()||null,
     owner_name:String(fd.get("owner_name")||"").trim(),
     owner_phone:String(fd.get("owner_phone")||"").trim()||null,
-    owner_document:String(fd.get("owner_document")||"").trim()||null,
     owner_email:String(fd.get("owner_email")||"").trim()||null,
     client_name:String(fd.get("client_name")||"").trim()||null,
     client_phone:String(fd.get("client_phone")||"").trim()||null,
-    client_document:String(fd.get("client_document")||"").trim()||null,
     client_email:String(fd.get("client_email")||"").trim()||null,
     service_description:String(fd.get("service_description")||"").trim(),
     currency:fd.get("currency")||"BRL",
@@ -1101,14 +1087,12 @@ function generateServiceReceiptPdf(row){
   section("Proprietário");
   line("Nome:",row.owner_name);
   line("Telefone:",row.owner_phone);
-  line("Documento:",row.owner_document);
   line("E-mail:",row.owner_email);
 
-  if(row.client_name || row.client_phone || row.client_document || row.client_email){
+  if(row.client_name || row.client_phone || row.client_email){
     section("Cliente / inquilino");
     line("Nome:",row.client_name);
     line("Telefone:",row.client_phone);
-    line("Documento:",row.client_document);
     line("E-mail:",row.client_email);
   }
 
