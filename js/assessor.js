@@ -2343,6 +2343,10 @@ function renderPanel(){
   renderExpiredNotice();
   renderPlans();
   renderCreditStore();
+  renderManagementDashboard();
+  renderOwners();
+  renderFinance();
+  renderServiceReceipts();
   renderAds();
   renderAdvisorCatalogShare();
   renderRentalControl();
@@ -4132,6 +4136,9 @@ document.addEventListener("click",async e=>{
   const openCreditStore=e.target.closest("[data-open-credit-store]");
   if(openCreditStore){
     $("#advisorDashboardView")?.classList.add("hidden");
+    $("#advisorOwnersView")?.classList.add("hidden");
+    $("#advisorFinanceView")?.classList.add("hidden");
+    $("#advisorServiceReceiptsView")?.classList.add("hidden");
     $("#advisorRentalControl")?.classList.add("hidden");
     $("#advisorHowItWorks")?.classList.add("hidden");
     $(".advisor-panel-tabs")?.classList.add("hidden");
@@ -4146,6 +4153,9 @@ document.addEventListener("click",async e=>{
     $(".advisor-panel-tabs")?.classList.remove("hidden");
     document.querySelectorAll("[data-advisor-view]").forEach(btn=>btn.classList.toggle("active",btn.dataset.advisorView==="dashboard"));
     $("#advisorDashboardView")?.classList.remove("hidden");
+    $("#advisorOwnersView")?.classList.add("hidden");
+    $("#advisorFinanceView")?.classList.add("hidden");
+    $("#advisorServiceReceiptsView")?.classList.add("hidden");
     $("#advisorRentalControl")?.classList.add("hidden");
     $("#advisorHowItWorks")?.classList.add("hidden");
     window.scrollTo({top:0,behavior:"smooth"});
@@ -4170,10 +4180,107 @@ document.addEventListener("click",async e=>{
     const view=viewBtn.dataset.advisorView;
     document.querySelectorAll("[data-advisor-view]").forEach(btn=>btn.classList.toggle("active",btn===viewBtn));
     $("#advisorDashboardView")?.classList.toggle("hidden",view!=="dashboard");
+    $("#advisorOwnersView")?.classList.toggle("hidden",view!=="owners");
+    $("#advisorFinanceView")?.classList.toggle("hidden",view!=="finance");
+    $("#advisorServiceReceiptsView")?.classList.toggle("hidden",view!=="receipts");
     $("#advisorRentalControl")?.classList.toggle("hidden",view!=="rentals");
     $("#advisorHowItWorks")?.classList.toggle("hidden",view!=="how");
     window.scrollTo({top:0,behavior:"smooth"});
   }
+
+
+  const newOwner=e.target.closest("[data-new-owner], [data-new-owner-from-property]");
+  if(newOwner){
+    ownerModal();
+    return;
+  }
+
+  const editOwner=e.target.closest("[data-edit-owner]");
+  if(editOwner){
+    const owner=ownerById(editOwner.dataset.editOwner);
+    if(owner) ownerModal(owner);
+    return;
+  }
+
+  const deleteOwner=e.target.closest("[data-delete-owner]");
+  if(deleteOwner){
+    const owner=ownerById(deleteOwner.dataset.deleteOwner);
+    if(owner && confirm(`Excluir ${owner.full_name} da sua carteira de proprietários? Os imóveis continuarão salvos, apenas sem o vínculo.`)){
+      const {error}=await db.from("advisor_owners").delete().eq("id",owner.id).eq("advisor_id",currentUser.id);
+      if(error) alert(error.message);
+      else{
+        await loadData();
+        renderOwners();
+        renderManagementDashboard();
+      }
+    }
+    return;
+  }
+
+  const newFinancial=e.target.closest("[data-new-financial-entry]");
+  if(newFinancial){
+    financialEntryModal();
+    return;
+  }
+
+  const editFinancial=e.target.closest("[data-edit-financial-entry]");
+  if(editFinancial){
+    const row=financialEntries.find(item=>item.id===editFinancial.dataset.editFinancialEntry);
+    if(row) financialEntryModal(row);
+    return;
+  }
+
+  const deleteFinancial=e.target.closest("[data-delete-financial-entry]");
+  if(deleteFinancial && confirm("Excluir este lançamento financeiro?")){
+    const {error}=await db.from("advisor_financial_entries")
+      .delete()
+      .eq("id",deleteFinancial.dataset.deleteFinancialEntry)
+      .eq("advisor_id",currentUser.id);
+    if(error) alert(error.message);
+    else{
+      await loadData();
+      renderFinance();
+      renderManagementDashboard();
+    }
+    return;
+  }
+
+  const newServiceReceipt=e.target.closest("[data-new-service-receipt]");
+  if(newServiceReceipt){
+    serviceReceiptModal();
+    return;
+  }
+
+  const generateService=e.target.closest("[data-generate-service-receipt]");
+  if(generateService){
+    const row=serviceReceipts.find(item=>item.id===generateService.dataset.generateServiceReceipt);
+    if(row) generateServiceReceiptPdf(row);
+    return;
+  }
+
+  const editService=e.target.closest("[data-edit-service-receipt]");
+  if(editService){
+    const row=serviceReceipts.find(item=>item.id===editService.dataset.editServiceReceipt);
+    if(row) serviceReceiptModal(row);
+    return;
+  }
+
+  const deleteService=e.target.closest("[data-delete-service-receipt]");
+  if(deleteService && confirm("Excluir este recibo de assessoria?")){
+    const {error}=await db.from("advisor_service_receipts")
+      .delete()
+      .eq("id",deleteService.dataset.deleteServiceReceipt)
+      .eq("advisor_id",currentUser.id);
+    if(error) alert(error.message);
+    else{
+      await loadData();
+      renderServiceReceipts();
+      renderFinance();
+      renderManagementDashboard();
+    }
+    return;
+  }
+
 
   const newRental=e.target.closest("[data-new-rental-control]");
   if(newRental) rentalControlModal();
@@ -4273,6 +4380,9 @@ document.addEventListener("click",async e=>{
 $("#advisorModal").addEventListener("submit",async e=>{
   e.preventDefault();
   if(e.target.id==="advisorProfileForm") await saveAdvisorProfile(e.target);
+  if(e.target.id==="advisorOwnerForm") await saveOwner(e.target);
+  if(e.target.id==="advisorFinancialEntryForm") await saveFinancialEntry(e.target);
+  if(e.target.id==="advisorServiceReceiptForm") await saveServiceReceipt(e.target);
   if(e.target.id==="advisorRentalControlForm") await saveRentalControl(e.target);
   if(e.target.id==="advisorRentalReceiptForm") await markPropertyRented(e.target);
 });
