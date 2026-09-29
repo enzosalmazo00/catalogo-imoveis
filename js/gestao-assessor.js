@@ -142,8 +142,8 @@ function commissionRows(){
     return {
       id:row.id,
       owner_id:row.advisor_owner_id||null,
-      owner_name:owner?.full_name||"Proprietário não informado",
-      owner_whatsapp:owner?.whatsapp||"",
+      owner_name:owner?.full_name||row.owner_name||"Proprietário não informado",
+      owner_whatsapp:owner?.whatsapp||row.owner_whatsapp||"",
       rental_control_id:row.rental_control_id||null,
       property_id:row.property_id||null,
       property_code:row.property_code||rental?.property_code||"—",
@@ -465,19 +465,18 @@ async function saveOwnerProperties(form){
 }
 
 
+
 function renderFinance(){
   const root=$("#managementFinanceContent");
   if(!root) return;
 
   const rows=commissionRows().sort((a,b)=>{
     if(a.paid!==b.paid) return a.paid?1:-1;
-    const ad=a.due_date||"9999-12-31";
-    const bd=b.due_date||"9999-12-31";
-    return ad.localeCompare(bd);
+    return String(a.due_date||"9999-12-31").localeCompare(String(b.due_date||"9999-12-31"));
   });
+
   const totals=commissionTotals();
   const pendingOwners=new Set(rows.filter(r=>!r.paid).map(r=>r.owner_id||r.owner_name));
-  const unconfigured=rentals.filter(r=>!r.advisor_commission_charged || Number(r.commission_amount||0)<=0);
 
   const grouped=new Map();
   rows.forEach(r=>{
@@ -490,8 +489,8 @@ function renderFinance(){
         pending:blankTotals()
       });
     }
-    const g=grouped.get(key);
-    addTotal(r.paid?g.received:g.pending,r.currency,r.amount);
+    const group=grouped.get(key);
+    addTotal(r.paid?group.received:group.pending,r.currency,r.amount);
   });
 
   root.innerHTML=`
@@ -543,15 +542,21 @@ function renderFinance(){
         <div class="admin-table-wrap">
           <table class="admin-table commission-table">
             <thead>
-              <tr><th>Proprietário</th><th>Imóvel</th><th>Comissão</th><th>Vencimento</th><th>Status</th><th>Ação</th></tr>
+              <tr><th>Proprietário</th><th>Imóvel</th><th>Comissão</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr>
             </thead>
             <tbody>
               ${rows.map(r=>{
                 const overdue=!r.paid && r.due_date && r.due_date<nowDateInput();
                 return `
                   <tr>
-                    <td><strong>${escapeHTML(r.owner_name)}</strong>${r.owner_whatsapp?`<br><span class="muted">${escapeHTML(r.owner_whatsapp)}</span>`:""}</td>
-                    <td><strong>${escapeHTML(r.property_code)}</strong><br><span class="muted">${escapeHTML(r.property_title)}</span></td>
+                    <td>
+                      <strong>${escapeHTML(r.owner_name)}</strong>
+                      ${r.owner_whatsapp?`<br><span class="muted">${escapeHTML(r.owner_whatsapp)}</span>`:""}
+                    </td>
+                    <td>
+                      <strong>${escapeHTML(r.property_code||"—")}</strong>
+                      <br><span class="muted">${escapeHTML(r.property_title||"")}</span>
+                    </td>
                     <td><strong>${money(r.amount,r.currency)}</strong></td>
                     <td>${r.due_date?dateOnlyBR(r.due_date):'<span class="muted">Sem vencimento</span>'}</td>
                     <td>
@@ -567,6 +572,7 @@ function renderFinance(){
                           ? `<button class="btn ghost compact" type="button" data-mark-commission-pending="${r.id}">Desfazer</button>`
                           : `<button class="btn primary compact" type="button" data-mark-commission-paid="${r.id}">✓ Recebida</button>`
                         }
+                        <button class="btn danger compact" type="button" data-delete-owner-commission="${r.id}">Excluir</button>
                       </div>
                     </td>
                   </tr>
@@ -575,67 +581,76 @@ function renderFinance(){
             </tbody>
           </table>
         </div>
-      `:'<div class="advisor-empty-compact">Nenhuma comissão registrada ainda.</div>'}
+      `:'<div class="advisor-empty-compact">Nenhuma comissão cadastrada. Use “+ Nova comissão”.</div>'}
     </section>
-
-    ${unconfigured.length?`
-      <section class="advisor-dashboard-box commission-unconfigured-box">
-        <div class="advisor-dashboard-box-head">
-          <div><p class="eyebrow">SEM COMISSÃO DEFINIDA</p><h3>Locações que precisam de configuração</h3></div>
-        </div>
-        <div class="commission-unconfigured-list">
-          ${unconfigured.map(r=>`
-            <div>
-              <span><strong>${escapeHTML(r.property_code||"—")} • ${escapeHTML(r.property_title||"Imóvel")}</strong><small>${escapeHTML(r.owner_name||"Proprietário não informado")}</small></span>
-              <button class="btn primary compact" type="button" data-edit-commission="${r.id}">Adicionar comissão</button>
-            </div>
-          `).join("")}
-        </div>
-      </section>
-    `:""}
   `;
 }
 
-function commissionModal(rental){
-  if(!rental) return;
+function rentalOptions(selected=""){
+  return '<option value="">Sem locação vinculada</option>'+
+    rentals.map(r=>`<option value="${r.id}" ${r.id===selected?"selected":""}>${escapeHTML(r.property_code||"—")} • ${escapeHTML(r.property_title||"Imóvel")}</option>`).join("");
+}
+
+function commissionModal(row=null){
+  const linkedRental=rentals.find(r=>r.id===row?.rental_control_id)||null;
+  const selectedOwner=row?.advisor_owner_id||linkedRental?.advisor_owner_id||"";
+
   showModal(`
     <div class="modal-head">
       <div>
-        <p class="eyebrow">COMISSÃO</p>
-        <h2>Comissão do imóvel</h2>
-        <p class="muted">${escapeHTML(rental.property_code||"—")} • ${escapeHTML(rental.property_title||"Imóvel")}</p>
+        <p class="eyebrow">COMISSÃO DO PROPRIETÁRIO</p>
+        <h2>${row?"Editar comissão":"Nova comissão"}</h2>
+        <p class="muted">Controle interno do que o proprietário já pagou ou ainda deve ao corretor.</p>
       </div>
       <button class="icon-btn" type="button" data-close-modal>✕</button>
     </div>
 
     <form id="managementCommissionForm" class="form-grid">
-      <input type="hidden" name="id" value="${rental.id}">
+      <input type="hidden" name="id" value="${row?.id||""}">
+
       <label class="span-2">Proprietário
         <select name="advisor_owner_id" required>
-          ${ownerOptions(rental.advisor_owner_id||"")}
+          ${ownerOptions(selectedOwner)}
         </select>
-        <small>Somente nome e WhatsApp; esses dados são privados.</small>
+        <small>Somente nome e WhatsApp; essas informações são privadas.</small>
       </label>
+
+      <label class="span-2">Locação vinculada
+        <select name="rental_control_id">
+          ${rentalOptions(row?.rental_control_id||"")}
+        </select>
+        <small>Opcional. Use para relacionar a comissão a um imóvel alugado.</small>
+      </label>
+
+      <label>Código / referência do imóvel
+        <input name="property_code" value="${escapeHTML(row?.property_code||linkedRental?.property_code||"")}">
+      </label>
+      <label>Imóvel
+        <input name="property_title" value="${escapeHTML(row?.property_title||linkedRental?.property_title||"")}">
+      </label>
+
       <label>Moeda
         <select name="currency">
-          <option value="BRL" ${(rental.currency||"BRL")==="BRL"?"selected":""}>Real (R$)</option>
-          <option value="PYG" ${rental.currency==="PYG"?"selected":""}>Guarani (₲)</option>
+          <option value="BRL" ${(row?.currency||"BRL")==="BRL"?"selected":""}>Real (R$)</option>
+          <option value="PYG" ${row?.currency==="PYG"?"selected":""}>Guarani (₲)</option>
         </select>
       </label>
       <label>Valor da comissão
-        <input name="commission_amount" type="number" min="0.01" step="0.01" required value="${rental.commission_amount??""}">
+        <input name="amount" type="number" min="0.01" step="0.01" required value="${row?.amount??""}">
       </label>
+
       <label>Vencimento
-        <input name="commission_due_date" type="date" value="${safeDate(rental.commission_due_date)}">
+        <input name="due_date" type="date" value="${safeDate(row?.due_date)}">
       </label>
       <label>Status
-        <select name="commission_paid">
-          <option value="false" ${!rental.commission_paid?"selected":""}>A receber</option>
-          <option value="true" ${rental.commission_paid?"selected":""}>Recebida</option>
+        <select name="status">
+          <option value="pending" ${(row?.status||"pending")==="pending"?"selected":""}>A receber</option>
+          <option value="received" ${row?.status==="received"?"selected":""}>Recebida</option>
         </select>
       </label>
+
       <label class="span-2">Data do recebimento
-        <input name="advisor_commission_payment_date" type="date" value="${safeDate(rental.advisor_commission_payment_date)}">
+        <input name="received_at" type="date" value="${safeDate(row?.received_at)}">
       </label>
 
       <div id="managementCommissionMessage" class="form-message span-2"></div>
@@ -645,15 +660,29 @@ function commissionModal(rental){
       </div>
     </form>
   `);
+
+  const form=$("#managementCommissionForm");
+  const rentalSelect=form?.querySelector('[name="rental_control_id"]');
+  rentalSelect?.addEventListener("change",()=>{
+    const rental=rentals.find(r=>r.id===rentalSelect.value);
+    if(!rental) return;
+    const ownerSelect=form.querySelector('[name="advisor_owner_id"]');
+    if(rental.advisor_owner_id && ownerSelect) ownerSelect.value=rental.advisor_owner_id;
+    const code=form.querySelector('[name="property_code"]');
+    const title=form.querySelector('[name="property_title"]');
+    if(code) code.value=rental.property_code||"";
+    if(title) title.value=rental.property_title||"";
+  });
 }
 
 async function saveCommission(form){
   const fd=new FormData(form);
-  const id=String(fd.get("id")||"");
+  const id=String(fd.get("id")||"").trim()||null;
   const owner=ownerById(String(fd.get("advisor_owner_id")||""));
+  const rental=rentals.find(r=>r.id===String(fd.get("rental_control_id")||""))||null;
   const msg=form.querySelector("#managementCommissionMessage");
-  const paid=fd.get("commission_paid")==="true";
-  const amount=Number(fd.get("commission_amount")||0);
+  const status=fd.get("status")==="received"?"received":"pending";
+  const amount=Number(fd.get("amount")||0);
 
   if(!owner){
     msg.textContent="Selecione o proprietário responsável.";
@@ -665,25 +694,28 @@ async function saveCommission(form){
   }
 
   const row={
+    advisor_id:currentUser.id,
     advisor_owner_id:owner.id,
     owner_name:owner.full_name,
-    owner_phone:owner.whatsapp,
-    advisor_commission_charged:true,
-    commission_amount:amount,
+    owner_whatsapp:owner.whatsapp,
+    rental_control_id:rental?.id||null,
+    property_id:rental?.property_id||null,
+    property_code:String(fd.get("property_code")||rental?.property_code||"").trim()||null,
+    property_title:String(fd.get("property_title")||rental?.property_title||"").trim()||null,
+    amount,
     currency:fd.get("currency")||"BRL",
-    commission_due_date:fd.get("commission_due_date")||null,
-    commission_paid:paid,
-    advisor_commission_payment_date:paid?(fd.get("advisor_commission_payment_date")||nowDateInput()):null,
+    due_date:fd.get("due_date")||null,
+    status,
+    received_at:status==="received"?(fd.get("received_at")||nowDateInput()):null,
     updated_at:new Date().toISOString()
   };
 
-  const {error}=await db.from("advisor_rental_control")
-    .update(row)
-    .eq("id",id)
-    .eq("advisor_id",currentUser.id);
+  const result=id
+    ? await db.from("advisor_owner_commissions").update(row).eq("id",id).eq("advisor_id",currentUser.id)
+    : await db.from("advisor_owner_commissions").insert(row);
 
-  if(error){
-    msg.textContent=error.message;
+  if(result.error){
+    msg.textContent=result.error.message;
     return;
   }
 
@@ -693,10 +725,10 @@ async function saveCommission(form){
 }
 
 async function setCommissionPaid(id,paid){
-  const {error}=await db.from("advisor_rental_control")
+  const {error}=await db.from("advisor_owner_commissions")
     .update({
-      commission_paid:paid,
-      advisor_commission_payment_date:paid?nowDateInput():null,
+      status:paid?"received":"pending",
+      received_at:paid?nowDateInput():null,
       updated_at:new Date().toISOString()
     })
     .eq("id",id)
@@ -706,6 +738,7 @@ async function setCommissionPaid(id,paid){
     alert(error.message);
     return;
   }
+
   await refreshAndRender();
   switchView("finance");
 }
