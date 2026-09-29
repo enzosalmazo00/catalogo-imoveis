@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="description" content="Termos de Uso da plataforma Catálogo Imóveis">
   <title>Termos de Uso | Catálogo Imóveis</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609290218">
+  <link rel="stylesheet" href="css/styles.css?v=202609290248">
 </head>
 <body class="terms-page">
 <header class="site-header">
@@ -97,5 +97,12 @@
     <span>Termos de Uso • versão 2026-09-29-v1</span>
   </div>
 </footer>
+<script>
+(function(){
+  if(new URLSearchParams(location.search).get("embedded")==="1"){
+    document.body.classList.add("terms-embedded");
+  }
+})();
+</script>
 </body>
 </html>
