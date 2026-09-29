@@ -271,6 +271,14 @@ async function load() {
             <div class="fact-box"><span>Quartos</span><strong>${property.bedrooms ?? 0}</strong></div>
             <div class="fact-box"><span>Banheiros</span><strong>${property.bathrooms ?? 0}</strong></div>
             <div class="fact-box"><span>Mobília</span><strong>${property.furnished ? "Mobiliado" : "Sem mobília"}</strong></div>
+            ${property.property_type!=="monoambiente" ? `
+              <div class="fact-box"><span>Total de cômodos</span><strong>${property.room_count??"Não informado"}</strong></div>
+              <div class="fact-box"><span>Sala</span><strong>${property.has_living_room?"Sim":"Não"}</strong></div>
+              <div class="fact-box"><span>Cozinha</span><strong>${property.has_kitchen?"Sim":"Não"}</strong></div>
+              <div class="fact-box"><span>Lavanderia</span><strong>${property.laundry_type==="private"?"Privativa":property.laundry_type==="shared"?"Compartilhada":"Não"}</strong></div>
+            ` : `
+              <div class="fact-box"><span>Lavanderia</span><strong>${property.laundry_type==="private"?"Privativa":property.laundry_type==="shared"?"Compartilhada":"Não"}</strong></div>
+            `}
           </div>
           ${property.description ? `<div class="description-text">${escapeHTML(property.description).replace(/\n/g,"<br>")}</div>` : ""}
         </section>
@@ -287,18 +295,6 @@ async function load() {
             ${property.garage_scope!=="none" ? `<div class="feature-item">🔐 Portão eletrônico: ${property.has_electronic_gate?"Sim":"Não"}</div>` : ""}
           </div>
         </section>
-
-        ${property.property_type!=="monoambiente" ? `
-          <section class="detail-section">
-            <h2>Cômodos do imóvel</h2>
-            <div class="facts-grid">
-              <div class="fact-box"><span>Total de cômodos</span><strong>${property.room_count??"Não informado"}</strong></div>
-              <div class="fact-box"><span>Sala</span><strong>${property.has_living_room?"Sim":"Não"}</strong></div>
-              <div class="fact-box"><span>Cozinha</span><strong>${property.has_kitchen?"Sim":"Não"}</strong></div>
-              <div class="fact-box"><span>Lavanderia</span><strong>${property.laundry_type==="private"?"Privativa":property.laundry_type==="shared"?"Compartilhada":"Não"}</strong></div>
-            </div>
-          </section>
-        ` : ""}
 
         ${security.length ? `
           <section class="detail-section">
