@@ -7,6 +7,7 @@ let properties=[];
 let owners=[];
 let rentals=[];
 let receipts=[];
+let ownerCommissions=[];
 
 function dateBR(value){
   if(!value) return "—";
@@ -87,7 +88,8 @@ async function loadData(){
     propertiesRes,
     ownersRes,
     rentalsRes,
-    receiptsRes
+    receiptsRes,
+    commissionsRes
   ]=await Promise.all([
     db.from("advisor_profiles").select("*").eq("user_id",currentUser.id).maybeSingle(),
     db.from("properties")
@@ -105,7 +107,12 @@ async function loadData(){
     db.from("advisor_service_receipts")
       .select("*")
       .eq("advisor_id",currentUser.id)
-      .order("issued_at",{ascending:false})
+      .order("issued_at",{ascending:false}),
+    db.from("advisor_owner_commissions")
+      .select("*")
+      .eq("advisor_id",currentUser.id)
+      .order("status",{ascending:true})
+      .order("due_date",{ascending:true})
   ]);
 
   const firstError=[
@@ -113,7 +120,8 @@ async function loadData(){
     propertiesRes.error,
     ownersRes.error,
     rentalsRes.error,
-    receiptsRes.error
+    receiptsRes.error,
+    commissionsRes.error
   ].find(Boolean);
   if(firstError) throw firstError;
 
@@ -122,29 +130,32 @@ async function loadData(){
   owners=ownersRes.data||[];
   rentals=rentalsRes.data||[];
   receipts=receiptsRes.data||[];
+  ownerCommissions=commissionsRes.data||[];
 }
 
 
+
 function commissionRows(){
-  return rentals
-    .filter(r=>r.advisor_commission_charged && Number(r.commission_amount||0)>0)
-    .map(r=>{
-      const owner=ownerById(r.advisor_owner_id);
-      return {
-        id:r.id,
-        owner_id:r.advisor_owner_id||null,
-        owner_name:owner?.full_name||r.owner_name||"Proprietário não informado",
-        owner_whatsapp:owner?.whatsapp||r.owner_phone||"",
-        property_code:r.property_code||"—",
-        property_title:r.property_title||"Imóvel",
-        amount:Number(r.commission_amount||0),
-        currency:r.currency||"BRL",
-        paid:Boolean(r.commission_paid),
-        due_date:r.commission_due_date||null,
-        payment_date:r.advisor_commission_payment_date||null,
-        start_date:r.start_date||r.created_at
-      };
-    });
+  return ownerCommissions.map(row=>{
+    const owner=ownerById(row.advisor_owner_id);
+    const rental=rentals.find(r=>r.id===row.rental_control_id);
+    return {
+      id:row.id,
+      owner_id:row.advisor_owner_id||null,
+      owner_name:owner?.full_name||"Proprietário não informado",
+      owner_whatsapp:owner?.whatsapp||"",
+      rental_control_id:row.rental_control_id||null,
+      property_id:row.property_id||null,
+      property_code:row.property_code||rental?.property_code||"—",
+      property_title:row.property_title||rental?.property_title||"Imóvel",
+      amount:Number(row.amount||0),
+      currency:row.currency||"BRL",
+      paid:row.status==="received",
+      due_date:row.due_date||null,
+      payment_date:row.received_at||null,
+      created_at:row.created_at
+    };
+  });
 }
 
 function commissionTotals(){
