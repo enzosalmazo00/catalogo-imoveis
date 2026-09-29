@@ -563,123 +563,162 @@ async function saveOwnerProperties(form){
 
 
 
+
 function renderFinance(){
   const root=$("#managementFinanceContent");
   if(!root) return;
 
-  const rows=commissionRows().sort((a,b)=>{
+  const commissionData=commissionRows().sort((a,b)=>{
+    if(a.paid!==b.paid) return a.paid?1:-1;
+    return String(a.due_date||"9999-12-31").localeCompare(String(b.due_date||"9999-12-31"));
+  });
+  const advisoryData=tenantAdvisoryRows().sort((a,b)=>{
     if(a.paid!==b.paid) return a.paid?1:-1;
     return String(a.due_date||"9999-12-31").localeCompare(String(b.due_date||"9999-12-31"));
   });
 
-  const totals=commissionTotals();
-  const pendingOwners=new Set(rows.filter(r=>!r.paid).map(r=>r.owner_id||r.owner_name));
-
-  const grouped=new Map();
-  rows.forEach(r=>{
-    const key=r.owner_id||r.owner_name;
-    if(!grouped.has(key)){
-      grouped.set(key,{
-        name:r.owner_name,
-        whatsapp:r.owner_whatsapp,
-        received:blankTotals(),
-        pending:blankTotals()
-      });
-    }
-    const group=grouped.get(key);
-    addTotal(r.paid?group.received:group.pending,r.currency,r.amount);
-  });
+  const commissionSummary=commissionTotals();
+  const advisorySummary=tenantAdvisoryTotals();
+  const pendingOwners=new Set(commissionData.filter(r=>!r.paid).map(r=>r.owner_id||r.owner_name));
+  const pendingTenants=new Set(advisoryData.filter(r=>!r.paid).map(r=>r.tenant_name));
 
   root.innerHTML=`
-    <div class="commission-summary-grid">
-      <article class="commission-summary-card pending">
-        <span>A receber</span>
-        <strong>${formatTotals(totals.pending)}</strong>
-        <small>${pendingOwners.size} proprietário${pendingOwners.size===1?"":"s"} com comissão pendente</small>
-      </article>
-      <article class="commission-summary-card received">
-        <span>Recebidas</span>
-        <strong>${formatTotals(totals.received)}</strong>
-        <small>comissões confirmadas</small>
-      </article>
-      <article class="commission-summary-card ${totals.overdue?"overdue":""}">
-        <span>Vencidas</span>
-        <strong>${totals.overdue}</strong>
-        <small>pendentes fora do prazo</small>
-      </article>
-    </div>
+    <div class="receivables-stack">
+      <section class="advisor-dashboard-box receivable-section">
+        <div class="receivable-section-head">
+          <div>
+            <p class="eyebrow">PROPRIETÁRIO → CORRETOR</p>
+            <h3>Comissão do proprietário</h3>
+            <p>Controle somente o valor que o proprietário deve ou já pagou de comissão.</p>
+          </div>
+        </div>
 
-    ${grouped.size?`
-      <div class="commission-owner-grid">
-        ${[...grouped.values()].map(owner=>`
-          <article class="commission-owner-card">
-            <div>
-              <span>Proprietário</span>
-              <strong>${escapeHTML(owner.name)}</strong>
-              ${owner.whatsapp?`<small>WhatsApp: ${escapeHTML(owner.whatsapp)}</small>`:""}
-            </div>
-            <div class="commission-owner-values">
-              <span>A receber <b>${formatTotals(owner.pending)}</b></span>
-              <span>Recebido <b>${formatTotals(owner.received)}</b></span>
-            </div>
+        <div class="commission-summary-grid compact-summary">
+          <article class="commission-summary-card pending">
+            <span>A receber</span>
+            <strong>${formatTotals(commissionSummary.pending)}</strong>
+            <small>${pendingOwners.size} proprietário${pendingOwners.size===1?"":"s"} pendente${pendingOwners.size===1?"":"s"}</small>
           </article>
-        `).join("")}
-      </div>
-    `:""}
-
-    <section class="advisor-dashboard-box commission-control-box">
-      <div class="advisor-dashboard-box-head">
-        <div>
-          <p class="eyebrow">CONTROLE DE COMISSÕES</p>
-          <h3>Por proprietário e imóvel</h3>
+          <article class="commission-summary-card received">
+            <span>Recebidas</span>
+            <strong>${formatTotals(commissionSummary.received)}</strong>
+            <small>comissões confirmadas</small>
+          </article>
+          <article class="commission-summary-card ${commissionSummary.overdue?"overdue":""}">
+            <span>Vencidas</span>
+            <strong>${commissionSummary.overdue}</strong>
+            <small>fora do prazo</small>
+          </article>
         </div>
-      </div>
 
-      ${rows.length?`
-        <div class="admin-table-wrap">
-          <table class="admin-table commission-table">
-            <thead>
-              <tr><th>Proprietário</th><th>Imóvel</th><th>Comissão</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr>
-            </thead>
-            <tbody>
-              ${rows.map(r=>{
-                const overdue=!r.paid && r.due_date && r.due_date<nowDateInput();
-                return `
-                  <tr>
-                    <td>
-                      <strong>${escapeHTML(r.owner_name)}</strong>
-                      ${r.owner_whatsapp?`<br><span class="muted">${escapeHTML(r.owner_whatsapp)}</span>`:""}
-                    </td>
-                    <td>
-                      <strong>${escapeHTML(r.property_code||"—")}</strong>
-                      <br><span class="muted">${escapeHTML(r.property_title||"")}</span>
-                    </td>
-                    <td><strong>${money(r.amount,r.currency)}</strong></td>
-                    <td>${r.due_date?dateOnlyBR(r.due_date):'<span class="muted">Sem vencimento</span>'}</td>
-                    <td>
-                      <span class="pill ${r.paid?"paid":overdue?"expense":"pending"}">
-                        ${r.paid?"RECEBIDA":overdue?"VENCIDA":"A RECEBER"}
-                      </span>
-                      ${r.paid && r.payment_date?`<br><small>${dateOnlyBR(r.payment_date)}</small>`:""}
-                    </td>
-                    <td>
-                      <div class="table-actions">
-                        <button class="btn ghost compact" type="button" data-edit-commission="${r.id}">Editar</button>
-                        ${r.paid
-                          ? `<button class="btn ghost compact" type="button" data-mark-commission-pending="${r.id}">Desfazer</button>`
-                          : `<button class="btn primary compact" type="button" data-mark-commission-paid="${r.id}">✓ Recebida</button>`
-                        }
-                        <button class="btn danger compact" type="button" data-delete-owner-commission="${r.id}">Excluir</button>
-                      </div>
-                    </td>
-                  </tr>
-                `;
-              }).join("")}
-            </tbody>
-          </table>
+        ${commissionData.length?`
+          <div class="admin-table-wrap">
+            <table class="admin-table commission-table">
+              <thead>
+                <tr><th>Proprietário</th><th>Imóvel</th><th>Comissão</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr>
+              </thead>
+              <tbody>
+                ${commissionData.map(r=>{
+                  const overdue=!r.paid && r.due_date && r.due_date<nowDateInput();
+                  return `
+                    <tr>
+                      <td>
+                        <strong>${escapeHTML(r.owner_name)}</strong>
+                        ${r.owner_whatsapp?`<br><span class="muted">${escapeHTML(r.owner_whatsapp)}</span>`:""}
+                      </td>
+                      <td><strong>${escapeHTML(r.property_code||"—")}</strong><br><span class="muted">${escapeHTML(r.property_title||"")}</span></td>
+                      <td><strong>${money(r.amount,r.currency)}</strong></td>
+                      <td>${r.due_date?dateOnlyBR(r.due_date):'<span class="muted">Sem vencimento</span>'}</td>
+                      <td>
+                        <span class="pill ${r.paid?"paid":overdue?"expense":"pending"}">${r.paid?"RECEBIDA":overdue?"VENCIDA":"A RECEBER"}</span>
+                        ${r.paid && r.payment_date?`<br><small>${dateOnlyBR(r.payment_date)}</small>`:""}
+                      </td>
+                      <td>
+                        <div class="table-actions">
+                          <button class="btn ghost compact" type="button" data-edit-commission="${r.id}">Editar</button>
+                          ${r.paid
+                            ? `<button class="btn ghost compact" type="button" data-mark-commission-pending="${r.id}">Desfazer</button>`
+                            : `<button class="btn primary compact" type="button" data-mark-commission-paid="${r.id}">✓ Recebida</button>`
+                          }
+                          <button class="btn danger compact" type="button" data-delete-owner-commission="${r.id}">Excluir</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        `:'<div class="advisor-empty-compact">Nenhuma comissão cadastrada. Use “+ Comissão do proprietário”.</div>'}
+      </section>
+
+      <section class="advisor-dashboard-box receivable-section tenant-advisory-section">
+        <div class="receivable-section-head">
+          <div>
+            <p class="eyebrow">INQUILINO → ASSESSOR</p>
+            <h3>Taxa de assessoria do inquilino</h3>
+            <p>Controle a assessoria cobrada do inquilino separadamente da comissão do proprietário.</p>
+          </div>
         </div>
-      `:'<div class="advisor-empty-compact">Nenhuma comissão cadastrada. Use “+ Nova comissão”.</div>'}
-    </section>
+
+        <div class="commission-summary-grid compact-summary">
+          <article class="commission-summary-card pending">
+            <span>A receber</span>
+            <strong>${formatTotals(advisorySummary.pending)}</strong>
+            <small>${pendingTenants.size} inquilino${pendingTenants.size===1?"":"s"} pendente${pendingTenants.size===1?"":"s"}</small>
+          </article>
+          <article class="commission-summary-card received">
+            <span>Recebidas</span>
+            <strong>${formatTotals(advisorySummary.received)}</strong>
+            <small>assessorias confirmadas</small>
+          </article>
+          <article class="commission-summary-card ${advisorySummary.overdue?"overdue":""}">
+            <span>Vencidas</span>
+            <strong>${advisorySummary.overdue}</strong>
+            <small>fora do prazo</small>
+          </article>
+        </div>
+
+        ${advisoryData.length?`
+          <div class="admin-table-wrap">
+            <table class="admin-table commission-table">
+              <thead>
+                <tr><th>Inquilino</th><th>Imóvel</th><th>Assessoria</th><th>Vencimento</th><th>Status</th><th>Ações</th></tr>
+              </thead>
+              <tbody>
+                ${advisoryData.map(r=>{
+                  const overdue=!r.paid && r.due_date && r.due_date<nowDateInput();
+                  return `
+                    <tr>
+                      <td>
+                        <strong>${escapeHTML(r.tenant_name)}</strong>
+                        ${r.tenant_whatsapp?`<br><span class="muted">${escapeHTML(r.tenant_whatsapp)}</span>`:""}
+                      </td>
+                      <td><strong>${escapeHTML(r.property_code||"—")}</strong><br><span class="muted">${escapeHTML(r.property_title||"")}</span></td>
+                      <td><strong>${money(r.amount,r.currency)}</strong></td>
+                      <td>${r.due_date?dateOnlyBR(r.due_date):'<span class="muted">Sem vencimento</span>'}</td>
+                      <td>
+                        <span class="pill ${r.paid?"paid":overdue?"expense":"pending"}">${r.paid?"RECEBIDA":overdue?"VENCIDA":"A RECEBER"}</span>
+                        ${r.paid && r.payment_date?`<br><small>${dateOnlyBR(r.payment_date)}</small>`:""}
+                      </td>
+                      <td>
+                        <div class="table-actions">
+                          <button class="btn ghost compact" type="button" data-edit-tenant-advisory="${r.id}">Editar</button>
+                          ${r.paid
+                            ? `<button class="btn ghost compact" type="button" data-mark-tenant-advisory-pending="${r.id}">Desfazer</button>`
+                            : `<button class="btn primary compact" type="button" data-mark-tenant-advisory-paid="${r.id}">✓ Recebida</button>`
+                          }
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        `:'<div class="advisor-empty-compact">Nenhuma assessoria do inquilino cadastrada. Use “+ Assessoria do inquilino”.</div>'}
+      </section>
+    </div>
   `;
 }
 
