@@ -1190,7 +1190,7 @@ function renderRentals(){
   root.innerHTML=`
     <div class="admin-table-wrap">
       <table class="admin-table advisor-rental-table">
-        <thead><tr><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Comissão</th><th>Assessoria</th><th>Data</th></tr></thead>
+        <thead><tr><th>Imóvel</th><th>Proprietário</th><th>Inquilino</th><th>Aluguel</th><th>Comissão do cliente</th><th>Assessoria</th><th>Data</th></tr></thead>
         <tbody>
           ${rentals.map(r=>`
             <tr>
