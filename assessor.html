@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Área do Assessor | Assessoria de Imóveis PJC/Ponta Porã</title>
-  <link rel="stylesheet" href="css/styles.css?v=202609281715">
+  <link rel="stylesheet" href="css/styles.css?v=202609282245">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js"></script>
 </head>
 <body class="advisor-page">
@@ -123,11 +123,15 @@
 
     <div class="advisor-panel-tabs">
       <button class="advisor-panel-tab active" type="button" data-advisor-view="dashboard">Meu painel</button>
-      <button class="advisor-panel-tab" type="button" data-advisor-view="rentals">Recibos / locações</button>
+      <button class="advisor-panel-tab" type="button" data-advisor-view="owners">Proprietários</button>
+      <button class="advisor-panel-tab" type="button" data-advisor-view="finance">Financeiro</button>
+      <button class="advisor-panel-tab" type="button" data-advisor-view="receipts">Recibos de assessoria</button>
+      <button class="advisor-panel-tab" type="button" data-advisor-view="rentals">Locações</button>
       <button class="advisor-panel-tab" type="button" data-advisor-view="how">Como funciona</button>
     </div>
 
     <div id="advisorDashboardView">
+      <div id="advisorManagementDashboard"></div>
       <div id="advisorExpiredNotice"></div>
 
       <section class="admin-panel advisor-client-catalog-panel">
@@ -182,6 +186,41 @@
       <div class="credit-store-bottom-back">
         <button class="btn ghost" type="button" data-close-credit-store>← Voltar ao painel</button>
       </div>
+    </section>
+
+    <section id="advisorOwnersView" class="admin-panel hidden">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">CARTEIRA DE PROPRIETÁRIOS</p>
+          <h2>Proprietários dos imóveis assessorados</h2>
+          <p class="muted">Cadastre uma vez e vincule aos anúncios para centralizar contato e gestão.</p>
+        </div>
+        <button class="btn primary" type="button" data-new-owner>+ Cadastrar proprietário</button>
+      </div>
+      <div id="advisorOwnersList"></div>
+    </section>
+
+    <section id="advisorFinanceView" class="admin-panel hidden">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">GESTÃO FINANCEIRA</p>
+          <h2>Receitas da assessoria</h2>
+          <p class="muted">Comissões e taxas de assessoria recebidas ou pendentes, por imóvel e no total.</p>
+        </div>
+      </div>
+      <div id="advisorFinanceContent"></div>
+    </section>
+
+    <section id="advisorServiceReceiptsView" class="admin-panel hidden">
+      <div class="admin-panel-head">
+        <div>
+          <p class="eyebrow">RECIBOS VOLUNTÁRIOS</p>
+          <h2>Recibos de assessoria</h2>
+          <p class="muted">Gere um comprovante completo do serviço sem precisar encerrar o anúncio do imóvel.</p>
+        </div>
+        <button class="btn primary" type="button" data-new-service-receipt>+ Gerar recibo</button>
+      </div>
+      <div id="advisorServiceReceiptsList"></div>
     </section>
 
     <section id="advisorRentalControl" class="admin-panel hidden">
@@ -246,7 +285,7 @@
 
 <div id="advisorModal" class="modal-layer hidden"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>\n<script type="module" src="js/assessor.js?v=202609282110"></script>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js"></script>\n<script type="module" src="js/assessor.js?v=202609282245"></script>
 <script type="module" src="js/assessor-location-repair.js?v=202609282020"></script>
 
 <script>
