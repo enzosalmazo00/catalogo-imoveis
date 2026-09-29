@@ -1597,7 +1597,12 @@ function renderNotifications(){
             <p>${escapeHTML(item.message||"")}</p>
             ${item.property_code||item.property_title?`<span>${escapeHTML([item.property_code,item.property_title].filter(Boolean).join(" • "))}</span>`:""}
           </div>
-          ${item.read_at?"":`<button class="btn ghost compact" type="button" data-notification-read="${item.id}">Marcar como lida</button>`}
+          <div class="management-notification-actions">
+            ${item.notification_type==="terms_acceptance_required" && !profile?.terms_accepted_at
+              ? '<a class="btn primary compact" href="assessor.html?terms=1">Ler e aceitar os termos</a>'
+              : ""}
+            ${item.read_at?"":`<button class="btn ghost compact" type="button" data-notification-read="${item.id}">Marcar como lida</button>`}
+          </div>
         </article>
       `).join("")}
     </div>
