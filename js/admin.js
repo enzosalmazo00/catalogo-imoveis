@@ -7,8 +7,9 @@ import {
   propertyTypeLabel,
   statusLabel,
   isAdmin,
-  slugify
-} from "./common.js?v=202609282145";
+  slugify,
+  sanitizeImageForUpload
+} from "./common.js?v=202609290400";
 
 const state = {
   tab: "dashboard",
@@ -840,10 +841,22 @@ async function saveProperty(form) {
   let firstNew = existingImages.length === 0;
 
   for (const file of files) {
-    const safe = file.name.replace(/[^A-Za-z0-9._-]/g, "_");
-    const path = `${propertyId}/${crypto.randomUUID()}-${safe}`;
-    const upload = await db.storage.from(STORAGE_BUCKET).upload(path, file, {
-      cacheControl: "3600",
+    let prepared;
+    try {
+      prepared = await sanitizeImageForUpload(file, {
+        maxBytes: 10*1024*1024,
+        maxDimension: 2400,
+        quality: 0.84
+      });
+    } catch (err) {
+      msg.innerHTML = message(err?.message || "Não foi possível preparar uma das imagens.");
+      return;
+    }
+
+    const path = `${propertyId}/${crypto.randomUUID()}.webp`;
+    const upload = await db.storage.from(STORAGE_BUCKET).upload(path, prepared.blob, {
+      contentType: prepared.contentType,
+      cacheControl: "31536000",
       upsert: false
     });
     if (upload.error) {
