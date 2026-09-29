@@ -1214,6 +1214,7 @@ function renderAdvisors(){
     const ads=state.properties.filter(p=>p.advisor_id===advisor.user_id);
     const activeAds=ads.filter(p=>p.is_published && (!p.listing_expires_at || new Date(p.listing_expires_at)>new Date())).length;
     const bonusBatches=usableAdminCreditsFor(advisor.user_id,"bonus");
+    const termsAccepted=Boolean(advisor.terms_accepted_at && advisor.terms_version);
 
     return `
       <article class="admin-advisor-card">
@@ -1223,6 +1224,13 @@ function renderAdvisors(){
             <h3>${escapeHTML(advisor.full_name||"Assessor sem nome")}</h3>
             <span>${escapeHTML(advisor.company_name||"Sem assessoria informada")}</span>
             ${advisor.whatsapp?`<small>WhatsApp: ${escapeHTML(advisor.whatsapp)}</small>`:""}
+            <div class="admin-terms-status ${termsAccepted?"accepted":"missing"}">
+              <span>${termsAccepted?"✓":"!"}</span>
+              <div>
+                <strong>${termsAccepted?"Termos de Uso aceitos":"Aceite não registrado"}</strong>
+                <small>${termsAccepted?`${adminDateTime(advisor.terms_accepted_at)} · ${escapeHTML(advisor.terms_version)}`:"Conta criada antes da exigência atual ou sem registro de aceite."}</small>
+              </div>
+            </div>
           </div>
           <button class="btn primary" data-action="grant-bonus" data-id="${advisor.user_id}">🎁 Dar créditos bônus</button>
         </div>
