@@ -2431,10 +2431,6 @@ function renderPanel(){
   renderExpiredNotice();
   renderPlans();
   renderCreditStore();
-  renderManagementDashboard();
-  renderOwners();
-  renderFinance();
-  renderServiceReceipts();
   renderAds();
   renderAdvisorCatalogShare();
   renderRentalControl();
