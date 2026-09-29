@@ -1032,16 +1032,18 @@ function universityModal(row=null) {
 }
 
 function personModal(kind,row=null) {
-  const title = kind === "owner" ? "proprietário" : "locatário";
+  const isOwner=kind==="owner";
+  const title=isOwner?"proprietário":"locatário";
   showModal(`
     <div class="modal-head"><div><p class="eyebrow">${title.toUpperCase()}</p><h2>${row?"Editar":"Cadastrar"} ${title}</h2></div><button class="icon-btn" data-action="close-modal">✕</button></div>
     <form id="personForm" data-kind="${kind}" class="form-grid">
       <input type="hidden" name="id" value="${row?.id||""}">
-      <label>Nome<input name="name" required value="${escapeHTML(row?.name||"")}"></label>
-      <label>Telefone<input name="phone" value="${escapeHTML(row?.phone||"")}"></label>
-      <label>E-mail<input name="email" type="email" value="${escapeHTML(row?.email||"")}"></label>
-      <label>Documento<input name="document" value="${escapeHTML(row?.document||"")}"></label>
-      <label class="span-2">Observações<textarea name="notes">${escapeHTML(row?.notes||"")}</textarea></label>
+      <label class="${isOwner?"span-2":""}">Nome<input name="name" required value="${escapeHTML(row?.name||"")}"></label>
+      <label class="${isOwner?"span-2":""}">${isOwner?"WhatsApp":"Telefone"}<input name="phone" required value="${escapeHTML(row?.phone||"")}" inputmode="tel"></label>
+      ${isOwner?"":`
+        <label>E-mail<input name="email" type="email" value="${escapeHTML(row?.email||"")}"></label>
+        <label class="span-2">Observações<textarea name="notes">${escapeHTML(row?.notes||"")}</textarea></label>
+      `}
       <div class="form-actions"><button class="btn ghost" type="button" data-action="close-modal">Cancelar</button><button class="btn primary" type="submit">Salvar</button></div>
     </form>
   `);
@@ -1740,13 +1742,20 @@ $("#adminModal").addEventListener("submit",async event=>{
 
   if(form.id==="personForm"){
     const kind=form.dataset.kind;
-    await saveSimple(form,kind==="owner"?"owners":"tenants",fd=>({
-      name:String(fd.get("name")||"").trim(),
-      phone:String(fd.get("phone")||"").trim()||null,
-      email:String(fd.get("email")||"").trim()||null,
-      document:String(fd.get("document")||"").trim()||null,
-      notes:String(fd.get("notes")||"").trim()||null
-    }));
+    await saveSimple(form,kind==="owner"?"owners":"tenants",fd=>{
+      if(kind==="owner"){
+        return {
+          name:String(fd.get("name")||"").trim(),
+          phone:String(fd.get("phone")||"").replace(/\D/g,"").trim()
+        };
+      }
+      return {
+        name:String(fd.get("name")||"").trim(),
+        phone:String(fd.get("phone")||"").trim()||null,
+        email:String(fd.get("email")||"").trim()||null,
+        notes:String(fd.get("notes")||"").trim()||null
+      };
+    });
   }
 
   if(form.id==="rentalForm"){
