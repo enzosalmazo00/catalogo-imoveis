@@ -2710,3 +2710,89 @@ button,input,select,textarea{font-size:16px}
     font-size:22px;
   }
 }
+
+
+/* ===== CENTRAL ADMINISTRATIVA DE NOTIFICAÇÕES ===== */
+.admin-notification-compose{
+  overflow:hidden;
+}
+.admin-notification-form{
+  margin-top:18px;
+}
+.admin-notification-form textarea{
+  min-height:150px;
+  resize:vertical;
+}
+.admin-notification-preview{
+  display:flex;
+  align-items:flex-start;
+  gap:12px;
+  padding:15px 16px;
+  border:1px solid #d9e5ef;
+  border-radius:14px;
+  background:#f7fbff;
+}
+.admin-notification-preview>span{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  background:#e8f1ff;
+  font-size:20px;
+}
+.admin-notification-preview strong{
+  display:block;
+  color:var(--navy);
+  font-size:13px;
+}
+.admin-notification-preview p{
+  margin:4px 0 0;
+  color:var(--muted);
+  font-size:11px;
+  line-height:1.5;
+}
+.management-notification-actions{
+  display:flex;
+  align-items:center;
+  gap:7px;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+}
+@media(max-width:650px){
+  .management-notification-actions{
+    grid-column:2;
+    justify-content:flex-start;
+  }
+}
+
+/* Termos exibidos dentro do modal de aceite */
+.terms-embedded .site-header,
+.terms-embedded .footer{
+  display:none!important;
+}
+.terms-embedded .terms-main{
+  width:100%;
+  padding:18px 16px 24px;
+}
+.terms-embedded .terms-hero{
+  margin-bottom:14px;
+}
+.terms-embedded .terms-hero h1{
+  font-size:28px;
+}
+.terms-embedded .terms-document{
+  max-width:none;
+  padding:0;
+  border:0;
+  box-shadow:none;
+  border-radius:0;
+}
+.terms-embedded .terms-document h2{
+  margin-top:22px;
+}
+@media(max-width:560px){
+  .terms-embedded .terms-main{padding:14px 12px 20px}
+  .terms-embedded .terms-hero h1{font-size:24px}
+}
