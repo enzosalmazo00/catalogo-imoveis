@@ -8,6 +8,8 @@ let owners=[];
 let rentals=[];
 let receipts=[];
 let ownerCommissions=[];
+let collaborations=[];
+let notifications=[];
 
 function dateBR(value){
   if(!value) return "—";
@@ -89,7 +91,9 @@ async function loadData(){
     ownersRes,
     rentalsRes,
     receiptsRes,
-    commissionsRes
+    commissionsRes,
+    collaborationsRes,
+    notificationsRes
   ]=await Promise.all([
     db.from("advisor_profiles").select("*").eq("user_id",currentUser.id).maybeSingle(),
     db.from("properties")
@@ -112,7 +116,15 @@ async function loadData(){
       .select("*")
       .eq("advisor_id",currentUser.id)
       .order("status",{ascending:true})
-      .order("due_date",{ascending:true})
+      .order("due_date",{ascending:true}),
+    db.from("advisor_collaborations")
+      .select("*, advisor_collaboration_participants(*)")
+      .order("created_at",{ascending:false}),
+    db.from("advisor_notifications")
+      .select("*")
+      .eq("advisor_id",currentUser.id)
+      .order("created_at",{ascending:false})
+      .limit(100)
   ]);
 
   const firstError=[
@@ -121,7 +133,9 @@ async function loadData(){
     ownersRes.error,
     rentalsRes.error,
     receiptsRes.error,
-    commissionsRes.error
+    commissionsRes.error,
+    collaborationsRes.error,
+    notificationsRes.error
   ].find(Boolean);
   if(firstError) throw firstError;
 
@@ -131,6 +145,8 @@ async function loadData(){
   rentals=rentalsRes.data||[];
   receipts=receiptsRes.data||[];
   ownerCommissions=commissionsRes.data||[];
+  collaborations=collaborationsRes.data||[];
+  notifications=notificationsRes.data||[];
 }
 
 
