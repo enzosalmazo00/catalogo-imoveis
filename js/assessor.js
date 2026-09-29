@@ -389,6 +389,7 @@ function renderAds(){
               <span>${escapeHTML([p.neighborhood,p.city].filter(Boolean).join(" • "))}</span>
               <small>${expired?"Expirado":"Ativo"} • publicado em: ${fmtDate(p.listing_started_at||p.created_at)} • válido até: ${fmtDate(p.listing_expires_at)}</small>
               <small class="listing-code">Código do imóvel: ${escapeHTML(p.public_code||"—")}</small>
+              <small><strong>👁 ${Number(p.view_count||0).toLocaleString("pt-BR")}</strong> visualizações • <strong>💬 ${Number(p.whatsapp_click_count||0).toLocaleString("pt-BR")}</strong> contatos pelo WhatsApp</small>
             </div>
             <div class="advisor-ad-actions">
               <span class="pill ${expired?"pending":"paid"}">${expired?"FORA DO AR":"ATIVO"}</span>
