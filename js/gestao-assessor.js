@@ -1512,9 +1512,11 @@ function renderCollaborations(){
                 }
               </div>
               <div class="table-actions">
-                ${part.payout_status==="paid"
-                  ? `<button class="btn ghost compact" type="button" data-collab-mark-pending="${part.id}">Desfazer pagamento</button>`
-                  : `<button class="btn primary compact" type="button" data-collab-mark-paid="${part.id}">Marcar como paga</button>`
+                ${part.confirmed_received_at
+                  ? '<span class="collaboration-payment-locked">✓ Pagamento confirmado</span>'
+                  : part.payout_status==="paid"
+                    ? `<button class="btn ghost compact" type="button" data-collab-mark-pending="${part.id}">Desfazer pagamento</button>`
+                    : `<button class="btn primary compact" type="button" data-collab-mark-paid="${part.id}">Marcar como paga</button>`
                 }
               </div>
             </div>
